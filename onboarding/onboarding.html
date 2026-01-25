@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>PR Pulse - Setup</title>
+		<link rel="stylesheet" href="onboarding.css">
+	</head>
+
+	<body>
+		<div class="container">
+			<!-- Progress Bar -->
+			<div class="progress-bar">
+				<div class="progress-step active" data-step="1">
+					<div class="step-number">1</div>
+					<div class="step-label">GitHub</div>
+				</div>
+				<div class="progress-line"></div>
+				<div class="progress-step" data-step="2">
+					<div class="step-number">2</div>
+					<div class="step-label">Default View</div>
+				</div>
+				<div class="progress-line"></div>
+				<div class="progress-step" data-step="3">
+					<div class="step-number">3</div>
+					<div class="step-label">Jira</div>
+				</div>
+				<div class="progress-line"></div>
+				<div class="progress-step" data-step="4">
+					<div class="step-number">4</div>
+					<div class="step-label">Display</div>
+				</div>
+			</div>
+
+			<!-- Step 1: GitHub PAT -->
+			<div class="step-content active" id="step-1">
+				<div class="step-header">
+					<div class="step-icon">🔑</div>
+					<h1>Connect to GitHub</h1>
+					<p>Enter your Personal Access Token to get started</p>
+				</div>
+
+				<div class="form-group">
+					<label for="pat-input">GitHub Personal Access Token</label>
+					<div class="input-with-button">
+						<input type="password" id="pat-input" placeholder="ghp_xxxxxxxxxxxx">
+						<button type="button" id="toggle-pat" class="icon-button">👁️</button>
+					</div>
+					<p class="help-text">
+						Need a token?
+						<a href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse"
+							target="_blank">
+							Create one here →
+						</a>
+						<br><small>Required scope: <code>repo</code> (for private repos) or
+							<code>public_repo</code></small>
+					</p>
+				</div>
+
+				<div id="connection-status" class="connection-status hidden">
+					<div class="user-info">
+						<img id="user-avatar" src="" alt="Avatar" class="avatar">
+						<div class="user-details">
+							<span id="user-name" class="user-name"></span>
+							<span id="user-login" class="user-login"></span>
+						</div>
+					</div>
+				</div>
+
+				<div id="error-message" class="error-message hidden"></div>
+
+				<div class="button-group">
+					<button type="button" id="test-connection" class="btn btn-primary">
+						Test Connection
+					</button>
+				</div>
+			</div>
+
+			<!-- Step 2: Pin Default View -->
+			<div class="step-content" id="step-2">
+				<div class="step-header">
+					<div class="step-icon">📌</div>
+					<h1>Choose Your Default View</h1>
+					<p>Which view do you want to see when you open the extension?</p>
+				</div>
+
+				<div class="radio-cards">
+					<label class="radio-card selected">
+						<input type="radio" name="pinnedTab" value="myPRs" checked>
+						<div class="card-content">
+							<div class="card-icon">📤</div>
+							<div class="card-title">My PRs</div>
+							<div class="card-description">
+								Track pull requests <strong>you've raised</strong>.
+								Best for developers who create many PRs.
+							</div>
+						</div>
+						<div class="card-check">✓</div>
+					</label>
+
+					<label class="radio-card">
+						<input type="radio" name="pinnedTab" value="toReview">
+						<div class="card-content">
+							<div class="card-icon">📥</div>
+							<div class="card-title">To Review</div>
+							<div class="card-description">
+								See PRs <strong>awaiting your review</strong>.
+								Best for senior devs and reviewers.
+							</div>
+						</div>
+						<div class="card-check">✓</div>
+					</label>
+				</div>
+
+				<div class="button-group">
+					<button type="button" class="btn btn-secondary prev-step">Back</button>
+					<button type="button" class="btn btn-primary next-step">Continue</button>
+				</div>
+			</div>
+
+			<!-- Step 3: Jira Configuration -->
+			<div class="step-content" id="step-3">
+				<div class="step-header">
+					<div class="step-icon">🎫</div>
+					<h1>Jira Integration</h1>
+					<p>Link your branches to Jira tickets automatically</p>
+				</div>
+
+				<div class="form-group">
+					<label for="jira-url">Jira Base URL</label>
+					<input type="url" id="jira-url" placeholder="https://company.atlassian.net/browse">
+					<p class="help-text">
+						Leave empty if you don't use Jira
+					</p>
+				</div>
+
+				<div class="preview-box" id="jira-preview">
+					<div class="preview-label">Preview</div>
+					<div class="preview-content">
+						<code>feat/JIRA-1234/login-feature</code>
+						<span class="arrow">→</span>
+						<a id="jira-preview-link" href="#" target="_blank">JIRA-1234</a>
+					</div>
+				</div>
+
+				<div class="button-group">
+					<button type="button" class="btn btn-secondary prev-step">Back</button>
+					<button type="button" class="btn btn-primary next-step">Continue</button>
+				</div>
+			</div>
+
+			<!-- Step 4: Display Mode -->
+			<div class="step-content" id="step-4">
+				<div class="step-header">
+					<div class="step-icon">🖼️</div>
+					<h1>Display Mode</h1>
+					<p>How do you want to view your PRs?</p>
+				</div>
+
+				<div class="radio-cards">
+					<label class="radio-card selected">
+						<input type="radio" name="displayMode" value="popup" checked>
+						<div class="card-content">
+							<div class="card-icon">📱</div>
+							<div class="card-title">Popup</div>
+							<div class="card-description">
+								Quick access from the toolbar.
+								Opens as a compact popup window.
+							</div>
+						</div>
+						<div class="card-check">✓</div>
+					</label>
+
+					<label class="radio-card">
+						<input type="radio" name="displayMode" value="fullpage">
+						<div class="card-content">
+							<div class="card-icon">🖥️</div>
+							<div class="card-title">Full Page</div>
+							<div class="card-description">
+								Opens in a new tab.
+								More space for detailed PR information.
+							</div>
+						</div>
+						<div class="card-check">✓</div>
+					</label>
+				</div>
+
+				<div class="button-group">
+					<button type="button" class="btn btn-secondary prev-step">Back</button>
+					<button type="button" id="complete-setup" class="btn btn-primary">Complete Setup</button>
+				</div>
+			</div>
+
+			<!-- Success Screen -->
+			<div class="step-content" id="step-complete">
+				<div class="step-header">
+					<div class="step-icon success-icon">🎉</div>
+					<h1>You're All Set!</h1>
+					<p>PR Pulse is ready to use</p>
+				</div>
+
+				<div class="success-tips">
+					<div class="tip">
+						<span class="tip-icon">💡</span>
+						<span>Click the extension icon in your toolbar to view your PRs</span>
+					</div>
+					<div class="tip">
+						<span class="tip-icon">🔄</span>
+						<span>PRs are automatically refreshed every minute</span>
+					</div>
+					<div class="tip">
+						<span class="tip-icon">⚙️</span>
+						<span>Access settings anytime from the extension popup</span>
+					</div>
+				</div>
+
+				<div class="button-group">
+					<button type="button" id="close-setup" class="btn btn-primary">Close This Tab</button>
+				</div>
+			</div>
+		</div>
+
+		<script type="module" src="onboarding.js"></script>
+	</body>
+
+</html>

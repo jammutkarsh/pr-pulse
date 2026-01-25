@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>PR Pulse - Settings</title>
+		<link rel="stylesheet" href="../onboarding/onboarding.css">
+		<style>
+			body {
+				padding: 40px 20px;
+			}
+
+			.container {
+				max-width: 500px;
+			}
+
+			.settings-header {
+				text-align: center;
+				margin-bottom: 32px;
+			}
+
+			.settings-header h1 {
+				font-size: 24px;
+				margin-bottom: 8px;
+			}
+
+			.settings-section {
+				background: var(--bg-card);
+				border: 1px solid var(--border-color);
+				border-radius: var(--radius-lg);
+				padding: 20px;
+				margin-bottom: 20px;
+				backdrop-filter: blur(10px);
+			}
+
+			.section-title {
+				font-size: 14px;
+				font-weight: 600;
+				color: var(--text-primary);
+				margin-bottom: 16px;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.section-icon {
+				font-size: 18px;
+			}
+
+			.current-value {
+				background: var(--bg-tertiary);
+				padding: 10px 14px;
+				border-radius: var(--radius-md);
+				font-size: 13px;
+				color: var(--text-secondary);
+				margin-bottom: 12px;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.current-value img {
+				width: 24px;
+				height: 24px;
+				border-radius: 50%;
+			}
+
+			.current-value strong {
+				color: var(--text-primary);
+			}
+
+			.form-group {
+				margin-bottom: 0;
+			}
+
+			.form-group input {
+				background: var(--bg-secondary);
+			}
+
+			.radio-options {
+				display: flex;
+				gap: 12px;
+			}
+
+			.radio-option {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 12px 16px;
+				background: var(--bg-secondary);
+				border: 1px solid var(--border-color);
+				border-radius: var(--radius-md);
+				cursor: pointer;
+				transition: var(--transition-fast);
+			}
+
+			.radio-option:hover {
+				border-color: var(--text-muted);
+			}
+
+			.radio-option.selected {
+				border-color: var(--accent-primary);
+				background: rgba(35, 134, 54, 0.1);
+			}
+
+			.radio-option input {
+				display: none;
+			}
+
+			.radio-option .option-icon {
+				font-size: 18px;
+			}
+
+			.radio-option .option-label {
+				font-size: 13px;
+				font-weight: 500;
+			}
+
+			.danger-zone {
+				border-color: var(--error);
+				background: rgba(248, 81, 73, 0.05);
+			}
+
+			.danger-zone .section-title {
+				color: var(--error);
+			}
+
+			.btn-danger {
+				background: transparent;
+				border: 1px solid var(--error);
+				color: var(--error);
+			}
+
+			.btn-danger:hover {
+				background: rgba(248, 81, 73, 0.1);
+			}
+
+			.save-status {
+				text-align: center;
+				font-size: 13px;
+				color: var(--success);
+				margin-top: 8px;
+				opacity: 0;
+				transition: opacity 0.3s;
+			}
+
+			.save-status.visible {
+				opacity: 1;
+			}
+
+			.back-link {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				color: var(--text-secondary);
+				text-decoration: none;
+				font-size: 13px;
+				margin-bottom: 20px;
+			}
+
+			.back-link:hover {
+				color: var(--text-primary);
+			}
+
+			.hidden {
+				display: none !important;
+			}
+
+			.token-actions {
+				display: flex;
+				gap: 10px;
+				margin-top: 12px;
+			}
+
+			.token-actions .btn {
+				flex: 1;
+			}
+
+			.error-text {
+				color: var(--error);
+				font-size: 13px;
+				margin-top: 10px;
+			}
+
+			.success-text {
+				color: var(--success);
+				font-size: 13px;
+				margin-top: 10px;
+			}
+
+			code {
+				background: var(--bg-tertiary);
+				padding: 2px 6px;
+				border-radius: 4px;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="container">
+			<a href="#" class="back-link" id="close-settings">← Back to PR Pulse</a>
+
+			<div class="settings-header">
+				<h1>⚙️ Settings</h1>
+				<p style="color: var(--text-secondary)">Manage your PR Pulse preferences</p>
+			</div>
+
+			<!-- GitHub Account -->
+			<div class="settings-section">
+				<div class="section-title">
+					<span class="section-icon">👤</span>
+					GitHub Account
+				</div>
+
+				<!-- Connected state -->
+				<div id="connected-state">
+					<div class="current-value" id="github-account">
+						<img src="" alt="Avatar" id="user-avatar">
+						<span>Connected as <strong id="user-name">Loading...</strong></span>
+					</div>
+					<button type="button" class="btn btn-secondary" id="reconnect-btn" style="width: 100%">
+						Reconnect with Different Token
+					</button>
+				</div>
+
+				<!-- Token input state (shown when not connected or reconnecting) -->
+				<div id="token-input-state" class="hidden">
+					<div class="form-group">
+						<input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+						<p class="help-text">Enter a GitHub Personal Access Token with <code>repo</code> scope</p>
+					</div>
+					<div class="token-actions">
+						<button type="button" class="btn btn-primary" id="save-token-btn">Connect</button>
+						<button type="button" class="btn btn-secondary" id="cancel-token-btn">Cancel</button>
+					</div>
+					<p id="token-error" class="error-text hidden"></p>
+					<p id="token-success" class="success-text hidden"></p>
+				</div>
+			</div>
+
+			<!-- Default View -->
+			<div class="settings-section">
+				<div class="section-title">
+					<span class="section-icon">📌</span>
+					Default View
+				</div>
+				<div class="radio-options">
+					<label class="radio-option" data-value="myPRs">
+						<input type="radio" name="pinnedTab" value="myPRs">
+						<span class="option-icon">📤</span>
+						<span class="option-label">My PRs</span>
+					</label>
+					<label class="radio-option" data-value="toReview">
+						<input type="radio" name="pinnedTab" value="toReview">
+						<span class="option-icon">📥</span>
+						<span class="option-label">To Review</span>
+					</label>
+				</div>
+			</div>
+
+			<!-- Jira Integration -->
+			<div class="settings-section">
+				<div class="section-title">
+					<span class="section-icon">🎫</span>
+					Jira Integration
+				</div>
+				<div class="form-group">
+					<input type="url" id="jira-url" placeholder="https://company.atlassian.net/browse">
+					<p class="help-text" id="jira-help-text">Enter your Jira URL (any URL - we'll extract the base!)</p>
+				</div>
+			</div>
+
+			<!-- Display Mode -->
+			<div class="settings-section">
+				<div class="section-title">
+					<span class="section-icon">🖼️</span>
+					Display Mode
+				</div>
+				<div class="radio-options">
+					<label class="radio-option" data-value="popup">
+						<input type="radio" name="displayMode" value="popup">
+						<span class="option-icon">📱</span>
+						<span class="option-label">Popup</span>
+					</label>
+					<label class="radio-option" data-value="fullpage">
+						<input type="radio" name="displayMode" value="fullpage">
+						<span class="option-icon">🖥️</span>
+						<span class="option-label">Full Page</span>
+					</label>
+				</div>
+			</div>
+
+			<!-- Danger Zone -->
+			<div class="settings-section danger-zone">
+				<div class="section-title">
+					<span class="section-icon">⚠️</span>
+					Danger Zone
+				</div>
+				<button type="button" class="btn btn-danger" id="reset-btn" style="width: 100%">
+					Reset All Settings & Data
+				</button>
+			</div>
+
+			<div class="save-status" id="save-status">✓ Settings saved</div>
+		</div>
+
+		<script type="module" src="settings.js"></script>
+	</body>
+
+</html>

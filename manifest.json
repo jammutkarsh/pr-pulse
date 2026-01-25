@@ -1,0 +1,27 @@
+{
+	"manifest_version": 3,
+	"name": "PR Pulse",
+	"version": "1.0.0",
+	"description": "Keep your finger on the pulse of your PRs. Real-time GitHub monitoring that checks every minute.",
+	"permissions": [
+		"storage",
+		"alarms"
+	],
+	"host_permissions": [
+		"https://api.github.com/*"
+	],
+	"action": {
+		"default_popup": "popup/popup.html",
+		"default_icon": {
+			"128": "icons/icon128.png"
+		}
+	},
+	"background": {
+		"service_worker": "service-worker.js",
+		"type": "module"
+	},
+	"options_page": "onboarding/onboarding.html",
+	"icons": {
+		"128": "icons/icon128.png"
+	}
+}

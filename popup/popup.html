@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>PR Pulse</title>
+		<link rel="stylesheet" href="popup.css">
+	</head>
+
+	<body>
+		<div class="popup-container">
+			<!-- Header -->
+			<header class="header">
+				<div class="user-section">
+					<span id="user-avatar" class="avatar avatar-emoji">👾</span>
+					<span id="user-name" class="user-name">
+						< Waiting for Human />
+					</span>
+				</div>
+				<div class="header-actions">
+					<button id="refresh-btn" class="icon-btn" title="Refresh">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<path fill-rule="evenodd"
+								d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
+							<path
+								d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+						</svg>
+					</button>
+					<button id="fullscreen-btn" class="icon-btn" title="Open in Full Page">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<path
+								d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707zm4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707zm0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707zm-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707z" />
+						</svg>
+					</button>
+					<button id="settings-btn" class="icon-btn" title="Settings">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<path fill-rule="evenodd"
+								d="M7.429 1.525a6.593 6.593 0 0 1 1.142 0c.036.003.108.036.137.146l.289 1.105c.147.56.55.967.997 1.189.174.086.341.183.501.29.417.278.97.423 1.53.27l1.102-.303c.11-.03.175.016.195.046.219.31.41.641.573.989.014.031.022.11-.059.19l-.815.806c-.411.406-.562.957-.53 1.456a4.588 4.588 0 0 1 0 .582c-.032.499.119 1.05.53 1.456l.815.806c.08.08.073.159.059.19a6.494 6.494 0 0 1-.573.99c-.02.029-.086.074-.195.045l-1.103-.303c-.559-.153-1.112-.008-1.529.27-.16.107-.327.204-.5.29-.449.222-.851.628-.998 1.189l-.289 1.105c-.029.11-.101.143-.137.146a6.613 6.613 0 0 1-1.142 0c-.036-.003-.108-.037-.137-.146l-.289-1.105c-.147-.56-.55-.967-.997-1.189a4.502 4.502 0 0 1-.501-.29c-.417-.278-.97-.423-1.53-.27l-1.102.303c-.11.03-.175-.016-.195-.046a6.492 6.492 0 0 1-.573-.989c-.014-.031-.022-.11.059-.19l.815-.806c.411-.406.562-.957.53-1.456a4.587 4.587 0 0 1 0-.582c.032-.499-.119-1.05-.53-1.456l-.815-.806c-.08-.08-.073-.159-.059-.19a6.44 6.44 0 0 1 .573-.99c.02-.029.086-.074.195-.045l1.103.303c.559.153 1.112.008 1.529-.27.16-.107.327-.204.5-.29.449-.222.851-.628.998-1.189l.289-1.105c.029-.11.101-.143.137-.146zM8 0c-.236 0-.47.01-.701.03-.743.065-1.29.615-1.458 1.261l-.29 1.106c-.017.066-.078.158-.211.224a5.994 5.994 0 0 0-.668.386c-.123.082-.233.09-.3.071L3.27 2.776c-.644-.177-1.392.02-1.82.63a7.977 7.977 0 0 0-.704 1.217c-.315.675-.111 1.422.363 1.891l.815.806c.05.048.098.147.088.294a6.084 6.084 0 0 0 0 .772c.01.147-.037.246-.088.294l-.815.806c-.474.469-.678 1.216-.363 1.891.2.428.436.835.704 1.218.428.609 1.176.806 1.82.63l1.103-.303c.066-.019.176-.011.299.071.213.143.436.272.668.386.133.066.194.158.212.224l.289 1.106c.169.646.715 1.196 1.458 1.26a8.094 8.094 0 0 0 1.402 0c.743-.064 1.29-.614 1.458-1.26l.29-1.106c.017-.066.078-.158.211-.224a5.98 5.98 0 0 0 .668-.386c.123-.082.233-.09.3-.071l1.102.302c.644.177 1.392-.02 1.82-.63.268-.382.505-.789.704-1.217.315-.675.111-1.422-.364-1.891l-.814-.806c-.05-.048-.098-.147-.088-.294a6.1 6.1 0 0 0 0-.772c-.01-.147.037-.246.088-.294l.814-.806c.475-.469.679-1.216.364-1.891a7.992 7.992 0 0 0-.704-1.218c-.428-.609-1.176-.806-1.82-.63l-1.103.303c-.066.019-.176.011-.299-.071a5.991 5.991 0 0 0-.668-.386c-.133-.066-.194-.158-.212-.224L10.16 1.29C9.99.645 9.444.095 8.701.031A8.094 8.094 0 0 0 8 0zm1.5 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM11 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+						</svg>
+					</button>
+				</div>
+			</header>
+
+			<!-- Tabs -->
+			<nav class="tabs">
+				<button class="tab active" data-tab="myPRs">
+					My PRs
+					<span class="tab-count" id="my-prs-count">0</span>
+				</button>
+				<button class="tab" data-tab="toReview">
+					To Review
+					<span class="tab-count" id="review-count">0</span>
+				</button>
+			</nav>
+
+			<!-- Content -->
+			<main class="content">
+				<!-- Loading State -->
+				<div id="loading-state" class="state-container">
+					<div class="spinner"></div>
+					<p>Loading pull requests...</p>
+				</div>
+
+				<!-- Empty State -->
+				<div id="empty-state" class="state-container hidden">
+					<div class="empty-icon">📭</div>
+					<p class="empty-title">No pull requests</p>
+					<p class="empty-subtitle" id="empty-message">You don't have any open PRs</p>
+				</div>
+
+				<!-- Setup Required State -->
+				<div id="setup-state" class="state-container hidden">
+					<div class="empty-icon">🔑</div>
+					<p class="empty-title">Setup Required</p>
+					<p class="empty-subtitle">Connect your GitHub account to get started</p>
+					<button id="open-setup-btn" class="btn btn-primary">Open Setup</button>
+				</div>
+
+				<!-- PR List -->
+				<div id="pr-list" class="pr-list hidden"></div>
+			</main>
+
+			<!-- Footer -->
+			<footer class="footer">
+				<span class="last-updated" id="last-updated">Updated just now</span>
+			</footer>
+
+			<!-- Toast message container -->
+			<div id="toast" class="toast hidden"></div>
+		</div>
+
+		<!-- PR Card Template -->
+		<template id="pr-card-template">
+			<article class="pr-card" data-url="">
+				<div class="pr-main">
+					<div class="pr-title-row">
+						<span class="pr-status-dot"></span>
+						<h3 class="pr-title"></h3>
+						<button class="action-btn copy-btn" title="Copy PR Link">
+							<svg class="action-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+								stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+								<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+							</svg>
+						</button>
+					</div>
+					<div class="pr-meta">
+						<img class="pr-author-avatar" src="" alt="">
+						<span class="pr-author"></span>
+						<span class="separator author-separator">•</span>
+						<span class="pr-repo"></span>
+						<span class="separator">•</span>
+						<span class="pr-changes"></span>
+						<span class="separator">•</span>
+						<span class="pr-files"></span>
+						<span class="separator separator-jira hidden">•</span>
+						<a href="#" class="jira-link hidden" target="_blank" title="Open Jira Ticket">
+							<span class="action-icon">🎫</span>
+							<span class="action-label"></span>
+						</a>
+					</div>
+				</div>
+				<div class="pr-status-row">
+					<span class="pr-checks">
+						<span class="check-icon"></span>
+						<span class="check-label"></span>
+					</span>
+					<span class="pr-review">
+						<span class="review-icon"></span>
+						<span class="review-label"></span>
+					</span>
+				</div>
+			</article>
+		</template>
+
+		<script type="module" src="popup.js"></script>
+	</body>
+
+</html>
