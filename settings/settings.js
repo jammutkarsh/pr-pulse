@@ -4,7 +4,7 @@
  */
 
 import { storage } from '../lib/storage.js';
-import { sanitizeJiraUrl } from '../lib/utils.js';
+import { sanitizeJiraUrl, isValidHttpUrl, escapeHtml } from '../lib/utils.js';
 import { GitHubProvider } from '../lib/providers/github-provider.js';
 
 // DOM Elements
@@ -82,10 +82,20 @@ function updateJiraHelpText(url) {
 
 	const cleanUrl = sanitizeJiraUrl(url); // Ensure we always work with clean URL for the link
 
-	if (cleanUrl) {
+	if (cleanUrl && isValidHttpUrl(cleanUrl)) {
 		const dashboardUrl = `${cleanUrl}/jira/for-you`;
-		// Make the link explicitly styled to be visible/clickable
-		jiraHelpText.innerHTML = `See all your tickets: <a href="${dashboardUrl}" target="_blank" style="color: var(--primary); text-decoration: underline;">${dashboardUrl}</a>`;
+		
+		// Use safe DOM manipulation instead of innerHTML to prevent XSS
+		jiraHelpText.textContent = 'See all your tickets: ';
+		
+		const link = document.createElement('a');
+		link.href = dashboardUrl;
+		link.target = '_blank';
+		link.style.color = 'var(--primary)';
+		link.style.textDecoration = 'underline';
+		link.textContent = dashboardUrl;
+		
+		jiraHelpText.appendChild(link);
 	} else {
 		jiraHelpText.textContent = "Enter your Jira URL (any URL - we'll extract the base!)";
 	}
@@ -112,6 +122,25 @@ function showTokenInputState() {
 }
 
 /**
+ * Validate GitHub token format
+ * GitHub PATs have specific formats:
+ * - Classic tokens: ghp_ followed by 36 alphanumeric characters
+ * - Fine-grained tokens: github_pat_ followed by alphanumeric characters
+ * @param {string} token - Token to validate
+ * @returns {boolean} - True if token format is valid
+ */
+function isValidTokenFormat(token) {
+	if (!token || typeof token !== 'string') return false;
+	
+	// Classic PAT: ghp_ followed by 36 alphanumeric chars
+	const classicPattern = /^ghp_[a-zA-Z0-9]{36}$/;
+	// Fine-grained PAT: github_pat_ followed by alphanumeric chars and underscores
+	const fineGrainedPattern = /^github_pat_[a-zA-Z0-9_]{22,}$/;
+	
+	return classicPattern.test(token) || fineGrainedPattern.test(token);
+}
+
+/**
  * Validate and save token
  */
 async function validateAndSaveToken() {
@@ -126,8 +155,9 @@ async function validateAndSaveToken() {
 		return;
 	}
 
-	if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-		showTokenError('Invalid token format. Token should start with ghp_ or github_pat_');
+	// Strict token format validation
+	if (!isValidTokenFormat(token)) {
+		showTokenError('Invalid token format. Token should be a valid GitHub Personal Access Token (ghp_... or github_pat_...)');
 		return;
 	}
 

@@ -5,7 +5,7 @@
 
 import { storage } from '../lib/storage.js';
 import { GitHubProvider } from '../lib/providers/github-provider.js';
-import { sanitizeJiraUrl } from '../lib/utils.js';
+import { sanitizeJiraUrl, isValidHttpUrl } from '../lib/utils.js';
 
 // State
 let currentStep = 1;
@@ -107,6 +107,25 @@ function togglePatVisibility() {
 }
 
 /**
+ * Validate GitHub token format
+ * GitHub PATs have specific formats:
+ * - Classic tokens: ghp_ followed by 36 alphanumeric characters
+ * - Fine-grained tokens: github_pat_ followed by alphanumeric characters
+ * @param {string} token - Token to validate
+ * @returns {boolean} - True if token format is valid
+ */
+function isValidTokenFormat(token) {
+	if (!token || typeof token !== 'string') return false;
+	
+	// Classic PAT: ghp_ followed by 36 alphanumeric chars
+	const classicPattern = /^ghp_[a-zA-Z0-9]{36}$/;
+	// Fine-grained PAT: github_pat_ followed by alphanumeric chars and underscores
+	const fineGrainedPattern = /^github_pat_[a-zA-Z0-9_]{22,}$/;
+	
+	return classicPattern.test(token) || fineGrainedPattern.test(token);
+}
+
+/**
  * Test GitHub connection with provided PAT
  */
 async function testConnection() {
@@ -114,6 +133,12 @@ async function testConnection() {
 
 	if (!token) {
 		showError('Please enter a Personal Access Token');
+		return;
+	}
+
+	// Strict token format validation
+	if (!isValidTokenFormat(token)) {
+		showError('Invalid token format. Token should be a valid GitHub Personal Access Token (ghp_... or github_pat_...)');
 		return;
 	}
 
@@ -196,10 +221,13 @@ function updateJiraPreview() {
 	const rawUrl = jiraUrlInput.value.trim();
 	// Sanitize the URL to extract base browse URL
 	const sanitizedUrl = sanitizeJiraUrl(rawUrl);
-	settings.jiraBaseUrl = rawUrl; // Store raw, sanitizeJiraUrl is called when constructing URLs
+	
+	// Only store the sanitized URL for security
+	settings.jiraBaseUrl = sanitizedUrl;
 
-	if (rawUrl) {
-		jiraPreviewLink.href = `${sanitizedUrl}/JIRA-1234`;
+	if (sanitizedUrl && isValidHttpUrl(sanitizedUrl)) {
+		const previewUrl = `${sanitizedUrl}/browse/JIRA-1234`;
+		jiraPreviewLink.href = previewUrl;
 		jiraPreviewLink.textContent = 'JIRA-1234';
 	} else {
 		jiraPreviewLink.href = '#';
