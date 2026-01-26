@@ -5,10 +5,8 @@
 
 import { providerManager } from './lib/provider-manager.js';
 import { storage } from './lib/storage.js';
-import { GitHubProvider } from './lib/providers/github-provider.js';
 
 const ALARM_NAME = 'pr-poll';
-const DEFAULT_POLL_INTERVAL_MINUTES = 1;
 
 /**
  * Initialize the provider from storage

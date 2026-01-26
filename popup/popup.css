@@ -415,7 +415,7 @@ body {
 	padding: 0;
 	background: transparent;
 	border: none;
-	color: var(--text-secondary);
+	color: var(--accent-blue);
 	text-decoration: none;
 	transition: color 0.2s;
 }

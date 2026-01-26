@@ -7,8 +7,14 @@ import { storage } from '../lib/storage.js';
 import { GitHubProvider } from '../lib/providers/github-provider.js';
 import { sanitizeJiraUrl, isValidHttpUrl, isValidTokenFormat } from '../lib/utils.js';
 
+// Step Constants
+const STEP_GITHUB = 1;
+const STEP_DEFAULT_VIEW = 2;
+const STEP_JIRA = 3;
+const STEP_DISPLAY = 4;
+
 // State
-let currentStep = 1;
+let currentStep = STEP_GITHUB;
 let providerData = null;
 let settings = {
 	pinnedTab: 'myPRs',
@@ -81,7 +87,13 @@ function init() {
 
 	// Complete setup
 	completeSetupBtn.addEventListener('click', completeSetup);
-	closeSetupBtn.addEventListener('click', () => window.close());
+	closeSetupBtn.addEventListener('click', () => {
+		if (settings.displayMode === 'fullpage') {
+			window.location.href = chrome.runtime.getURL('popup/popup.html?fullpage=1');
+		} else {
+			window.close();
+		}
+	});
 }
 
 /**
@@ -202,7 +214,7 @@ function updateJiraPreview() {
 	const rawUrl = jiraUrlInput.value.trim();
 	// Sanitize the URL to extract base browse URL
 	const sanitizedUrl = sanitizeJiraUrl(rawUrl);
-	
+
 	// Only store the sanitized URL for security
 	settings.jiraBaseUrl = sanitizedUrl;
 
@@ -220,16 +232,46 @@ function updateJiraPreview() {
  * Go to next step
  */
 function nextStep() {
-	if (currentStep < 4) {
+	// Validation for Step 3
+	if (currentStep === STEP_JIRA) {
+		if (!validateStep3()) return;
+	}
+
+	if (currentStep < STEP_DISPLAY) {
 		goToStep(currentStep + 1);
 	}
+}
+
+/**
+ * Validate Step 3 (Jira)
+ */
+function validateStep3() {
+	const rawUrl = jiraUrlInput.value.trim();
+
+	// Empty is allowed (skipping Jira)
+	if (!rawUrl) {
+		hideError();
+		return true;
+	}
+
+	const sanitized = sanitizeJiraUrl(rawUrl);
+
+	// Check if sanitization failed or resulted in invalid URL
+	if (!sanitized || !isValidHttpUrl(sanitized)) {
+		showError('Please enter a valid URL (e.g., https://company.atlassian.net)');
+		return false;
+	}
+
+	hideError();
+	return true;
 }
 
 /**
  * Go to previous step
  */
 function prevStep() {
-	if (currentStep > 1) {
+	hideError(); // Clear any errors when going back
+	if (currentStep > STEP_GITHUB) {
 		goToStep(currentStep - 1);
 	}
 }
@@ -269,11 +311,16 @@ async function completeSetup() {
 		// Save settings
 		await storage.setSettings(settings);
 
-		// Mark onboarding as complete
-		await storage.setOnboardingComplete(true);
-
+		// Mark onboarding as complete (implicit via provider existence)
 		// Notify service worker to start polling
 		await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
+
+		// Update button text based on display mode
+		if (settings.displayMode === 'fullpage') {
+			closeSetupBtn.textContent = 'Open your PRs';
+		} else {
+			closeSetupBtn.textContent = 'Close This Tab';
+		}
 
 		// Show success screen
 		steps.forEach(s => s.classList.remove('active'));

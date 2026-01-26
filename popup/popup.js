@@ -3,11 +3,10 @@
  * Handles the main popup UI and interactions
  */
 
-import { storage, DEFAULT_USER } from '../lib/storage.js';
+import { storage } from '../lib/storage.js';
 import {
 	extractJiraTicket,
 	getJiraUrl,
-	formatLinesChanged,
 	getReviewStatusDisplay,
 	getCheckStatusDisplay,
 	copyToClipboard,
@@ -106,7 +105,7 @@ async function init() {
 		userSection.style.cursor = 'pointer';
 		userSection.title = 'Open GitHub profile';
 		userSection.addEventListener('click', () => {
-			chrome.tabs.create({ url: `https://github.com/${provider.user.login}` });
+			safeOpenUrl(`https://github.com/${provider.user.login}`);
 		});
 	}
 
@@ -427,7 +426,7 @@ function createPRCard(pr) {
 
 	if (jiraTicket && settings.jiraBaseUrl) {
 		const jiraUrl = getJiraUrl(jiraTicket, settings.jiraBaseUrl);
-		
+
 		// Only show Jira link if the URL is valid
 		if (isValidHttpUrl(jiraUrl)) {
 			jiraLink.classList.remove('hidden');
