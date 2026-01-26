@@ -354,7 +354,7 @@ function createPRCard(pr) {
 	repoEl.classList.add('clickable');
 	repoEl.addEventListener('click', (e) => {
 		e.stopPropagation();
-		safeOpenUrl(`https://github.com/${pr.repoFullName}`);
+		safeOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`);
 	});
 
 	// Changes - clickable to open files changed tab
