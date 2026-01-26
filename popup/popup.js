@@ -3,15 +3,16 @@
  * Handles the main popup UI and interactions
  */
 
-import { storage, DEFAULT_USER } from '../lib/storage.js';
+import { storage } from '../lib/storage.js';
 import {
 	extractJiraTicket,
 	getJiraUrl,
-	formatLinesChanged,
 	getReviewStatusDisplay,
 	getCheckStatusDisplay,
 	copyToClipboard,
 	formatRelativeTime,
+	isValidHttpUrl,
+	safeParseInt,
 } from '../lib/utils.js';
 
 // State
@@ -40,6 +41,19 @@ const toast = document.getElementById('toast');
 
 // Track fullpage mode for navigation behavior
 let isFullpageMode = false;
+
+/**
+ * Safely open a URL in a new tab
+ * Only allows http/https protocols to prevent XSS attacks
+ * @param {string} url - URL to open
+ */
+function safeOpenUrl(url) {
+	if (isValidHttpUrl(url)) {
+		chrome.tabs.create({ url });
+	} else {
+		console.warn('Blocked attempt to open invalid URL:', url);
+	}
+}
 
 /**
  * Initialize the popup
@@ -91,7 +105,7 @@ async function init() {
 		userSection.style.cursor = 'pointer';
 		userSection.title = 'Open GitHub profile';
 		userSection.addEventListener('click', () => {
-			chrome.tabs.create({ url: `https://github.com/${provider.user.login}` });
+			safeOpenUrl(`https://github.com/${provider.user.login}`);
 		});
 	}
 
@@ -326,11 +340,11 @@ function createPRCard(pr) {
 	authorName.classList.add('clickable');
 	authorAvatar.addEventListener('click', (e) => {
 		e.stopPropagation();
-		chrome.tabs.create({ url: authorProfileUrl });
+		safeOpenUrl(authorProfileUrl);
 	});
 	authorName.addEventListener('click', (e) => {
 		e.stopPropagation();
-		chrome.tabs.create({ url: authorProfileUrl });
+		safeOpenUrl(authorProfileUrl);
 	});
 
 	// Repo - clickable to open repo
@@ -339,16 +353,26 @@ function createPRCard(pr) {
 	repoEl.classList.add('clickable');
 	repoEl.addEventListener('click', (e) => {
 		e.stopPropagation();
-		chrome.tabs.create({ url: `https://github.com/${pr.repoFullName}` });
+		safeOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`);
 	});
 
 	// Changes - clickable to open files changed tab
 	const changesEl = card.querySelector('.pr-changes');
 	const filesEl = card.querySelector('.pr-files');
 	if (pr.changes) {
-		changesEl.innerHTML = `<span class="additions">+${pr.changes.additions}</span> <span class="deletions">-${pr.changes.deletions}</span>`;
+		// Use safe DOM manipulation instead of innerHTML to prevent XSS
+		changesEl.textContent = '';
+		const additionsSpan = document.createElement('span');
+		additionsSpan.className = 'additions';
+		additionsSpan.textContent = `+${safeParseInt(pr.changes.additions, 0)}`;
+		const deletionsSpan = document.createElement('span');
+		deletionsSpan.className = 'deletions';
+		deletionsSpan.textContent = `-${safeParseInt(pr.changes.deletions, 0)}`;
+		changesEl.appendChild(additionsSpan);
+		changesEl.appendChild(document.createTextNode(' '));
+		changesEl.appendChild(deletionsSpan);
 	}
-	filesEl.textContent = `${pr.changes?.filesChanged || 0} files`;
+	filesEl.textContent = `${safeParseInt(pr.changes?.filesChanged, 0)} files`;
 
 	// Wrap changes and files in a clickable group that opens /files tab
 	const filesChangedUrl = `${pr.url}/changes`;
@@ -358,11 +382,11 @@ function createPRCard(pr) {
 	filesEl.title = 'View file changes';
 	changesEl.addEventListener('click', (e) => {
 		e.stopPropagation();
-		chrome.tabs.create({ url: filesChangedUrl });
+		safeOpenUrl(filesChangedUrl);
 	});
 	filesEl.addEventListener('click', (e) => {
 		e.stopPropagation();
-		chrome.tabs.create({ url: filesChangedUrl });
+		safeOpenUrl(filesChangedUrl);
 	});
 
 	// Checks status
@@ -401,20 +425,24 @@ function createPRCard(pr) {
 	const jiraLink = card.querySelector('.jira-link');
 
 	if (jiraTicket && settings.jiraBaseUrl) {
-		jiraLink.classList.remove('hidden');
-
-		// Show separator if it exists
-		const jiraSeparator = card.querySelector('.separator-jira');
-		if (jiraSeparator) jiraSeparator.classList.remove('hidden');
-
-		jiraLink.querySelector('.action-label').textContent = jiraTicket;
 		const jiraUrl = getJiraUrl(jiraTicket, settings.jiraBaseUrl);
-		jiraLink.href = jiraUrl;
 
-		jiraLink.addEventListener('click', (e) => {
-			e.stopPropagation();
-			// Default behavior allows opening in new tab
-		});
+		// Only show Jira link if the URL is valid
+		if (isValidHttpUrl(jiraUrl)) {
+			jiraLink.classList.remove('hidden');
+
+			// Show separator if it exists
+			const jiraSeparator = card.querySelector('.separator-jira');
+			if (jiraSeparator) jiraSeparator.classList.remove('hidden');
+
+			jiraLink.querySelector('.action-label').textContent = jiraTicket;
+			jiraLink.href = jiraUrl;
+
+			jiraLink.addEventListener('click', (e) => {
+				e.stopPropagation();
+				// Default behavior allows opening in new tab
+			});
+		}
 	}
 
 	// Copy button - handling SVG icon swap
@@ -441,7 +469,7 @@ function createPRCard(pr) {
 	// Title click - open PR in new tab
 	const titleEl = card.querySelector('.pr-title');
 	titleEl.addEventListener('click', () => {
-		chrome.tabs.create({ url: pr.url });
+		safeOpenUrl(pr.url);
 	});
 
 	// Card click removed - interaction now cleaner
