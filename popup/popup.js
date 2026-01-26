@@ -13,7 +13,7 @@ import {
 	copyToClipboard,
 	formatRelativeTime,
 	isValidHttpUrl,
-	escapeHtml,
+	safeParseInt,
 } from '../lib/utils.js';
 
 // State
@@ -365,15 +365,15 @@ function createPRCard(pr) {
 		changesEl.textContent = '';
 		const additionsSpan = document.createElement('span');
 		additionsSpan.className = 'additions';
-		additionsSpan.textContent = `+${Number(pr.changes.additions) || 0}`;
+		additionsSpan.textContent = `+${safeParseInt(pr.changes.additions, 0)}`;
 		const deletionsSpan = document.createElement('span');
 		deletionsSpan.className = 'deletions';
-		deletionsSpan.textContent = `-${Number(pr.changes.deletions) || 0}`;
+		deletionsSpan.textContent = `-${safeParseInt(pr.changes.deletions, 0)}`;
 		changesEl.appendChild(additionsSpan);
 		changesEl.appendChild(document.createTextNode(' '));
 		changesEl.appendChild(deletionsSpan);
 	}
-	filesEl.textContent = `${pr.changes?.filesChanged || 0} files`;
+	filesEl.textContent = `${safeParseInt(pr.changes?.filesChanged, 0)} files`;
 
 	// Wrap changes and files in a clickable group that opens /files tab
 	const filesChangedUrl = `${pr.url}/changes`;

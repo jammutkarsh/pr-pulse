@@ -5,7 +5,7 @@
 
 import { storage } from '../lib/storage.js';
 import { GitHubProvider } from '../lib/providers/github-provider.js';
-import { sanitizeJiraUrl, isValidHttpUrl } from '../lib/utils.js';
+import { sanitizeJiraUrl, isValidHttpUrl, isValidTokenFormat } from '../lib/utils.js';
 
 // State
 let currentStep = 1;
@@ -104,25 +104,6 @@ function togglePatVisibility() {
 	const type = patInput.type === 'password' ? 'text' : 'password';
 	patInput.type = type;
 	togglePatBtn.textContent = type === 'password' ? '👁️' : '🔒';
-}
-
-/**
- * Validate GitHub token format
- * GitHub PATs have specific formats:
- * - Classic tokens: ghp_ followed by 36 alphanumeric characters
- * - Fine-grained tokens: github_pat_ followed by alphanumeric characters
- * @param {string} token - Token to validate
- * @returns {boolean} - True if token format is valid
- */
-function isValidTokenFormat(token) {
-	if (!token || typeof token !== 'string') return false;
-	
-	// Classic PAT: ghp_ followed by 36 alphanumeric chars
-	const classicPattern = /^ghp_[a-zA-Z0-9]{36}$/;
-	// Fine-grained PAT: github_pat_ followed by alphanumeric chars and underscores
-	const fineGrainedPattern = /^github_pat_[a-zA-Z0-9_]{22,}$/;
-	
-	return classicPattern.test(token) || fineGrainedPattern.test(token);
 }
 
 /**
