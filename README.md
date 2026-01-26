@@ -1,4 +1,7 @@
-# PR Pulse 💓
+<div align="left">
+  <img src="icons/icon128.png" width="128" height="128" alt="PR Pulse Icon" />
+  <h1>PR Pulse</h1>
+</div>
 
 > *Keep your finger on the pulse of your PRs. Real-time GitHub monitoring that checks every minute, so nothing slips through the cracks.*
 
