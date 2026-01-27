@@ -83,14 +83,14 @@ function updateBadge(count) {
  */
 async function setupPollingAlarm() {
 	const settings = await storage.getSettings();
-	const intervalMinutes = (settings.pollingIntervalMs || 60000) / 60000;
+	const intervalMinutes = (settings.pollingIntervalMs || 600000) / 60000;
 
 	// Clear existing alarm
 	await chrome.alarms.clear(ALARM_NAME);
 
 	// Create new alarm
 	chrome.alarms.create(ALARM_NAME, {
-		periodInMinutes: Math.max(1, intervalMinutes), // Minimum 1 minute
+		periodInMinutes: Math.max(1, intervalMinutes), // Minimum 1 minute (default is 10 minutes)
 	});
 
 	console.log(`Polling alarm set for every ${intervalMinutes} minute(s)`);
