@@ -79,18 +79,31 @@ function updateBadge(count) {
 }
 
 /**
- * Set up polling alarm
+ * Set up polling alarm.
+ * Chrome alarms persist across service worker restarts,
+ * so we only recreate when explicitly needed (settings/provider change).
+ * @param {boolean} forceRecreate - Force clear and recreate the alarm
  */
-async function setupPollingAlarm() {
+async function setupPollingAlarm(forceRecreate = false) {
+	// Alarms survive service worker restarts — skip if one already exists
+	if (!forceRecreate) {
+		const existing = await chrome.alarms.get(ALARM_NAME);
+		if (existing) {
+			console.log('Polling alarm already exists, skipping recreation');
+			return;
+		}
+	}
+
 	const settings = await storage.getSettings();
 	const intervalMinutes = (settings.pollingIntervalMs || 600000) / 60000;
 
-	// Clear existing alarm
+	// Clear existing alarm before creating a new one
 	await chrome.alarms.clear(ALARM_NAME);
 
-	// Create new alarm
+	// Create new alarm (minimum 1 minute per Chrome API, default 10 minutes)
 	chrome.alarms.create(ALARM_NAME, {
-		periodInMinutes: Math.max(1, intervalMinutes), // Minimum 1 minute (default is 10 minutes)
+		delayInMinutes: Math.max(1, intervalMinutes),
+		periodInMinutes: Math.max(1, intervalMinutes),
 	});
 
 	console.log(`Polling alarm set for every ${intervalMinutes} minute(s)`);
@@ -109,7 +122,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 		// On update, try to initialize and fetch
 		await initializeProvider();
 		await fetchAndCachePRs();
-		await setupPollingAlarm();
+		await setupPollingAlarm(true);
 	}
 });
 
@@ -141,7 +154,7 @@ async function handleMessage(message) {
 		case 'PROVIDER_CONFIGURED':
 			await initializeProvider();
 			await fetchAndCachePRs();
-			await setupPollingAlarm();
+			await setupPollingAlarm(true);
 			return { success: true };
 
 		case 'REFRESH_PRS':
@@ -155,7 +168,7 @@ async function handleMessage(message) {
 		case 'UPDATE_SETTINGS':
 			await storage.setSettings(message.settings);
 			if (message.settings.pollingIntervalMs) {
-				await setupPollingAlarm();
+				await setupPollingAlarm(true);
 			}
 			return { success: true };
 
