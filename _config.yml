@@ -1,0 +1,22 @@
+title: PR Pulse
+description: >-
+  Keep your finger on the pulse of your PRs. Near real-time GitHub monitoring
+  that checks every 10 minutes, so nothing slips through the cracks.
+url: "https://prpulse.utkarshchourasia.in"
+
+author:
+  name: Utkarsh Chourasia
+
+remote_theme: "jekyll/minima"
+
+minima:
+  skin: auto
+  social_links:
+    - title: PR Pulse on GitHub
+      icon: github
+      url: "https://github.com/jammutkarsh/pr-pulse"
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-feed
