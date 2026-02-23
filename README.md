@@ -3,18 +3,11 @@ layout: home
 title: PR Pulse
 ---
 
-<div align="left">
-  <img src="icons/icon128.png" width="128" height="128" alt="PR Pulse Icon" />
-  <h1>PR Pulse</h1>
-</div>
-
-> *Keep your finger on the pulse of your PRs. Near real-time GitHub monitoring that checks every 10 minutes, so nothing slips through the cracks.*
-
-A Chrome extension that monitors your GitHub Pull Requests like a vital signs monitor - constant, reliable, and always keeping you informed.
-
 <a href="https://short.utkarshchourasia.in/prpulse">
   <img src="./icons/badgeM.png" alt="Install PR Pulse" />
 </a>
+
+A Chrome extension that monitors your GitHub Pull Requests like a vital signs monitor - constant, reliable, and always keeping you informed.
 
 ## Features
 
