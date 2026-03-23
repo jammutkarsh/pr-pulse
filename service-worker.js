@@ -145,45 +145,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
- * Process incoming messages
- * @param {Object} message - Message object
+ * Message handler registry.
+ * Add new message types by adding entries — no switch statement to maintain.
+ * Each handler receives the full message object and returns a response.
+ * @type {Record<string, (message: Object) => Promise<any>>}
+ */
+const messageHandlers = {
+	PROVIDER_CONFIGURED: async () => {
+		await initializeProvider();
+		await fetchAndCachePRs();
+		await setupPollingAlarm(true);
+		return { success: true };
+	},
+
+	REFRESH_PRS: async () => {
+		await fetchAndCachePRs();
+		return { success: true };
+	},
+
+	GET_PRS: async () => {
+		return storage.getPullRequests();
+	},
+
+	UPDATE_SETTINGS: async (message) => {
+		await storage.setSettings(message.settings);
+		if (message.settings.pollingIntervalMs) {
+			await setupPollingAlarm(true);
+		}
+		return { success: true };
+	},
+
+	SETTINGS_UPDATED: async (message) => {
+		// Re-update badge when pinned tab changes
+		if (message.settings?.pinnedTab) {
+			const data = await storage.getPullRequests();
+			await updateBadgeFromSettings(data);
+		}
+		return { success: true };
+	},
+};
+
+/**
+ * Process incoming messages using the handler registry
+ * @param {Object} message - Message object with a 'type' property
  * @returns {Promise<any>}
  */
 async function handleMessage(message) {
-	switch (message.type) {
-		case 'PROVIDER_CONFIGURED':
-			await initializeProvider();
-			await fetchAndCachePRs();
-			await setupPollingAlarm(true);
-			return { success: true };
-
-		case 'REFRESH_PRS':
-			await fetchAndCachePRs();
-			return { success: true };
-
-		case 'GET_PRS':
-			const prData = await storage.getPullRequests();
-			return prData;
-
-		case 'UPDATE_SETTINGS':
-			await storage.setSettings(message.settings);
-			if (message.settings.pollingIntervalMs) {
-				await setupPollingAlarm(true);
-			}
-			return { success: true };
-
-		case 'SETTINGS_UPDATED':
-			// Re-update badge when pinned tab changes
-			if (message.settings?.pinnedTab) {
-				const data = await storage.getPullRequests();
-				await updateBadgeFromSettings(data);
-			}
-			return { success: true };
-
-		default:
-			console.warn('Unknown message type:', message.type);
-			return { error: 'Unknown message type' };
+	const handler = messageHandlers[message.type];
+	if (handler) {
+		return handler(message);
 	}
+	console.warn('Unknown message type:', message.type);
+	return { error: 'Unknown message type' };
 }
 
 // Initialize on service worker start

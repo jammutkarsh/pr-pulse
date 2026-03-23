@@ -23,6 +23,7 @@ const cancelTokenBtn = document.getElementById('cancel-token-btn');
 const tokenError = document.getElementById('token-error');
 const tokenSuccess = document.getElementById('token-success');
 const jiraHelpText = document.getElementById('jira-help-text');
+const pollingIntervalSelect = document.getElementById('polling-interval');
 
 let currentSettings = {};
 let isConnected = false;
@@ -66,6 +67,11 @@ async function init() {
 		// Set radio buttons
 		setRadioValue('pinnedTab', currentSettings.pinnedTab || 'myPRs');
 		setRadioValue('displayMode', currentSettings.displayMode || 'popup');
+
+		// Set polling interval
+		if (pollingIntervalSelect) {
+			pollingIntervalSelect.value = String(currentSettings.pollingIntervalMs || 600000);
+		}
 
 		// Event listeners
 		setupEventListeners();
@@ -238,6 +244,16 @@ function setupEventListeners() {
 			showSaveStatus();
 		});
 	});
+
+	// Polling interval select
+	if (pollingIntervalSelect) {
+		pollingIntervalSelect.addEventListener('change', async () => {
+			const ms = parseInt(pollingIntervalSelect.value, 10);
+			await storage.updateSetting('pollingIntervalMs', ms);
+			chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
+			showSaveStatus();
+		});
+	}
 
 	// Jira URL input - sanitize and save on blur (no debounce needed)
 	if (jiraUrlInput) {
