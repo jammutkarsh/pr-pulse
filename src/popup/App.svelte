@@ -241,7 +241,7 @@
 </script>
 
 
-<div class={isFullpageMode ? 'min-h-screen px-6 py-6' : 'h-200 w-150 overflow-hidden'}>
+<div class={isFullpageMode ? 'min-h-screen px-6 py-6' : 'h-150 w-105 overflow-hidden'}>
 	<div class={`mx-auto flex ${isFullpageMode ? 'max-w-4xl' : 'h-full'} min-h-0 flex-col gap-3`}>
 		<div class={`surface-card overflow-hidden rounded-none ${isFullpageMode ? '' : 'flex h-full flex-col'}`}>
 			<div class="border-b border-soft px-4 py-3 sm:px-4">

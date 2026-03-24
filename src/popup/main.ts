@@ -4,9 +4,14 @@ import { storage } from '../../lib/storage';
 
 const bootstrapDataPromise = storage.getPopupBootstrapData();
 const { default: App } = await import('./App.svelte');
+const target = document.getElementById('app');
+
+if (!target) {
+	throw new Error('Failed to mount popup app: #app element not found.');
+}
 
 mount(App, {
-	target: document.getElementById('app') as HTMLElement,
+	target,
 	props: {
 		bootstrapDataPromise,
 	},

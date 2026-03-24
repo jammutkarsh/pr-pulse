@@ -13,6 +13,7 @@
 	},
 	"include": [
 		"src/**/*.ts",
+		"src/**/*.d.ts",
 		"src/**/*.svelte",
 		"vite.config.ts",
 		"service-worker.ts",
