@@ -1,0 +1,40 @@
+{
+  "name": "pr-pulse",
+  "version": "1.0.0",
+  "description": "A Chrome extension that provides real-time insights and analytics for GitHub pull requests, helping developers stay informed and make data-driven decisions.",
+  "main": "service-worker.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "svelte-check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jammutkarsh/pr-pulse.git"
+  },
+  "keywords": ["Chrome Extension", "GitHub", "Pull Requests", "Dashboard", "Developer Tools"],
+  "author": "Utkarsh Jammut",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/jammutkarsh/pr-pulse/issues"
+  },
+  "homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
+  "dependencies": {
+    "lucide-svelte": "^0.577.0",
+    "svelte": "^5.54.1"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/chrome": "^0.1.38",
+    "@types/node": "^25.5.0",
+    "svelte-check": "^4.4.5",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1"
+  }
+}
