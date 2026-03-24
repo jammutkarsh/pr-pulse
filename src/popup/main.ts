@@ -1,9 +1,9 @@
 import { mount } from 'svelte';
 import '../styles/app.css';
 import { storage } from '../../lib/storage';
+import App from './App.svelte';
 
 const bootstrapDataPromise = storage.getPopupBootstrapData();
-const { default: App } = await import('./App.svelte');
 const target = document.getElementById('app');
 
 if (!target) {

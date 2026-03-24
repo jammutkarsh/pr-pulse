@@ -334,7 +334,7 @@
 							{@const jiraLink = getJiraLink(pr)}
 							{@const branchUrl = getBranchUrl(pr)}
 							<SectionCard className="rounded-[20px] p-3.5">
-								<div class="min-w-0 space-y-1">
+								<div class="min-w-0 space-y-1.5">
 									<div class="relative min-w-0 pr-6">
 										<div class="flex min-w-0 items-start gap-1">
 											<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
@@ -342,16 +342,19 @@
 												{pr.title}
 											</button>
 										</div>
-										<button class="absolute right-0 top-0 inline-flex h-5 w-5 items-center justify-center rounded-sm text-soft transition hover:bg-(--bg-muted) hover:text-white" type="button" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
+										<button class="metadata-copy-button absolute right-0 top-0" type="button" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
 											{#if copiedItemId === `pr-${pr.id}`}
-												<Check class="h-3 w-3 text-(--success)" />
+												<Check class="metadata-copy-icon text-(--success)" />
 											{:else}
-												<Copy class="h-3 w-3" />
+												<Copy class="metadata-copy-icon" />
 											{/if}
 										</button>
 									</div>
 
-									<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-4 text-soft">
+									<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+										{#if currentTab !== 'myPRs'}
+											<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt="" class="h-5 w-5 rounded-full border border-soft object-cover" />
+										{/if}
 										<button class="action-chip" on:click={() => safeOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
 											<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
 											<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>
@@ -359,34 +362,41 @@
 										<span aria-hidden="true" class="text-dim">•</span>
 										<button class="action-chip" on:click={() => safeOpenUrl(`${pr.url}/changes`)}>
 											<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
-											<span>
-												<span class="metadata-diff-add font-semibold">+{safeParseInt(pr.changes?.additions, 0)}</span><span class="metadata-diff-del font-semibold">-{safeParseInt(pr.changes?.deletions, 0)}</span>
+											<span class="metadata-diff">
+												<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
+												<span class="metadata-diff-del">-{safeParseInt(pr.changes?.deletions, 0)}</span>
 											</span>
 										</button>
-										{#if jiraLink}
-											<span aria-hidden="true" class="text-dim">•</span>
+									</div>
+
+									{#if jiraLink || branchUrl}
+										<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+											{#if jiraLink}
 											<button class="action-chip" on:click={() => safeOpenUrl(jiraLink.url)}>
 												<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
 												<span class="hyperlink-text metadata-jira">{jiraLink.ticket}</span>
 											</button>
-										{/if}
-										{#if branchUrl}
-											<span aria-hidden="true" class="text-dim">•</span>
+											{/if}
+											{#if jiraLink && branchUrl}
+												<span aria-hidden="true" class="text-dim">•</span>
+											{/if}
+											{#if branchUrl}
 											<div class="flex items-center gap-0.5">
 												<button class="action-chip" on:click={() => safeOpenUrl(branchUrl)}>
 													<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
 													<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
 												</button>
-												<Button className="h-5 w-5 px-0 text-soft hover:text-white" size="icon" variant="ghost" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
+												<button class="metadata-copy-button" type="button" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
 													{#if copiedItemId === `branch-${pr.id}`}
-														<Check class="h-3 w-3 text-(--success)" />
+														<Check class="metadata-copy-icon text-(--success)" />
 													{:else}
-														<Copy class="h-3 w-3" />
+														<Copy class="metadata-copy-icon" />
 													{/if}
-												</Button>
+												</button>
 											</div>
-										{/if}
-									</div>
+											{/if}
+										</div>
+									{/if}
 
 									<div class="border-t border-soft pt-2.5">
 										<div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
