@@ -4,3 +4,4 @@ build/
 .env
 .DS_Store
 demo/
+pr-pulse-*.zip

@@ -133,9 +133,12 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 	SETTINGS_UPDATED: async (message) => {
-		if ('settings' in message && message.settings.pinnedTab) {
-			const data = await storage.getPullRequests();
-			await updateBadgeFromSettings(data);
+		if ('settings' in message) {
+			cachedSettings = cachedSettings ? { ...cachedSettings, ...message.settings } : await storage.getSettings();
+			if (message.settings.pinnedTab) {
+				const data = await storage.getPullRequests();
+				await updateBadgeFromSettings(data);
+			}
 		}
 		return { success: true };
 	},

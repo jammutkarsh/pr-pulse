@@ -243,7 +243,7 @@
 			<div class="space-y-3">
 				<input class="field-input" type="url" bind:value={jiraUrl} placeholder="https://company.atlassian.net/browse/PROJ-123" on:blur={saveJiraUrl} />
 				{#if jiraDashboardUrl}
-					<p class="text-sm text-soft">Dashboard preview: <a class="text-(--accent) underline" href={jiraDashboardUrl} target="_blank">{jiraDashboardUrl}</a></p>
+					<p class="text-sm text-soft">Dashboard preview: <a class="text-(--accent) underline" href={jiraDashboardUrl} target="_blank" rel="noopener noreferrer">{jiraDashboardUrl}</a></p>
 				{:else}
 					<p class="text-sm text-soft">Enter any Jira URL and PR Pulse will normalize it to the base workspace URL.</p>
 				{/if}

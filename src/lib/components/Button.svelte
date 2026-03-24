@@ -27,6 +27,6 @@
 	$: classes = [BASE_CLASSES, VARIANT_CLASSES[variant], SIZE_CLASSES[size], className].filter(Boolean).join(' ');
 </script>
 
-<button type={type} class={classes} {disabled} on:click>
+<button type={type} class={classes} {disabled} on:click {...$$restProps}>
 	<slot />
 </button>

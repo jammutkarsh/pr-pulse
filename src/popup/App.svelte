@@ -254,15 +254,15 @@
 						</div>
 					</button>
 					<div class="flex items-center gap-2">
-						<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={refreshPrs} disabled={refreshInProgress}>
+						<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={refreshPrs} disabled={refreshInProgress} aria-label="Refresh pull requests" title="Refresh pull requests">
 							<RefreshCw class={`h-4 w-4 ${refreshInProgress ? 'animate-spin' : ''}`} />
 						</Button>
 						{#if !isFullpageMode}
-							<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={openFullscreen}>
+							<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={openFullscreen} aria-label="Open full page view" title="Open full page view">
 								<Expand class="h-4 w-4" />
 							</Button>
 						{/if}
-						<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={openSettings}>
+						<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={openSettings} aria-label="Open settings" title="Open settings">
 							<Settings2 class="h-4 w-4" />
 						</Button>
 					</div>
@@ -342,7 +342,7 @@
 												{pr.title}
 											</button>
 										</div>
-										<button class="absolute right-0 top-0 inline-flex h-5 w-5 items-center justify-center rounded-sm text-soft transition hover:bg-(--bg-muted) hover:text-white" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)}>
+										<button class="absolute right-0 top-0 inline-flex h-5 w-5 items-center justify-center rounded-sm text-soft transition hover:bg-(--bg-muted) hover:text-white" type="button" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
 											{#if copiedItemId === `pr-${pr.id}`}
 												<Check class="h-3 w-3 text-(--success)" />
 											{:else}
@@ -377,7 +377,7 @@
 													<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
 													<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
 												</button>
-												<Button className="h-5 w-5 px-0 text-soft hover:text-white" size="icon" variant="ghost" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)}>
+												<Button className="h-5 w-5 px-0 text-soft hover:text-white" size="icon" variant="ghost" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
 													{#if copiedItemId === `branch-${pr.id}`}
 														<Check class="h-3 w-3 text-(--success)" />
 													{:else}

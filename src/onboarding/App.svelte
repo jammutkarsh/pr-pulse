@@ -179,7 +179,14 @@
 					<div class="space-y-3">
 						<div class="relative">
 							<input class="field-input pr-12" type={tokenVisible ? 'text' : 'password'} bind:value={token} placeholder="ghp_xxxxxxxxxxxxxxxxx" autocomplete="off" />
-							<button class="absolute right-3 top-1/2 -translate-y-1/2 text-soft transition hover:text-white" on:click={() => tokenVisible = !tokenVisible}>
+							<button
+								type="button"
+								class="absolute right-3 top-1/2 -translate-y-1/2 text-soft transition hover:text-white"
+								on:click={() => tokenVisible = !tokenVisible}
+								aria-label={tokenVisible ? 'Hide token' : 'Show token'}
+								aria-pressed={tokenVisible}
+								title={tokenVisible ? 'Hide token' : 'Show token'}
+							>
 								{#if tokenVisible}
 									<EyeOff class="h-4 w-4" />
 								{:else}
@@ -187,7 +194,7 @@
 								{/if}
 							</button>
 						</div>
-						<p class="text-sm text-soft">Need a token? <a class="text-(--accent) underline" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank">Create one here</a>.</p>
+						<p class="text-sm text-soft">Need a token? <a class="text-(--accent) underline" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank" rel="noopener noreferrer">Create one here</a>.</p>
 					</div>
 
 					{#if providerData}
@@ -249,7 +256,7 @@
 							<code class="rounded-lg bg-white/6 px-2 py-1 text-white">feat/JIRA-1234/login-flow</code>
 							<span>→</span>
 							{#if previewUrl}
-								<a class="text-(--accent) underline" href={previewUrl} target="_blank">JIRA-1234</a>
+								<a class="text-(--accent) underline" href={previewUrl} target="_blank" rel="noopener noreferrer">JIRA-1234</a>
 							{:else}
 								<span>No Jira configured</span>
 							{/if}
