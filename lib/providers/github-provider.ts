@@ -22,6 +22,8 @@ type PullRequestDetails = {
 };
 
 export class GitHubProvider extends BaseProvider {
+	#etagCache = new Map<string, { etag: string; data: unknown }>();
+
 	constructor(config: ProviderConfig = {}) {
 		super(config);
 		this.name = 'github';
@@ -31,14 +33,24 @@ export class GitHubProvider extends BaseProvider {
 
 	async #request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
 		const url = `${this.baseUrl}${endpoint}`;
+		const cached = this.#etagCache.get(url);
+		const headers: Record<string, string> = {
+			Accept: 'application/vnd.github.v3+json',
+			Authorization: `Bearer ${this.token}`,
+			...(options.headers as Record<string, string>),
+		};
+		if (cached?.etag) {
+			headers['If-None-Match'] = cached.etag;
+		}
+
 		const response = await fetch(url, {
 			...options,
-			headers: {
-				Accept: 'application/vnd.github.v3+json',
-				Authorization: `Bearer ${this.token}`,
-				...options.headers,
-			},
+			headers,
 		});
+
+		if (response.status === 304 && cached) {
+			return cached.data as T;
+		}
 
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({} as { message?: string }));
@@ -52,7 +64,12 @@ export class GitHubProvider extends BaseProvider {
 		}
 
 		try {
-			return await response.json() as T;
+			const data = await response.json() as T;
+			const etag = response.headers.get('etag');
+			if (etag) {
+				this.#etagCache.set(url, { etag, data });
+			}
+			return data;
 		} catch (error) {
 			throw new ProviderError(`Failed to parse GitHub API response: ${(error as Error).message}`, 'PARSE_ERROR', {
 				provider: 'github',

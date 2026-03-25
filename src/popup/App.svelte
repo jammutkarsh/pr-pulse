@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import {
 		Check,
 		Copy,
@@ -15,6 +15,7 @@
 		UserRound,
 	} from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
+	import PopupSkeleton from './PopupSkeleton.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import { storage } from '../../lib/storage';
 	import {
@@ -53,6 +54,15 @@
 		void init();
 	});
 
+	onDestroy(() => {
+		chrome.storage.onChanged.removeListener(onStorageChanged);
+	});
+
+	function onStorageChanged(changes, areaName) {
+		if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
+		prData = changes.pullRequests.newValue;
+	}
+
 	async function init() {
 		isFullpageMode = new URLSearchParams(window.location.search).has('fullpage');
 		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getPopupBootstrapData();
@@ -75,6 +85,8 @@
 		}
 
 		loading = false;
+
+		chrome.storage.onChanged.addListener(onStorageChanged);
 	}
 
 	async function loadPrData() {
@@ -296,10 +308,7 @@
 
 			<div class={`px-4 py-3 sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
 				{#if loading}
-					<div class="state-shell">
-						<RefreshCw class="h-8 w-8 animate-spin text-(--accent)" />
-						<p class="text-sm text-soft">Loading pull requests...</p>
-					</div>
+					<PopupSkeleton className={isFullpageMode ? 'popup-skeleton--fullpage' : ''} />
 				{:else if setupRequired}
 					<div class="state-shell">
 						<div class="accent-surface rounded-full p-4 text-(--accent)">
