@@ -69,12 +69,24 @@ export interface StoredProviderConfig extends ProviderConfig {
 	user?: User;
 }
 
+export interface UiConfig {
+	pageMaxWidthRem: number;
+	popupWidthRem: number;
+	popupHeightRem: number;
+	popupInsetRem: number;
+	surfaceRadiusPx: number;
+	sectionRadiusPx: number;
+	fieldRadiusPx: number;
+	smoothScroll: boolean;
+}
+
 export interface Settings {
 	jiraBaseUrl: string;
 	displayMode: 'popup' | 'fullpage';
 	pinnedTab: 'myPRs' | 'toReview';
 	visibleColumns: string[];
 	pollingIntervalMs: number;
+	ui: UiConfig;
 }
 
 export interface PullRequestData {

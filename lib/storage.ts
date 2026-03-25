@@ -1,18 +1,11 @@
 import type { PullRequestData, Settings, StoredProviderConfig } from './types';
+import { DEFAULT_SETTINGS, normalizeSettings } from './ui-config';
 
 const STORAGE_KEYS = {
 	PROVIDER: 'provider',
 	PULL_REQUESTS: 'pullRequests',
 	SETTINGS: 'settings',
 } as const;
-
-const DEFAULT_SETTINGS: Settings = {
-	jiraBaseUrl: '',
-	displayMode: 'popup',
-	pinnedTab: 'myPRs',
-	visibleColumns: ['title', 'author', 'checks', 'reviewStatus', 'repo', 'changes', 'jira'],
-	pollingIntervalMs: 600000,
-};
 
 export const DEFAULT_USER = {
 	avatar: 'icons/icon128.png',
@@ -73,7 +66,7 @@ async function setPullRequests(pullRequests: Omit<PullRequestData, 'lastFetched'
 
 async function getSettings(): Promise<Settings> {
 	const data = await get<Partial<Settings>>(STORAGE_KEYS.SETTINGS);
-	return { ...DEFAULT_SETTINGS, ...data };
+	return normalizeSettings(data);
 }
 
 async function getPopupBootstrapData(): Promise<{
@@ -82,7 +75,7 @@ async function getPopupBootstrapData(): Promise<{
 	pullRequests: PullRequestData;
 }> {
 	const result = await getMany([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.PROVIDER, STORAGE_KEYS.PULL_REQUESTS] as const);
-	const settings = { ...DEFAULT_SETTINGS, ...(result[STORAGE_KEYS.SETTINGS] as Partial<Settings> | undefined) };
+	const settings = normalizeSettings(result[STORAGE_KEYS.SETTINGS] as Partial<Settings> | undefined);
 	const provider = result[STORAGE_KEYS.PROVIDER] as StoredProviderConfig | undefined;
 	const pullRequests = (result[STORAGE_KEYS.PULL_REQUESTS] as PullRequestData | undefined) || {
 		myPRs: [],
@@ -104,7 +97,7 @@ async function getBackgroundBootstrapData(): Promise<{
 	const result = await getMany([STORAGE_KEYS.SETTINGS, STORAGE_KEYS.PROVIDER] as const);
 
 	return {
-		settings: { ...DEFAULT_SETTINGS, ...(result[STORAGE_KEYS.SETTINGS] as Partial<Settings> | undefined) },
+		settings: normalizeSettings(result[STORAGE_KEYS.SETTINGS] as Partial<Settings> | undefined),
 		provider: result[STORAGE_KEYS.PROVIDER] as StoredProviderConfig | undefined,
 	};
 }

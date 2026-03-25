@@ -141,7 +141,7 @@
 </script>
 
 <div class="min-h-screen px-5 py-6 sm:px-6">
-	<div class="mx-auto flex max-w-3xl flex-col gap-4">
+	<div class="page-shell mx-auto flex flex-col gap-4">
 		<div class="flex items-center justify-between gap-3">
 			<Button variant="ghost" on:click={goBack}>
 				<ArrowLeft class="h-4 w-4" />

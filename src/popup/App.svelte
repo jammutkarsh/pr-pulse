@@ -250,15 +250,24 @@
 
 		return { ticket: jiraTicket, url: jiraUrl };
 	}
+
+	$: statusRowClasses = isFullpageMode
+		? 'flex flex-wrap gap-x-5 gap-y-1.5 text-xs'
+		: 'grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs';
+	$: checkStatusClasses = isFullpageMode
+		? 'unstyled-button status-inline transition-opacity hover:opacity-80'
+		: 'unstyled-button status-inline status-inline-button transition-opacity hover:opacity-80';
+	$: fullpageShellClasses = isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full';
+	$: cardListClasses = isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin';
 </script>
 
 
-<div class={isFullpageMode ? 'min-h-screen px-6 py-6' : 'h-150 w-105 overflow-hidden'}>
-	<div class={`mx-auto flex ${isFullpageMode ? 'max-w-4xl' : 'h-full'} min-h-0 flex-col gap-3`}>
-		<div class={`surface-card overflow-hidden rounded-none ${isFullpageMode ? '' : 'flex h-full flex-col'}`}>
+<div class={isFullpageMode ? 'min-h-screen px-6 py-6' : 'popup-frame'}>
+	<div class={`mx-auto flex ${fullpageShellClasses} min-h-0 flex-col gap-3`}>
+		<div class={`surface-card overflow-hidden ${isFullpageMode ? '' : 'flex h-full flex-col'}`}>
 			<div class="border-b border-soft px-4 py-3 sm:px-4">
 				<div class="flex items-center justify-between gap-3">
-					<button class="group flex min-w-0 items-center gap-3 text-left transition" on:click={() => provider?.user && safeOpenUrl(`https://github.com/${provider.user.login}`)}>
+					<button class="unstyled-button group flex min-w-0 items-center gap-3 text-left transition" on:click={() => provider?.user && safeOpenUrl(`https://github.com/${provider.user.login}`)}>
 						<img src={provider?.user?.avatarUrl || '../icons/icon128.png'} alt="Avatar" class="h-9 w-9 rounded-md border border-soft object-cover" />
 						<div class="min-w-0">
 							<div class="truncate text-sm font-semibold text-white transition group-hover:text-(--accent)">{provider?.user?.name || 'PR Pulse'}</div>
@@ -284,7 +293,7 @@
 			<div class="border-b border-soft px-4 py-2.5 sm:px-4">
 				<div class="grid grid-cols-2 gap-1 rounded-lg bg-(--bg-muted) p-1">
 					<button
-						class={`rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'myPRs' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}
+						class={`unstyled-button rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'myPRs' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}
 						on:click={() => currentTab = 'myPRs'}
 					>
 						<div class="flex items-center justify-center gap-2">
@@ -294,7 +303,7 @@
 						</div>
 					</button>
 					<button
-						class={`rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'toReview' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}
+						class={`unstyled-button rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'toReview' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}
 						on:click={() => currentTab = 'toReview'}
 					>
 						<div class="flex items-center justify-center gap-2">
@@ -336,22 +345,22 @@
 						</p>
 					</div>
 				{:else}
-					<div class={`flex flex-col gap-3 ${isFullpageMode ? '' : 'pr-1 scroll-thin'}`}>
+					<div class={cardListClasses}>
 						{#each currentItems as pr}
 							{@const reviewDisplay = getReviewStatusDisplay(pr.reviews?.status)}
 							{@const checkDisplay = getCheckStatusDisplay(pr.checks?.status)}
 							{@const jiraLink = getJiraLink(pr)}
 							{@const branchUrl = getBranchUrl(pr)}
-							<SectionCard className="rounded-[20px] p-3.5">
+							<SectionCard className="p-3.5">
 								<div class="min-w-0 space-y-1.5">
 									<div class="relative min-w-0 pr-6">
 										<div class="flex min-w-0 items-start gap-1">
-											<button class="flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" on:click={() => safeOpenUrl(pr.url)}>
+											<button class="unstyled-button flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" on:click={() => safeOpenUrl(pr.url)}>
 												<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
 												{pr.title}
 											</button>
 										</div>
-										<button class="metadata-copy-button absolute right-0 top-0" type="button" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
+										<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
 											{#if copiedItemId === `pr-${pr.id}`}
 												<Check class="metadata-copy-icon text-(--success)" />
 											{:else}
@@ -364,12 +373,12 @@
 										{#if currentTab !== 'myPRs'}
 											<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt="" class="h-5 w-5 rounded-full border border-soft object-cover" />
 										{/if}
-										<button class="action-chip" on:click={() => safeOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
+										<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
 											<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
 											<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>
 										</button>
 										<span aria-hidden="true" class="text-dim">•</span>
-										<button class="action-chip" on:click={() => safeOpenUrl(`${pr.url}/changes`)}>
+										<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(`${pr.url}/changes`)}>
 											<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
 											<span class="metadata-diff">
 												<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
@@ -381,7 +390,7 @@
 									{#if jiraLink || branchUrl}
 										<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
 											{#if jiraLink}
-											<button class="action-chip" on:click={() => safeOpenUrl(jiraLink.url)}>
+											<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(jiraLink.url)}>
 												<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
 												<span class="hyperlink-text metadata-jira">{jiraLink.ticket}</span>
 											</button>
@@ -391,11 +400,11 @@
 											{/if}
 											{#if branchUrl}
 											<div class="flex items-center gap-0.5">
-												<button class="action-chip" on:click={() => safeOpenUrl(branchUrl)}>
+												<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(branchUrl)}>
 													<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
 													<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
 												</button>
-												<button class="metadata-copy-button" type="button" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
+												<button class="unstyled-button metadata-copy-button" type="button" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
 													{#if copiedItemId === `branch-${pr.id}`}
 														<Check class="metadata-copy-icon text-(--success)" />
 													{:else}
@@ -408,17 +417,17 @@
 									{/if}
 
 									<div class="border-t border-soft pt-2.5">
-										<div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+										<div class={statusRowClasses}>
 											<button
-												class={`status-inline ${getCheckToneClass(checkDisplay.className)} cursor-pointer transition-opacity hover:opacity-80`}
+												class={`${checkStatusClasses} ${getCheckToneClass(checkDisplay.className)}`}
 												on:click={() => safeOpenUrl(`${pr.url}/checks`)}
 											>
 												<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
-												{checkDisplay.label}
+												<span class="status-inline-label">{checkDisplay.label}</span>
 											</button>
 											<span class={`status-inline ${getReviewToneClass(reviewDisplay.className)}`}>
 												<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
-												{reviewDisplay.label}
+												<span class="status-inline-label">{reviewDisplay.label}</span>
 											</span>
 										</div>
 									</div>

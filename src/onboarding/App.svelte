@@ -1,3 +1,5 @@
+<svelte:options runes={false} />
+
 <script>
 	import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Github, LayoutPanelLeft, Link2, MonitorSmartphone, Sparkles } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
@@ -33,32 +35,25 @@
 	let testingConnection = false;
 	let errorMessage = '';
 	let completingSetup = false;
-	let hydrated = false;
+	let onboardingStateReady = false;
 
-	onMount(async () => {
+	onMount(() => {
 		const saved = sessionStorage.getItem('prPulseOnboarding');
 		if (saved) {
 			try {
 				const state = JSON.parse(saved);
-				if (state.settings) settings = state.settings;
+				if (state.settings) settings = { ...settings, ...state.settings };
 				if (state.token) token = state.token;
-				
-				if (token && state.currentStep > STEP_GITHUB) {
-					await testConnection();
-					if (providerData) {
-						currentStep = state.currentStep;
-					}
-				} else if (state.currentStep) {
-					currentStep = state.currentStep;
-				}
+				if (state.providerData) providerData = state.providerData;
+				if (state.currentStep) currentStep = Math.min(STEP_COMPLETE, Math.max(STEP_GITHUB, state.currentStep));
 			} catch (e) {
 				// ignore invalid state
 			}
 		}
-		hydrated = true;
+		onboardingStateReady = true;
 	});
 
-	$: if (hydrated) {
+	$: if (onboardingStateReady) {
 		sessionStorage.setItem('prPulseOnboarding', JSON.stringify({ currentStep, providerData, settings, token }));
 	}
 
@@ -142,7 +137,6 @@
 			await storage.setProvider(providerData);
 			await storage.setSettings(settings);
 			await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
-			sessionStorage.removeItem('prPulseOnboarding');
 			currentStep = STEP_COMPLETE;
 		} catch (error) {
 			console.error('Setup failed:', error);
@@ -153,6 +147,8 @@
 	}
 
 	function closeSetup() {
+		sessionStorage.removeItem('prPulseOnboarding');
+
 		if (settings.displayMode === 'fullpage') {
 			window.location.href = chrome.runtime.getURL('popup/popup.html?fullpage=1');
 			return;
@@ -163,7 +159,18 @@
 </script>
 
 <div class="min-h-screen px-5 py-6 sm:px-6">
-	<div class="mx-auto flex max-w-4xl flex-col gap-4">
+	{#if !onboardingStateReady}
+		<div class="page-shell mx-auto flex flex-col gap-4">
+			<div class="surface-card p-6">
+				<div class="space-y-2">
+					<div class="text-xs font-semibold uppercase tracking-[0.24em] text-(--accent)">Setup</div>
+					<h1 class="text-3xl font-semibold text-white">Configure PR Pulse</h1>
+					<p class="text-sm leading-[1.2rem] text-soft">Restoring your onboarding progress...</p>
+				</div>
+			</div>
+		</div>
+	{:else}
+	<div class="page-shell mx-auto flex flex-col gap-4">
 		<div class="surface-card p-6">
 			<div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 				<div class="max-w-xl space-y-2">
@@ -178,7 +185,7 @@
 
 			{#if currentStep !== STEP_COMPLETE}
 				<div class="mt-6 grid gap-3 sm:grid-cols-4">
-					{#each steps as step}
+					{#each steps as step (step.id)}
 						<div class={`rounded-lg border px-4 py-3 text-sm transition ${currentStep === step.id ? 'border-(--accent) bg-(--accent-muted) text-white' : currentStep > step.id ? 'border-(--accent-border) bg-[rgba(55,148,255,0.08)] text-soft' : 'border-soft bg-(--bg-panel) text-dim'}`}>
 							<div class="text-[11px] font-semibold uppercase tracking-[0.18em]">{step.id}</div>
 							<div class="mt-1 font-medium">{step.label}</div>
@@ -349,4 +356,5 @@
 			</SectionCard>
 		{/if}
 	</div>
+	{/if}
 </div>
