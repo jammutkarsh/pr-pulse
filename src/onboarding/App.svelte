@@ -5,6 +5,8 @@
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import { storage } from '../../lib/storage';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
+	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
+	import { onMount } from 'svelte';
 
 	const STEP_GITHUB = 1;
 	const STEP_DEFAULT_VIEW = 2;
@@ -31,6 +33,34 @@
 	let testingConnection = false;
 	let errorMessage = '';
 	let completingSetup = false;
+	let hydrated = false;
+
+	onMount(async () => {
+		const saved = sessionStorage.getItem('prPulseOnboarding');
+		if (saved) {
+			try {
+				const state = JSON.parse(saved);
+				if (state.settings) settings = state.settings;
+				if (state.token) token = state.token;
+				
+				if (token && state.currentStep > STEP_GITHUB) {
+					await testConnection();
+					if (providerData) {
+						currentStep = state.currentStep;
+					}
+				} else if (state.currentStep) {
+					currentStep = state.currentStep;
+				}
+			} catch (e) {
+				// ignore invalid state
+			}
+		}
+		hydrated = true;
+	});
+
+	$: if (hydrated) {
+		sessionStorage.setItem('prPulseOnboarding', JSON.stringify({ currentStep, providerData, settings, token }));
+	}
 
 	$: previewUrl = settings.jiraBaseUrl && isValidHttpUrl(settings.jiraBaseUrl) ? `${settings.jiraBaseUrl}/browse/JIRA-1234` : '';
 
@@ -112,6 +142,7 @@
 			await storage.setProvider(providerData);
 			await storage.setSettings(settings);
 			await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
+			sessionStorage.removeItem('prPulseOnboarding');
 			currentStep = STEP_COMPLETE;
 		} catch (error) {
 			console.error('Setup failed:', error);
@@ -298,15 +329,22 @@
 						<CheckCircle2 class="h-10 w-10" />
 					</div>
 					<div class="space-y-2">
-						<h2 class="text-2xl font-semibold text-white">You are ready to go</h2>
-						<p class="max-w-xl text-sm leading-[1.2rem] text-soft">PR Pulse is configured and the background worker can start syncing GitHub pull requests. You can reopen settings later as the extension grows into search, sorting, and multi-platform workflows.</p>
+						<h2 class="text-2xl font-semibold text-white">Get familiar with PR Pulse</h2>
+						<p class="text-sm text-soft">Hover over the elements in the sample card below to see how it works.</p>
 					</div>
-					<div class="grid gap-3 text-left sm:grid-cols-3">
-						<div class="rounded-lg border border-soft bg-(--bg-panel) p-4 text-sm text-soft">Click the extension icon anytime to open the PR list.</div>
-						<div class="rounded-lg border border-soft bg-(--bg-panel) p-4 text-sm text-soft">Background refresh stays aligned with the saved interval setting.</div>
-						<div class="rounded-lg border border-soft bg-(--bg-panel) p-4 text-sm text-soft">Settings remain the place to reconnect tokens and adjust future behaviors.</div>
+					<div class="space-y-4">
+						<InteractiveGuide />
 					</div>
-					<Button on:click={closeSetup}>Open PR Pulse</Button>
+					{#if settings.displayMode === 'popup'}
+						<div class="flex flex-col items-center gap-2 mt-4">
+							<Button on:click={closeSetup}>Close Setup</Button>
+							<span class="text-sm text-soft">Pin the extension and click on it to open.</span>
+						</div>
+					{:else}
+						<div class="mt-4">
+							<Button on:click={closeSetup}>Open PR Pulse</Button>
+						</div>
+					{/if}
 				</div>
 			</SectionCard>
 		{/if}

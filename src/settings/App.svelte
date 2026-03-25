@@ -1,9 +1,10 @@
 <script>
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, MonitorCog, Pin, ShieldAlert, Ticket, UserRound } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, MonitorCog, Pin, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
+	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
 	import { storage } from '../../lib/storage';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
 
@@ -135,14 +136,7 @@
 
 		await storage.clearAll();
 		await chrome.runtime.sendMessage({ type: 'CLEAR_ALL' });
-		provider = null;
-		currentSettings = await storage.getSettings() || {};
-		jiraUrl = '';
-		pollingIntervalMs = currentSettings.pollingIntervalMs || 600000;
-		reconnecting = true;
-		token = '';
-		tokenError = '';
-		tokenSuccess = '';
+		window.location.href = chrome.runtime.getURL('onboarding/onboarding.html');
 	}
 </script>
 
@@ -290,6 +284,19 @@
 				</div>
 			</SectionCard>
 		</div>
+
+		<SectionCard>
+			<div class="mb-0 flex items-center gap-3">
+				<div class="rounded-2xl bg-white/6 p-3 text-white">
+					<Sparkles class="h-5 w-5" />
+				</div>
+				<div>
+					<h2 class="text-base font-semibold text-white">Visual guidance</h2>
+					<p class="text-sm text-soft">Hover over the sample card elements to recall what they do.</p>
+				</div>
+			</div>
+			<InteractiveGuide />
+		</SectionCard>
 
 		<SectionCard className="danger-surface">
 			<div class="mb-4 flex items-center gap-3 text-(--danger)">

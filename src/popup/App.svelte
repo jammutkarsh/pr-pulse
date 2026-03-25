@@ -346,8 +346,8 @@
 								<div class="min-w-0 space-y-1.5">
 									<div class="relative min-w-0 pr-6">
 										<div class="flex min-w-0 items-start gap-1">
-											<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
-											<button class="hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" on:click={() => safeOpenUrl(pr.url)}>
+											<button class="flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" on:click={() => safeOpenUrl(pr.url)}>
+												<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
 												{pr.title}
 											</button>
 										</div>
@@ -409,10 +409,13 @@
 
 									<div class="border-t border-soft pt-2.5">
 										<div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-											<span class={`status-inline ${getCheckToneClass(checkDisplay.className)}`}>
+											<button
+												class={`status-inline ${getCheckToneClass(checkDisplay.className)} cursor-pointer transition-opacity hover:opacity-80`}
+												on:click={() => safeOpenUrl(`${pr.url}/checks`)}
+											>
 												<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
 												{checkDisplay.label}
-											</span>
+											</button>
 											<span class={`status-inline ${getReviewToneClass(reviewDisplay.className)}`}>
 												<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 												{reviewDisplay.label}
