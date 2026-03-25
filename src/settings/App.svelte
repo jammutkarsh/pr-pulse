@@ -118,7 +118,7 @@
 			flashSaved();
 		} catch (error) {
 			console.error('Token validation failed:', error);
-			tokenError = `Failed: ${error.message || 'Token validation failed.'}`;
+			tokenError = `Failed: ${error instanceof Error ? error.message : 'Token validation failed.'}`;
 		} finally {
 			validatingToken = false;
 		}
@@ -134,6 +134,7 @@
 		}
 
 		await storage.clearAll();
+		await chrome.runtime.sendMessage({ type: 'CLEAR_ALL' });
 		provider = null;
 		currentSettings = await storage.getSettings() || {};
 		jiraUrl = '';

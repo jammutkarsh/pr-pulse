@@ -1,6 +1,6 @@
 {
   "name": "pr-pulse",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A Chrome extension that provides real-time insights and analytics for GitHub pull requests, helping developers stay informed and make data-driven decisions.",
   "main": "service-worker.js",
   "directories": {

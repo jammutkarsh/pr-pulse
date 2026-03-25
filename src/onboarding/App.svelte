@@ -70,7 +70,7 @@
 			};
 		} catch (error) {
 			console.error('Failed to authenticate token:', error);
-			errorMessage = error.message || 'Failed to connect. Check your token and try again.';
+			errorMessage = error instanceof Error ? error.message : 'Failed to connect. Check your token and try again.';
 		} finally {
 			testingConnection = false;
 		}

@@ -89,7 +89,8 @@ async function setupPollingAlarm(forceRecreate = false): Promise<void> {
 chrome.runtime.onInstalled.addListener(async (details) => {
 	console.log('Extension installed/updated:', details.reason);
 	if (details.reason === 'install') {
-		chrome.tabs.create({ url: 'onboarding/onboarding.html' });
+		const onboardingUrl = chrome.runtime.getURL('onboarding/onboarding.html');
+		chrome.tabs.create({ url: onboardingUrl });
 		return;
 	}
 
@@ -106,7 +107,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
-	handleMessage(message).then(sendResponse);
+	handleMessage(message)
+		.then(sendResponse)
+		.catch((error) => {
+			console.error('Error handling runtime message:', error);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			sendResponse({ success: false, error: errorMessage });
+		});
 	return true;
 });
 
@@ -140,6 +147,14 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 				await updateBadgeFromSettings(data);
 			}
 		}
+		return { success: true };
+	},
+	CLEAR_ALL: async () => {
+		providerManager.setProvider(null);
+		cachedSettings = null;
+		cachedProviderConfig = undefined;
+		await chrome.alarms.clear(ALARM_NAME);
+		chrome.action.setBadgeText({ text: '' });
 		return { success: true };
 	},
 };

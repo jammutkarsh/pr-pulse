@@ -88,7 +88,8 @@ export type RuntimeMessage =
 	| { type: 'REFRESH_PRS' }
 	| { type: 'GET_PRS' }
 	| { type: 'UPDATE_SETTINGS'; settings: Partial<Settings> }
-	| { type: 'SETTINGS_UPDATED'; settings: Partial<Settings> };
+	| { type: 'SETTINGS_UPDATED'; settings: Partial<Settings> }
+	| { type: 'CLEAR_ALL' };
 
 export interface ProviderErrorDetails {
 	statusCode?: number;
