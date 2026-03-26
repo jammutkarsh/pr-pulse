@@ -1,32 +1,16 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import {
-		Check,
-		Copy,
-		Expand,
-		FileDiff,
-		FolderGit2,
-		GitBranch,
-		GitPullRequest,
-		Inbox,
-		RefreshCw,
-		Settings2,
-		Ticket,
-		UserRound,
-	} from 'lucide-svelte';
-	import Button from '../lib/components/Button.svelte';
+	import PopupHeader from './PopupHeader.svelte';
+	import PopupTabs from './PopupTabs.svelte';
+	import PrCard from './PrCard.svelte';
+	import PopupStates from './PopupStates.svelte';
 	import PopupSkeleton from './PopupSkeleton.svelte';
-	import SectionCard from '../lib/components/SectionCard.svelte';
+	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import { storage } from '../../lib/storage';
 	import {
 		copyToClipboard,
-		extractJiraTicket,
 		formatRelativeTime,
-		getCheckStatusDisplay,
-		getJiraUrl,
-		getReviewStatusDisplay,
 		isValidHttpUrl,
-		safeParseInt,
 	} from '../../lib/utils';
 
 	let currentTab = 'myPRs';
@@ -42,6 +26,8 @@
 	let toastMessage = '';
 	let toastType = 'info';
 	let toastVisible = false;
+	let viewedPrIds = new Set();
+	let newPrCount = 0;
 
 	export let bootstrapDataPromise = null;
 
@@ -49,6 +35,8 @@
 	$: myPrCount = prData.myPRs?.length || 0;
 	$: reviewCount = prData.reviewRequests?.length || 0;
 	$: lastUpdatedText = prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync';
+	$: fullpageShellClasses = isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full';
+	$: cardListClasses = isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin';
 
 	onMount(() => {
 		void init();
@@ -60,7 +48,14 @@
 
 	function onStorageChanged(changes, areaName) {
 		if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
-		prData = changes.pullRequests.newValue;
+		const newData = changes.pullRequests.newValue;
+		prData = newData;
+
+		// Count PRs that weren't in the snapshot taken when the popup opened
+		if (viewedPrIds.size > 0) {
+			const allNewIds = [...(newData.myPRs || []), ...(newData.reviewRequests || [])].map(pr => pr.id);
+			newPrCount = allNewIds.filter(id => !viewedPrIds.has(id)).length;
+		}
 	}
 
 	async function init() {
@@ -80,6 +75,9 @@
 
 		if (!setupRequired) {
 			prData = bootstrapData.pullRequests;
+			// Snapshot current PR IDs so we can detect new ones from background refreshes
+			const allPrs = [...(prData.myPRs || []), ...(prData.reviewRequests || [])];
+			viewedPrIds = new Set(allPrs.map(pr => pr.id));
 		} else {
 			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
 		}
@@ -172,276 +170,69 @@
 			}
 		}, 1000);
 	}
-
-	function getBranchUrl(pr) {
-		if (!pr?.repoFullName || !pr?.branchName) {
-			return null;
-		}
-
-		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName)}`;
-	}
-
-	function getStatusDotClass(pr) {
-		const checksStatus = pr.checks?.status;
-		const checksOk = !checksStatus || checksStatus === 'success' || checksStatus === 'neutral' || checksStatus === 'unknown';
-		const reviewOk = pr.reviews?.status === 'approved';
-
-		if (checksOk && reviewOk) {
-			return 'bg-(--success)';
-		}
-
-		if (!checksOk && !reviewOk) {
-			return 'bg-(--danger)';
-		}
-
-		return 'bg-(--warning)';
-	}
-
-	function getCheckToneClass(className) {
-		switch (className) {
-			case 'checks-success':
-				return 'status-inline-success';
-			case 'checks-failure':
-				return 'status-inline-danger';
-			case 'checks-pending':
-				return 'status-inline-warning';
-			default:
-				return 'status-inline-neutral';
-		}
-	}
-
-	function getReviewToneClass(className) {
-		switch (className) {
-			case 'status-approved':
-				return 'status-inline-success';
-			case 'status-changes':
-				return 'status-inline-danger';
-			default:
-				return 'status-inline-warning';
-		}
-	}
-
-	function getDotToneClass(className) {
-		switch (className) {
-			case 'checks-success':
-			case 'status-approved':
-				return 'status-dot-success';
-			case 'checks-failure':
-			case 'status-changes':
-				return 'status-dot-danger';
-			case 'checks-pending':
-			case 'status-pending':
-				return 'status-dot-warning';
-			default:
-				return 'status-dot-neutral';
-		}
-	}
-
-	function getJiraLink(pr) {
-		const jiraTicket = extractJiraTicket(pr.branchName);
-		if (!jiraTicket || !settings.jiraBaseUrl) {
-			return null;
-		}
-
-		const jiraUrl = getJiraUrl(jiraTicket, settings.jiraBaseUrl);
-		if (!isValidHttpUrl(jiraUrl)) {
-			return null;
-		}
-
-		return { ticket: jiraTicket, url: jiraUrl };
-	}
-
-	$: statusRowClasses = isFullpageMode
-		? 'flex flex-wrap gap-x-5 gap-y-1.5 text-xs'
-		: 'grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs';
-	$: checkStatusClasses = isFullpageMode
-		? 'unstyled-button status-inline transition-opacity hover:opacity-80'
-		: 'unstyled-button status-inline status-inline-button transition-opacity hover:opacity-80';
-	$: fullpageShellClasses = isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full';
-	$: cardListClasses = isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin';
 </script>
 
 
 <div class={isFullpageMode ? 'min-h-screen px-6 py-6' : 'popup-frame'}>
 	<div class={`mx-auto flex ${fullpageShellClasses} min-h-0 flex-col gap-3`}>
 		<div class={`surface-card overflow-hidden ${isFullpageMode ? '' : 'flex h-full flex-col'}`}>
-			<div class="border-b border-soft px-4 py-3 sm:px-4">
-				<div class="flex items-center justify-between gap-3">
-					<button class="unstyled-button group flex min-w-0 items-center gap-3 text-left transition" on:click={() => provider?.user && safeOpenUrl(`https://github.com/${provider.user.login}`)}>
-						<img src={provider?.user?.avatarUrl || '../icons/icon128.png'} alt="Avatar" class="h-9 w-9 rounded-md border border-soft object-cover" />
-						<div class="min-w-0">
-							<div class="truncate text-sm font-semibold text-white transition group-hover:text-(--accent)">{provider?.user?.name || 'PR Pulse'}</div>
-							<div class="truncate text-xs text-soft transition group-hover:text-(--accent)">{provider?.user?.login ? `@${provider.user.login}` : 'Pull request radar'}</div>
-						</div>
-					</button>
-					<div class="flex items-center gap-2">
-						<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={refreshPrs} disabled={refreshInProgress} aria-label="Refresh pull requests" title="Refresh pull requests">
-							<RefreshCw class={`h-4 w-4 ${refreshInProgress ? 'animate-spin' : ''}`} />
-						</Button>
-						{#if !isFullpageMode}
-							<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={openFullscreen} aria-label="Open full page view" title="Open full page view">
-								<Expand class="h-4 w-4" />
-							</Button>
-						{/if}
-						<Button className="hover:text-(--accent)" size="icon" variant="ghost" on:click={openSettings} aria-label="Open settings" title="Open settings">
-							<Settings2 class="h-4 w-4" />
-						</Button>
-					</div>
-				</div>
-			</div>
+			<PopupHeader
+				{provider}
+				{isFullpageMode}
+				{refreshInProgress}
+				onOpenUrl={safeOpenUrl}
+				onRefresh={refreshPrs}
+				onOpenFullscreen={openFullscreen}
+				onOpenSettings={openSettings}
+			/>
 
-			<div class="border-b border-soft px-4 py-2.5 sm:px-4">
-				<div class="grid grid-cols-2 gap-1 rounded-lg bg-(--bg-muted) p-1">
-					<button
-						class={`unstyled-button rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'myPRs' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}
-						on:click={() => currentTab = 'myPRs'}
-					>
-						<div class="flex items-center justify-center gap-2">
-							<GitPullRequest class="h-4 w-4" />
-							<span>My PRs</span>
-							<span class="rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-semibold">{myPrCount}</span>
-						</div>
-					</button>
-					<button
-						class={`unstyled-button rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'toReview' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}
-						on:click={() => currentTab = 'toReview'}
-					>
-						<div class="flex items-center justify-center gap-2">
-							<Inbox class="h-4 w-4" />
-							<span>To Review</span>
-							<span class="rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-semibold">{reviewCount}</span>
-						</div>
-					</button>
-				</div>
-			</div>
+			<PopupTabs
+				{currentTab}
+				{myPrCount}
+				{reviewCount}
+				onTabChange={(tab) => currentTab = tab}
+			/>
 
 			<div class={`px-4 py-3 sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
 				{#if loading}
 					<PopupSkeleton className={isFullpageMode ? 'popup-skeleton--fullpage' : ''} />
-				{:else if setupRequired}
-					<div class="state-shell">
-						<div class="accent-surface rounded-full p-4 text-(--accent)">
-							<UserRound class="h-8 w-8" />
-						</div>
-						<div class="space-y-1">
-							<h2 class="text-lg font-semibold">Setup Required</h2>
-							<p class="max-w-sm text-sm text-soft">Connect your GitHub account to start tracking PRs in the popup.</p>
-						</div>
-						<Button on:click={openSetup}>Open Setup</Button>
-					</div>
-				{:else if errorMessage}
-					<div class="state-shell">
-						<div class="text-sm text-(--danger)">{errorMessage}</div>
-						<Button variant="secondary" on:click={loadPrData}>Try Again</Button>
-					</div>
-				{:else if currentItems.length === 0}
-					<div class="state-shell">
-						<div class="rounded-full bg-white/6 p-4 text-soft">
-							<Inbox class="h-8 w-8" />
-						</div>
-						<h2 class="text-lg font-semibold">No pull requests here</h2>
-						<p class="max-w-sm text-sm text-soft">
-							{currentTab === 'myPRs' ? "You don't have any open PRs right now." : 'No pull requests are waiting for your review.'}
-						</p>
-					</div>
+				{:else if setupRequired || errorMessage || currentItems.length === 0}
+					<PopupStates
+						{setupRequired}
+						{errorMessage}
+						{currentTab}
+						onOpenSetup={openSetup}
+						onRetry={loadPrData}
+					/>
 				{:else}
 					<div class={cardListClasses}>
-						{#each currentItems as pr}
-							{@const reviewDisplay = getReviewStatusDisplay(pr.reviews?.status)}
-							{@const checkDisplay = getCheckStatusDisplay(pr.checks?.status)}
-							{@const jiraLink = getJiraLink(pr)}
-							{@const branchUrl = getBranchUrl(pr)}
-							<SectionCard className="p-3.5">
-								<div class="min-w-0 space-y-1.5">
-									<div class="relative min-w-0 pr-6">
-										<div class="flex min-w-0 items-start gap-1">
-											<button class="unstyled-button flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" on:click={() => safeOpenUrl(pr.url)}>
-												<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
-												{pr.title}
-											</button>
-										</div>
-										<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" on:click={() => handleCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
-											{#if copiedItemId === `pr-${pr.id}`}
-												<Check class="metadata-copy-icon text-(--success)" />
-											{:else}
-												<Copy class="metadata-copy-icon" />
-											{/if}
-										</button>
-									</div>
-
-									<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
-										{#if currentTab !== 'myPRs'}
-											<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt="" class="h-5 w-5 rounded-full border border-soft object-cover" />
-										{/if}
-										<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
-											<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
-											<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>
-										</button>
-										<span aria-hidden="true" class="text-dim">•</span>
-										<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(`${pr.url}/changes`)}>
-											<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
-											<span class="metadata-diff">
-												<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
-												<span class="metadata-diff-del">-{safeParseInt(pr.changes?.deletions, 0)}</span>
-											</span>
-										</button>
-									</div>
-
-									{#if jiraLink || branchUrl}
-										<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
-											{#if jiraLink}
-											<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(jiraLink.url)}>
-												<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
-												<span class="hyperlink-text metadata-jira">{jiraLink.ticket}</span>
-											</button>
-											{/if}
-											{#if jiraLink && branchUrl}
-												<span aria-hidden="true" class="text-dim">•</span>
-											{/if}
-											{#if branchUrl}
-											<div class="flex items-center gap-0.5">
-												<button class="unstyled-button action-chip" on:click={() => safeOpenUrl(branchUrl)}>
-													<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
-													<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
-												</button>
-												<button class="unstyled-button metadata-copy-button" type="button" on:click={() => handleCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
-													{#if copiedItemId === `branch-${pr.id}`}
-														<Check class="metadata-copy-icon text-(--success)" />
-													{:else}
-														<Copy class="metadata-copy-icon" />
-													{/if}
-												</button>
-											</div>
-											{/if}
-										</div>
-									{/if}
-
-									<div class="border-t border-soft pt-2.5">
-										<div class={statusRowClasses}>
-											<button
-												class={`${checkStatusClasses} ${getCheckToneClass(checkDisplay.className)}`}
-												on:click={() => safeOpenUrl(`${pr.url}/checks`)}
-											>
-												<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
-												<span class="status-inline-label">{checkDisplay.label}</span>
-											</button>
-											<span class={`status-inline ${getReviewToneClass(reviewDisplay.className)}`}>
-												<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
-												<span class="status-inline-label">{reviewDisplay.label}</span>
-											</span>
-										</div>
-									</div>
-								</div>
-							</SectionCard>
+						{#each currentItems as pr (pr.id)}
+							<PrCard
+								{pr}
+								{currentTab}
+								{isFullpageMode}
+								{settings}
+								{copiedItemId}
+								onOpenUrl={safeOpenUrl}
+								onCopy={handleCopy}
+							/>
 						{/each}
 					</div>
 				{/if}
 			</div>
 
-			<div class="flex items-center justify-center border-t border-soft px-4 py-2.5 text-xs text-soft sm:px-4">
+			<div class="flex items-center justify-center gap-2 border-t border-soft px-4 py-2.5 text-xs text-soft sm:px-4">
 				<span>{lastUpdatedText}</span>
+				{#if newPrCount > 0}
+					<span aria-hidden="true" class="text-dim">·</span>
+					<span class="font-medium text-(--accent)">{newPrCount} new</span>
+				{/if}
 			</div>
 		</div>
+
+		{#if isFullpageMode}
+			<AttributionFooter />
+		{/if}
 
 		{#if toastVisible}
 			<div class={`fixed bottom-4 right-4 rounded-md border px-4 py-3 text-sm shadow-soft ${toastType === 'error' ? 'danger-surface text-(--danger)' : toastType === 'warning' ? 'warning-surface text-(--warning)' : 'accent-surface text-(--accent)'}`}>

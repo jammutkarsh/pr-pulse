@@ -5,6 +5,7 @@
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
+	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import { storage } from '../../lib/storage';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
 
@@ -258,7 +259,7 @@
 				</div>
 				<div class="relative">
 					<select class="select-input pr-10" bind:value={pollingIntervalMs} on:change={updatePollingInterval}>
-						{#each pollingOptions as option}
+						{#each pollingOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
@@ -310,5 +311,7 @@
 			</div>
 			<Button variant="danger" on:click={resetAll}>Reset all settings and data</Button>
 		</SectionCard>
+
+		<AttributionFooter />
 	</div>
 </div>

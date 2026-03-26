@@ -1,14 +1,15 @@
 <svelte:options runes={false} />
 
 <script>
-	import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Github, LayoutPanelLeft, Link2, MonitorSmartphone, Sparkles } from 'lucide-svelte';
-	import Button from '../lib/components/Button.svelte';
-	import RadioCard from '../lib/components/RadioCard.svelte';
-	import SectionCard from '../lib/components/SectionCard.svelte';
+	import { onMount } from 'svelte';
 	import { storage } from '../../lib/storage';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
-	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
-	import { onMount } from 'svelte';
+	import GithubStep from './steps/GithubStep.svelte';
+	import DefaultViewStep from './steps/DefaultViewStep.svelte';
+	import JiraStep from './steps/JiraStep.svelte';
+	import DisplayStep from './steps/DisplayStep.svelte';
+	import CompleteStep from './steps/CompleteStep.svelte';
+	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 
 	const STEP_GITHUB = 1;
 	const STEP_DEFAULT_VIEW = 2;
@@ -36,6 +37,7 @@
 	let errorMessage = '';
 	let completingSetup = false;
 	let onboardingStateReady = false;
+	let syncedPrCount = 0;
 
 	onMount(() => {
 		const saved = sessionStorage.getItem('prPulseOnboarding');
@@ -46,7 +48,7 @@
 				if (state.token) token = state.token;
 				if (state.providerData) providerData = state.providerData;
 				if (state.currentStep) currentStep = Math.min(STEP_COMPLETE, Math.max(STEP_GITHUB, state.currentStep));
-			} catch (e) {
+			} catch {
 				// ignore invalid state
 			}
 		}
@@ -55,17 +57,6 @@
 
 	$: if (onboardingStateReady) {
 		sessionStorage.setItem('prPulseOnboarding', JSON.stringify({ currentStep, providerData, settings, token }));
-	}
-
-	$: previewUrl = settings.jiraBaseUrl && isValidHttpUrl(settings.jiraBaseUrl) ? `${settings.jiraBaseUrl}/browse/JIRA-1234` : '';
-
-	async function handlePrimaryConnectionAction() {
-		if (providerData) {
-			nextStep();
-			return;
-		}
-
-		await testConnection();
 	}
 
 	async function testConnection() {
@@ -116,10 +107,10 @@
 		currentStep = Math.max(STEP_GITHUB, currentStep - 1);
 	}
 
-	function updateJiraUrl(event) {
+	function updateJiraUrl(value) {
 		settings = {
 			...settings,
-			jiraBaseUrl: sanitizeJiraUrl(event.currentTarget.value.trim()),
+			jiraBaseUrl: sanitizeJiraUrl(value.trim()),
 		};
 	}
 
@@ -136,7 +127,25 @@
 		try {
 			await storage.setProvider(providerData);
 			await storage.setSettings(settings);
+
+			// Listen for the PR data write triggered by the service worker
+			const prSyncPromise = new Promise((resolve) => {
+				function onChanged(changes, areaName) {
+					if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
+					chrome.storage.onChanged.removeListener(onChanged);
+					const data = changes.pullRequests.newValue;
+					resolve((data.myPRs?.length || 0) + (data.reviewRequests?.length || 0));
+				}
+				chrome.storage.onChanged.addListener(onChanged);
+				// Timeout fallback in case no PRs are fetched
+				setTimeout(() => {
+					chrome.storage.onChanged.removeListener(onChanged);
+					resolve(0);
+				}, 15000);
+			});
+
 			await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
+			syncedPrCount = await prSyncPromise;
 			currentStep = STEP_COMPLETE;
 		} catch (error) {
 			console.error('Setup failed:', error);
@@ -202,159 +211,47 @@
 		{/if}
 
 		{#if currentStep === STEP_GITHUB}
-			<SectionCard className="p-6">
-				<div class="space-y-4">
-					<div class="flex items-center gap-3">
-						<div class="accent-surface rounded-lg border p-3 text-(--accent)">
-							<Github class="h-5 w-5" />
-						</div>
-						<div>
-							<h2 class="text-xl font-semibold text-white">Connect to GitHub</h2>
-							<p class="text-sm text-soft">Authenticate once, then let the background worker keep your PRs fresh.</p>
-						</div>
-					</div>
-
-					<div class="space-y-3">
-						<div class="relative">
-							<input class="field-input pr-12" type={tokenVisible ? 'text' : 'password'} bind:value={token} placeholder="ghp_xxxxxxxxxxxxxxxxx" autocomplete="off" />
-							<button
-								type="button"
-								class="absolute right-3 top-1/2 -translate-y-1/2 text-soft transition hover:text-white"
-								on:click={() => tokenVisible = !tokenVisible}
-								aria-label={tokenVisible ? 'Hide token' : 'Show token'}
-								aria-pressed={tokenVisible}
-								title={tokenVisible ? 'Hide token' : 'Show token'}
-							>
-								{#if tokenVisible}
-									<EyeOff class="h-4 w-4" />
-								{:else}
-									<Eye class="h-4 w-4" />
-								{/if}
-							</button>
-						</div>
-						<p class="text-sm text-soft">Need a token? <a class="text-(--accent) underline" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank" rel="noopener noreferrer">Create one here</a>.</p>
-					</div>
-
-					{#if providerData}
-						<div class="accent-surface rounded-lg border p-4">
-							<div class="flex items-center gap-3">
-								<img src={providerData.user.avatarUrl} alt="Avatar" class="h-12 w-12 rounded-2xl border border-soft object-cover" />
-								<div>
-									<div class="text-sm font-semibold text-white">{providerData.user.name || providerData.user.login}</div>
-									<div class="text-xs text-soft">@{providerData.user.login}</div>
-								</div>
-							</div>
-						</div>
-					{/if}
-
-					<div class="flex flex-wrap gap-3">
-						<Button on:click={handlePrimaryConnectionAction} disabled={testingConnection}>
-							{testingConnection ? 'Testing connection...' : providerData ? 'Continue' : 'Test connection'}
-							<ArrowRight class="h-4 w-4" />
-						</Button>
-					</div>
-				</div>
-			</SectionCard>
+			<GithubStep
+				{token}
+				{tokenVisible}
+				{testingConnection}
+				{providerData}
+				onTestConnection={testConnection}
+				onNext={nextStep}
+				onTokenChange={(val) => token = val}
+				onToggleTokenVisible={() => tokenVisible = !tokenVisible}
+			/>
 		{:else if currentStep === STEP_DEFAULT_VIEW}
-			<SectionCard className="p-6">
-				<div class="mb-5 flex items-center gap-3">
-					<div class="rounded-2xl bg-white/6 p-3 text-white">
-						<LayoutPanelLeft class="h-5 w-5" />
-					</div>
-					<div>
-						<h2 class="text-xl font-semibold text-white">Choose your default view</h2>
-						<p class="text-sm text-soft">Pick the first tab the popup should show when you open the extension.</p>
-					</div>
-				</div>
-				<div class="grid gap-3 md:grid-cols-2">
-					<RadioCard name="pinnedTab" value="myPRs" currentValue={settings.pinnedTab} title="My PRs" description="Track pull requests you authored and keep an eye on CI and review progress." icon="📤" on:change={(event) => settings = { ...settings, pinnedTab: event.detail }} />
-					<RadioCard name="pinnedTab" value="toReview" currentValue={settings.pinnedTab} title="To review" description="Prioritize the work queued up for your review workload and team coordination." icon="📥" on:change={(event) => settings = { ...settings, pinnedTab: event.detail }} />
-				</div>
-				<div class="mt-6 flex flex-wrap gap-3">
-					<Button variant="secondary" on:click={prevStep}><ArrowLeft class="h-4 w-4" />Back</Button>
-					<Button on:click={nextStep}>Continue<ArrowRight class="h-4 w-4" /></Button>
-				</div>
-			</SectionCard>
+			<DefaultViewStep
+				pinnedTab={settings.pinnedTab}
+				onPinnedTabChange={(val) => settings = { ...settings, pinnedTab: val }}
+				onNext={nextStep}
+				onBack={prevStep}
+			/>
 		{:else if currentStep === STEP_JIRA}
-			<SectionCard className="p-6">
-				<div class="mb-5 flex items-center gap-3">
-					<div class="rounded-2xl bg-white/6 p-3 text-white">
-						<Link2 class="h-5 w-5" />
-					</div>
-					<div>
-						<h2 class="text-xl font-semibold text-white">Connect Jira</h2>
-						<p class="text-sm text-soft">Map branch names to ticket links now, or skip and configure it later from settings.</p>
-					</div>
-				</div>
-				<div class="space-y-4">
-					<input class="field-input" type="url" value={settings.jiraBaseUrl} on:input={updateJiraUrl} placeholder="https://company.atlassian.net/browse/PROJ-123" />
-					<div class="rounded-lg border border-soft bg-(--bg-panel) p-4 text-sm text-soft">
-						<div class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-dim">Preview</div>
-						<div class="flex flex-wrap items-center gap-2">
-							<code class="rounded-lg bg-white/6 px-2 py-1 text-white">feat/JIRA-1234/login-flow</code>
-							<span>→</span>
-							{#if previewUrl}
-								<a class="text-(--accent) underline" href={previewUrl} target="_blank" rel="noopener noreferrer">JIRA-1234</a>
-							{:else}
-								<span>No Jira configured</span>
-							{/if}
-						</div>
-					</div>
-				</div>
-				<div class="mt-6 flex flex-wrap gap-3">
-					<Button variant="secondary" on:click={prevStep}><ArrowLeft class="h-4 w-4" />Back</Button>
-					<Button on:click={nextStep}>Continue<ArrowRight class="h-4 w-4" /></Button>
-				</div>
-			</SectionCard>
+			<JiraStep
+				jiraBaseUrl={settings.jiraBaseUrl}
+				onJiraUrlChange={updateJiraUrl}
+				onNext={nextStep}
+				onBack={prevStep}
+			/>
 		{:else if currentStep === STEP_DISPLAY}
-			<SectionCard className="p-6">
-				<div class="mb-5 flex items-center gap-3">
-					<div class="rounded-2xl bg-white/6 p-3 text-white">
-						<MonitorSmartphone class="h-5 w-5" />
-					</div>
-					<div>
-						<h2 class="text-xl font-semibold text-white">Choose a display mode</h2>
-						<p class="text-sm text-soft">Start compact in the popup or jump directly into a full-page workspace.</p>
-					</div>
-				</div>
-				<div class="grid gap-3 md:grid-cols-2">
-					<RadioCard name="displayMode" value="popup" currentValue={settings.displayMode} title="Popup" description="A compact glanceable interface from the toolbar for quick daily use." icon="📱" on:change={(event) => settings = { ...settings, displayMode: event.detail }} />
-					<RadioCard name="displayMode" value="fullpage" currentValue={settings.displayMode} title="Full page" description="A broader canvas better suited for future filters, search, and richer organization." icon="🖥️" on:change={(event) => settings = { ...settings, displayMode: event.detail }} />
-				</div>
-				<div class="mt-6 flex flex-wrap gap-3">
-					<Button variant="secondary" on:click={prevStep}><ArrowLeft class="h-4 w-4" />Back</Button>
-					<Button on:click={completeSetup} disabled={completingSetup}>
-						{completingSetup ? 'Finishing setup...' : 'Complete setup'}
-						<Sparkles class="h-4 w-4" />
-					</Button>
-				</div>
-			</SectionCard>
+			<DisplayStep
+				displayMode={settings.displayMode}
+				{completingSetup}
+				onDisplayModeChange={(val) => settings = { ...settings, displayMode: val }}
+				onComplete={completeSetup}
+				onBack={prevStep}
+			/>
 		{:else}
-			<SectionCard className="p-6">
-				<div class="flex flex-col items-center gap-5 text-center">
-					<div class="accent-surface rounded-full border p-4 text-(--accent)">
-						<CheckCircle2 class="h-10 w-10" />
-					</div>
-					<div class="space-y-2">
-						<h2 class="text-2xl font-semibold text-white">Get familiar with PR Pulse</h2>
-						<p class="text-sm text-soft">Hover over the elements in the sample card below to see how it works.</p>
-					</div>
-					<div class="space-y-4">
-						<InteractiveGuide />
-					</div>
-					{#if settings.displayMode === 'popup'}
-						<div class="flex flex-col items-center gap-2 mt-4">
-							<Button on:click={closeSetup}>Close Setup</Button>
-							<span class="text-sm text-soft">Pin the extension and click on it to open.</span>
-						</div>
-					{:else}
-						<div class="mt-4">
-							<Button on:click={closeSetup}>Open PR Pulse</Button>
-						</div>
-					{/if}
-				</div>
-			</SectionCard>
+			<CompleteStep
+				displayMode={settings.displayMode}
+				{syncedPrCount}
+				onClose={closeSetup}
+			/>
 		{/if}
+
+		<AttributionFooter />
 	</div>
 	{/if}
 </div>

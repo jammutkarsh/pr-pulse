@@ -131,6 +131,10 @@ a {
 		overflow: hidden;
 	}
 
+	.popup-frame .surface-card {
+		border-radius: 0;
+	}
+
 	.popup-content-width {
 		max-width: var(--popup-content-width);
 	}
@@ -470,7 +474,6 @@ a {
 	min-height: var(--popup-height);
 	flex-direction: column;
 	overflow: hidden;
-	border-radius: var(--surface-radius);
 }
 
 .popup-skeleton--fullpage .popup-skeleton__panel {
@@ -650,4 +653,62 @@ a {
 	100% {
 		background-position: -200% 0;
 	}
+}
+
+.attribution-footer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 1.25rem 1rem;
+	text-align: center;
+}
+
+.attribution-built-by {
+	font-size: 0.75rem;
+	color: var(--text-dim);
+}
+
+.attribution-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem 0.5rem;
+}
+
+.attribution-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--text-soft);
+	text-decoration: none;
+	transition: color 0.2s ease;
+}
+
+.attribution-link:hover {
+	color: var(--accent);
+}
+
+.attribution-link--author {
+	color: var(--accent);
+	text-decoration: underline;
+	text-underline-offset: 0.14em;
+}
+
+.attribution-link--author:hover {
+	color: var(--accent-strong);
+}
+
+.attribution-icon {
+	height: 0.875rem;
+	width: 0.875rem;
+}
+
+.attribution-sep {
+	color: var(--text-dim);
+	font-size: 0.75rem;
+	user-select: none;
 }

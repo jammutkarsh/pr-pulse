@@ -1,0 +1,199 @@
+<script>
+	import {
+		Check,
+		Copy,
+		FileDiff,
+		FolderGit2,
+		GitBranch,
+		Ticket,
+	} from 'lucide-svelte';
+	import SectionCard from '../lib/components/SectionCard.svelte';
+	import {
+		extractJiraTicket,
+		getCheckStatusDisplay,
+		getJiraUrl,
+		getReviewStatusDisplay,
+		isValidHttpUrl,
+		safeParseInt,
+	} from '../../lib/utils';
+
+	export let pr;
+	export let currentTab = 'myPRs';
+	export let isFullpageMode = false;
+	export let settings = {};
+	export let copiedItemId = null;
+	export let onOpenUrl = () => {};
+	export let onCopy = () => {};
+
+	function getStatusDotClass(pr) {
+		const checksStatus = pr.checks?.status;
+		const checksOk = !checksStatus || checksStatus === 'success' || checksStatus === 'neutral' || checksStatus === 'unknown';
+		const reviewOk = pr.reviews?.status === 'approved';
+
+		if (checksOk && reviewOk) {
+			return 'bg-(--success)';
+		}
+
+		if (!checksOk && !reviewOk) {
+			return 'bg-(--danger)';
+		}
+
+		return 'bg-(--warning)';
+	}
+
+	function getCheckToneClass(className) {
+		switch (className) {
+			case 'checks-success':
+				return 'status-inline-success';
+			case 'checks-failure':
+				return 'status-inline-danger';
+			case 'checks-pending':
+				return 'status-inline-warning';
+			default:
+				return 'status-inline-neutral';
+		}
+	}
+
+	function getReviewToneClass(className) {
+		switch (className) {
+			case 'status-approved':
+				return 'status-inline-success';
+			case 'status-changes':
+				return 'status-inline-danger';
+			default:
+				return 'status-inline-warning';
+		}
+	}
+
+	function getDotToneClass(className) {
+		switch (className) {
+			case 'checks-success':
+			case 'status-approved':
+				return 'status-dot-success';
+			case 'checks-failure':
+			case 'status-changes':
+				return 'status-dot-danger';
+			case 'checks-pending':
+			case 'status-pending':
+				return 'status-dot-warning';
+			default:
+				return 'status-dot-neutral';
+		}
+	}
+
+	function getBranchUrl(pr) {
+		if (!pr?.repoFullName || !pr?.branchName) {
+			return null;
+		}
+
+		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName)}`;
+	}
+
+	function getJiraLink(pr) {
+		const jiraTicket = extractJiraTicket(pr.branchName);
+		if (!jiraTicket || !settings.jiraBaseUrl) {
+			return null;
+		}
+
+		const jiraUrl = getJiraUrl(jiraTicket, settings.jiraBaseUrl);
+		if (!isValidHttpUrl(jiraUrl)) {
+			return null;
+		}
+
+		return { ticket: jiraTicket, url: jiraUrl };
+	}
+
+	$: reviewDisplay = getReviewStatusDisplay(pr.reviews?.status);
+	$: checkDisplay = getCheckStatusDisplay(pr.checks?.status);
+	$: jiraLink = getJiraLink(pr);
+	$: branchUrl = getBranchUrl(pr);
+	$: statusRowClasses = isFullpageMode
+		? 'flex flex-wrap gap-x-5 gap-y-1.5 text-xs'
+		: 'grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs';
+	$: checkStatusClasses = isFullpageMode
+		? 'unstyled-button status-inline transition-opacity hover:opacity-80'
+		: 'unstyled-button status-inline status-inline-button transition-opacity hover:opacity-80';
+</script>
+
+<SectionCard className="p-3.5">
+	<div class="min-w-0 space-y-1.5">
+		<div class="relative min-w-0 pr-6">
+			<div class="flex min-w-0 items-start gap-1">
+				<button class="unstyled-button flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" on:click={() => onOpenUrl(pr.url)}>
+					<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
+					{pr.title}
+				</button>
+			</div>
+			<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" on:click={() => onCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
+				{#if copiedItemId === `pr-${pr.id}`}
+					<Check class="metadata-copy-icon text-(--success)" />
+				{:else}
+					<Copy class="metadata-copy-icon" />
+				{/if}
+			</button>
+		</div>
+
+		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+			{#if currentTab !== 'myPRs'}
+				<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt="" class="h-5 w-5 rounded-full border border-soft object-cover" />
+			{/if}
+			<button class="unstyled-button action-chip" on:click={() => onOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
+				<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
+				<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>
+			</button>
+			<span aria-hidden="true" class="text-dim">•</span>
+			<button class="unstyled-button action-chip" on:click={() => onOpenUrl(`${pr.url}/changes`)}>
+				<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
+				<span class="metadata-diff">
+					<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
+					<span class="metadata-diff-del">-{safeParseInt(pr.changes?.deletions, 0)}</span>
+				</span>
+			</button>
+		</div>
+
+		{#if jiraLink || branchUrl}
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+				{#if jiraLink}
+				<button class="unstyled-button action-chip" on:click={() => onOpenUrl(jiraLink.url)}>
+					<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
+					<span class="hyperlink-text metadata-jira">{jiraLink.ticket}</span>
+				</button>
+				{/if}
+				{#if jiraLink && branchUrl}
+					<span aria-hidden="true" class="text-dim">•</span>
+				{/if}
+				{#if branchUrl}
+				<div class="flex items-center gap-0.5">
+					<button class="unstyled-button action-chip" on:click={() => onOpenUrl(branchUrl)}>
+						<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
+						<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
+					</button>
+					<button class="unstyled-button metadata-copy-button" type="button" on:click={() => onCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
+						{#if copiedItemId === `branch-${pr.id}`}
+							<Check class="metadata-copy-icon text-(--success)" />
+						{:else}
+							<Copy class="metadata-copy-icon" />
+						{/if}
+					</button>
+				</div>
+				{/if}
+			</div>
+		{/if}
+
+		<div class="border-t border-soft pt-2.5">
+			<div class={statusRowClasses}>
+				<button
+					class={`${checkStatusClasses} ${getCheckToneClass(checkDisplay.className)}`}
+					on:click={() => onOpenUrl(`${pr.url}/checks`)}
+				>
+					<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
+					<span class="status-inline-label">{checkDisplay.label}</span>
+				</button>
+				<span class={`status-inline ${getReviewToneClass(reviewDisplay.className)}`}>
+					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
+					<span class="status-inline-label">{reviewDisplay.label}</span>
+				</span>
+			</div>
+		</div>
+	</div>
+</SectionCard>

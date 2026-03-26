@@ -99,7 +99,7 @@
 							<span
 								class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full transition-colors duration-200 ${cardTitleDot}`}
 							></span>
-							feat(ui): implement modern interactive demo card for onboarding
+							feat(ui): implement modern interactive demo card
 						</button>
 					</div>
 					<button

@@ -1,5 +1,5 @@
 import type { PullRequestData, Settings, StoredProviderConfig } from './types';
-import { DEFAULT_SETTINGS, normalizeSettings } from './ui-config';
+import { normalizeSettings } from './ui-config';
 
 const STORAGE_KEYS = {
 	PROVIDER: 'provider',
