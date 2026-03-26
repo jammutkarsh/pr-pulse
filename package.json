@@ -1,0 +1,56 @@
+{
+  "name": "pr-pulse",
+  "version": "1.1.0",
+  "description": "A Chrome extension that provides real-time insights and analytics for GitHub pull requests, helping developers stay informed and make data-driven decisions.",
+  "main": "service-worker.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "svelte-check",
+    "lint": "eslint . --ext .js,.ts,.svelte",
+    "package": "rm -rf dist && rm -f pr-pulse-v*.zip && npm run lint && npm run build && cd dist && zip -rq ../pr-pulse-v$npm_package_version.zip ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jammutkarsh/pr-pulse.git"
+  },
+  "keywords": [
+    "Chrome Extension",
+    "GitHub",
+    "Pull Requests",
+    "Dashboard",
+    "Developer Tools"
+  ],
+  "author": "Utkarsh Jammut",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/jammutkarsh/pr-pulse/issues"
+  },
+  "homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
+  "dependencies": {
+    "lucide-svelte": "^0.577.0",
+    "svelte": "^5.54.1"
+  },
+  "devDependencies": {
+    "@eslint/compat": "^2.0.3",
+    "@eslint/js": "^10.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/chrome": "^0.1.38",
+    "@types/node": "^24",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "eslint": "^10.0.3",
+    "eslint-plugin-svelte": "^3.15.2",
+    "globals": "^17.4.0",
+    "svelte-check": "^4.4.5",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0",
+    "vite": "^8.0.1"
+  }
+}

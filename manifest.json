@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "PR Pulse",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Keep your finger on the pulse of your PRs. Near real-time GitHub monitoring that checks every 10 minutes.",
 	"permissions": [
 		"storage",
