@@ -1,3 +1,5 @@
+<svelte:options runes={false} />
+
 <script>
 	import {
 		Check,
@@ -6,6 +8,7 @@
 		FolderGit2,
 		GitBranch,
 		Ticket,
+		Clock,
 	} from 'lucide-svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import {
@@ -15,6 +18,7 @@
 		getReviewStatusDisplay,
 		isValidHttpUrl,
 		safeParseInt,
+		formatPrAge,
 	} from '../../lib/utils';
 
 	export let pr;
@@ -109,10 +113,10 @@
 	$: branchUrl = getBranchUrl(pr);
 	$: statusRowClasses = isFullpageMode
 		? 'flex flex-wrap gap-x-5 gap-y-1.5 text-xs'
-		: 'grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs';
+		: 'flex min-w-0 items-center gap-2.5 text-xs';
 	$: checkStatusClasses = isFullpageMode
 		? 'unstyled-button status-inline transition-opacity hover:opacity-80'
-		: 'unstyled-button status-inline status-inline-button transition-opacity hover:opacity-80';
+		: 'unstyled-button status-inline min-w-0 transition-opacity hover:opacity-80';
 </script>
 
 <SectionCard className="p-3.5">
@@ -189,10 +193,14 @@
 					<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
 					<span class="status-inline-label">{checkDisplay.label}</span>
 				</button>
-				<span class={`status-inline ${getReviewToneClass(reviewDisplay.className)}`}>
+				<span class={`status-inline min-w-0 ${getReviewToneClass(reviewDisplay.className)}`}>
 					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
 				</span>
+				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium text-dim">
+					<Clock class="h-3 w-3" />
+					<span>{formatPrAge(pr.createdAt)}</span>
+				</div>
 			</div>
 		</div>
 	</div>

@@ -2,7 +2,7 @@ import type { Settings, UiConfig } from './types';
 
 export const DEFAULT_UI_CONFIG: UiConfig = {
 	pageMaxWidthRem: 56,
-	popupWidthRem: 26.25,
+	popupWidthRem: 28,
 	popupHeightRem: 37.5,
 	popupInsetRem: 1,
 	surfaceRadiusPx: 10,
@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	pinnedTab: 'myPRs',
 	visibleColumns: ['title', 'author', 'checks', 'reviewStatus', 'repo', 'changes', 'jira'],
 	pollingIntervalMs: 600000,
+	persistFilters: true,
 	ui: DEFAULT_UI_CONFIG,
 };
 

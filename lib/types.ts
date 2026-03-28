@@ -86,6 +86,7 @@ export interface Settings {
 	pinnedTab: 'myPRs' | 'toReview';
 	visibleColumns: string[];
 	pollingIntervalMs: number;
+	persistFilters: boolean;
 	ui: UiConfig;
 }
 

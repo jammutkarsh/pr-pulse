@@ -1,3 +1,5 @@
+<svelte:options runes={false} />
+
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import PopupHeader from './PopupHeader.svelte';
@@ -5,8 +7,10 @@
 	import PrCard from './PrCard.svelte';
 	import PopupStates from './PopupStates.svelte';
 	import PopupSkeleton from './PopupSkeleton.svelte';
+	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import { storage } from '../../lib/storage';
+	import Fuse from 'fuse.js';
 	import {
 		copyToClipboard,
 		formatRelativeTime,
@@ -28,6 +32,17 @@
 	let toastVisible = false;
 	let viewedPrIds = new Set();
 	let newPrCount = 0;
+	const DEFAULT_FILTERS = {
+		repos: [],
+		orgs: [],
+		myRepo: false,
+		checksPassing: false,
+		readyToMerge: false,
+	};
+
+	// Search & Filter state
+	let searchQuery = '';
+	let activeFilters = { ...DEFAULT_FILTERS };
 
 	export let bootstrapDataPromise = null;
 
@@ -37,6 +52,72 @@
 	$: lastUpdatedText = prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync';
 	$: fullpageShellClasses = isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full';
 	$: cardListClasses = isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin';
+
+	// Compute available options for dropdowns based on current tab's items
+	$: availableRepos = Array.from(new Set(currentItems.map(pr => pr.repoFullName))).filter(Boolean);
+	$: availableOrgs = Array.from(new Set(currentItems.map(pr => pr.repoFullName?.split('/')[0]))).filter(Boolean);
+	$: showSearchControls = !loading && !setupRequired && !errorMessage && currentItems.length > 0;
+	
+	$: filteredItems = filterItems(currentItems, searchQuery, activeFilters, provider);
+
+	// Persist filters when they change, if setting is enabled
+	$: {
+		if (settings?.persistFilters && typeof chrome !== 'undefined') {
+			chrome.storage.local.set({ searchFilters: { activeFilters } });
+		}
+	}
+
+	function filterItems(items, query, filters, prov) {
+		let result = items;
+
+		// 1. Binary active filters
+		if (filters.myRepo && prov?.user?.login) {
+			result = result.filter(pr => pr.repoFullName.startsWith(`${prov.user.login}/`));
+		}
+		if (filters.checksPassing) {
+			result = result.filter(pr => pr.checks?.status === 'success');
+		}
+		if (filters.readyToMerge) {
+			result = result.filter(pr => 
+				pr.checks?.status === 'success' && 
+				pr.reviews?.status === 'approved' && 
+				pr.state !== 'draft'
+			);
+		}
+
+		// 2. Dropdown filters
+		if (filters.repos.length > 0) {
+			result = result.filter(pr => filters.repos.includes(pr.repoFullName));
+		}
+		if (filters.orgs.length > 0) {
+			result = result.filter(pr => {
+				const org = pr.repoFullName?.split('/')[0];
+				return filters.orgs.includes(org);
+			});
+		}
+
+		// 3. Search query with fuse.js
+		if (query.trim()) {
+			const searchInput = result.map(pr => ({
+				...pr,
+				_jiraTicket: pr.branchName ? (pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '') : ''
+			}));
+
+			const fuse = new Fuse(searchInput, {
+				keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'],
+				threshold: 0.3,
+				ignoreLocation: true
+			});
+			
+			result = fuse.search(query).map(res => {
+				const pr = res.item;
+				delete pr._jiraTicket;
+				return pr;
+			});
+		}
+
+		return result;
+	}
 
 	onMount(() => {
 		void init();
@@ -78,6 +159,19 @@
 			// Snapshot current PR IDs so we can detect new ones from background refreshes
 			const allPrs = [...(prData.myPRs || []), ...(prData.reviewRequests || [])];
 			viewedPrIds = new Set(allPrs.map(pr => pr.id));
+
+			if (settings.persistFilters) {
+				const initialFilters = await new Promise(resolve => chrome.storage.local.get(['searchFilters'], res => resolve(res.searchFilters)));
+				if (initialFilters) {
+					activeFilters = {
+						...DEFAULT_FILTERS,
+						...(initialFilters.activeFilters || {}),
+					};
+				}
+			} else {
+				// Clear if not persisting
+				chrome.storage.local.remove(['searchFilters']);
+			}
 		} else {
 			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
 		}
@@ -193,7 +287,16 @@
 				onTabChange={(tab) => currentTab = tab}
 			/>
 
-			<div class={`px-4 py-3 sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
+			{#if showSearchControls}
+				<SearchFilter 
+					bind:query={searchQuery}
+					bind:activeFilters={activeFilters}
+					{availableRepos}
+					{availableOrgs}
+				/>
+			{/if}
+
+			<div class={`px-4 ${showSearchControls ? 'pb-3 pt-3' : 'py-3'} sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
 				{#if loading}
 					<PopupSkeleton className={isFullpageMode ? 'popup-skeleton--fullpage' : ''} />
 				{:else if setupRequired || errorMessage || currentItems.length === 0}
@@ -205,19 +308,26 @@
 						onRetry={loadPrData}
 					/>
 				{:else}
-					<div class={cardListClasses}>
-						{#each currentItems as pr (pr.id)}
-							<PrCard
-								{pr}
-								{currentTab}
-								{isFullpageMode}
-								{settings}
-								{copiedItemId}
-								onOpenUrl={safeOpenUrl}
-								onCopy={handleCopy}
-							/>
-						{/each}
-					</div>
+					{#if filteredItems.length === 0}
+						<div class="py-8 text-center text-soft">
+							<p>No PRs match your filters.</p>
+							<button class="mt-2 text-sm text-(--accent) hover:underline" on:click={() => { searchQuery = ''; activeFilters = { ...DEFAULT_FILTERS }; }}>Clear filters</button>
+						</div>
+					{:else}
+						<div class={cardListClasses}>
+							{#each filteredItems as pr (pr.id)}
+								<PrCard
+									{pr}
+									{currentTab}
+									{isFullpageMode}
+									{settings}
+									{copiedItemId}
+									onOpenUrl={safeOpenUrl}
+									onCopy={handleCopy}
+								/>
+							{/each}
+						</div>
+					{/if}
 				{/if}
 			</div>
 

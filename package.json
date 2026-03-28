@@ -32,6 +32,7 @@
   },
   "homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
   "dependencies": {
+    "fuse.js": "^7.1.0",
     "lucide-svelte": "^0.577.0",
     "svelte": "^5.54.1"
   },

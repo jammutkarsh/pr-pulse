@@ -48,6 +48,7 @@ export default defineConfig({
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,
+		minify: false,
 		cssMinify: true,
 		target: 'es2022',
 		rollupOptions: {
