@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "check": "svelte-check",
-    "lint": "eslint . --ext .js,.ts,.svelte",
+    "build:watch": "vite build --watch",
+    "check": "svelte-check --incremental",
+    "lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
     "package": "rm -rf dist && rm -f pr-pulse-v*.zip && npm run lint && npm run build && cd dist && zip -rq ../pr-pulse-v$npm_package_version.zip ."
   },
   "repository": {

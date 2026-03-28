@@ -1,6 +1,8 @@
 node_modules/
 dist
 build/
+.cache/
+.svelte-check/
 .env
 .DS_Store
 demo/
