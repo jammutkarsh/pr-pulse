@@ -1,6 +1,4 @@
-<svelte:options runes={false} />
-
-<script>
+<script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import PopupHeader from './PopupHeader.svelte';
 	import PopupTabs from './PopupTabs.svelte';
@@ -11,103 +9,76 @@
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import { storage } from '../../lib/storage';
 	import Fuse from 'fuse.js';
+	import type { PullRequest, PullRequestData, PullRequestRepoOwner, Settings, StoredProviderConfig } from '../../lib/types';
+	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
 		copyToClipboard,
 		formatRelativeTime,
 		isValidHttpUrl,
 	} from '../../lib/utils';
 
-	let currentTab = 'myPRs';
-	let prData = { myPRs: [], reviewRequests: [], lastFetched: null };
-	let settings = {};
-	let provider = null;
-	let isFullpageMode = false;
-	let loading = true;
-	let setupRequired = false;
-	let errorMessage = '';
-	let refreshInProgress = false;
-	let copiedItemId = null;
-	let toastMessage = '';
-	let toastType = 'info';
-	let toastVisible = false;
-	let viewedPrIds = new Set();
-	let newPrCount = 0;
-	let isSearchOpen = false;
-	let isFilterOpen = false;
-	const DEFAULT_FILTERS = {
+	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getPopupBootstrapData>>;
+	type PopupFilters = {
+		owners: string[];
+		repos: string[];
+		ageRange: string;
+	};
+	type SearchablePullRequest = PullRequest & { _jiraTicket: string };
+	type OwnerFilterOption = {
+		login: string;
+		type: PullRequestRepoOwner['type'];
+	};
+	type RepoFilterOption = {
+		fullName: string;
+		owner: string;
+		ownerType: PullRequestRepoOwner['type'];
+		name: string;
+	};
+	type LegacyFilters = Partial<PopupFilters> & {
+		orgs?: string[];
+		myRepo?: boolean;
+	};
+
+	const DEFAULT_FILTERS: PopupFilters = {
 		owners: [],
 		repos: [],
 		ageRange: '',
 	};
 
-	// Search & Filter state
-	let searchQuery = '';
-	let activeFilters = { ...DEFAULT_FILTERS };
-
-	export let bootstrapDataPromise = null;
-
-	$: currentItems = currentTab === 'myPRs' ? prData.myPRs || [] : prData.reviewRequests || [];
-	$: myPrCount = prData.myPRs?.length || 0;
-	$: reviewCount = prData.reviewRequests?.length || 0;
-	$: lastUpdatedText = prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync';
-	$: fullpageShellClasses = isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full';
-	$: cardListClasses = isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin';
-
-	// Compute available options for dropdowns based on current tab's items
-	$: availableOwners = Array.from(
-		new Map(
-			currentItems
-				.map((pr) => {
-					const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-					const ownerType = pr.repoOwner?.type || 'unknown';
-					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }];
-				})
-				.filter(([login]) => Boolean(login))
-		).values()
-	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }));
-	$: availableRepos = Array.from(
-		new Map(
-			currentItems
-				.filter((pr) => pr.repoFullName)
-				.map((pr) => {
-					const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
-					return [
-						pr.repoFullName,
-						{
-							fullName: pr.repoFullName,
-							owner,
-							ownerType: pr.repoOwner?.type || 'unknown',
-							name,
-						},
-					];
-				})
-		).values()
-	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' }));
-	$: showSearchControls = !loading && !setupRequired && !errorMessage && currentItems.length > 0;
-	$: searchActive = isSearchOpen || searchQuery.trim().length > 0;
-	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-	// $: filterCount = activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange));
-	$: filterCount = activeFilters.owners.length + activeFilters.repos.length;
-	$: filterActive = filterCount > 0;
-	
-	$: filteredItems = filterItems(currentItems, searchQuery, activeFilters);
-
-	// Persist filters when they change, if setting is enabled
-	$: {
-		if (settings?.persistFilters && typeof chrome !== 'undefined') {
-			chrome.storage.local.set({ searchFilters: { activeFilters } });
-		}
+	interface Props {
+		bootstrapDataPromise?: Promise<PopupBootstrapData> | null;
 	}
 
-	function filterItems(items, query, filters) {
+	let { bootstrapDataPromise = null }: Props = $props();
+
+	let currentTab = $state<Settings['pinnedTab']>('myPRs');
+	let prData = $state<PullRequestData>({ myPRs: [], reviewRequests: [], lastFetched: null });
+	let settings = $state<Settings>(DEFAULT_SETTINGS);
+	let provider = $state<StoredProviderConfig | undefined>(undefined);
+	let isFullpageMode = $state(false);
+	let loading = $state(true);
+	let setupRequired = $state(false);
+	let errorMessage = $state('');
+	let refreshInProgress = $state(false);
+	let copiedItemId = $state<string | null>(null);
+	let toastMessage = $state('');
+	let toastType = $state<'info' | 'warning' | 'error' | 'success'>('info');
+	let toastVisible = $state(false);
+	let viewedPrIds = new Set<string>();
+	let newPrCount = $state(0);
+	let isSearchOpen = $state(false);
+	let isFilterOpen = $state(false);
+	let searchQuery = $state('');
+	let activeFilters = $state<PopupFilters>({ ...DEFAULT_FILTERS });
+
+	function filterItems(items: PullRequest[], query: string, filters: PopupFilters): PullRequest[] {
 		let result = items;
 
-		// 1. Dropdown filters
 		if (filters.repos.length > 0) {
-			result = result.filter(pr => filters.repos.includes(pr.repoFullName));
+			result = result.filter((pr) => filters.repos.includes(pr.repoFullName));
 		}
 		if (filters.owners.length > 0) {
-			result = result.filter(pr => filters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
+			result = result.filter((pr) => filters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
 		}
 		/*
 		if (filters.ageRange) {
@@ -140,22 +111,20 @@
 		}
 		*/
 
-		// 2. Search query with fuse.js
 		if (query.trim()) {
-			const searchInput = result.map(pr => ({
+			const searchInput: SearchablePullRequest[] = result.map((pr) => ({
 				...pr,
-				_jiraTicket: pr.branchName ? (pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '') : ''
+				_jiraTicket: pr.branchName ? (pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '') : '',
 			}));
 
-			const fuse = new Fuse(searchInput, {
+			const fuse = new Fuse<SearchablePullRequest>(searchInput, {
 				keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'],
 				threshold: 0.3,
-				ignoreLocation: true
+				ignoreLocation: true,
 			});
-			
-			result = fuse.search(query).map(res => {
-				const pr = res.item;
-				delete pr._jiraTicket;
+
+			result = fuse.search(query).map(({ item }) => {
+				const { _jiraTicket, ...pr } = item;
 				return pr;
 			});
 		}
@@ -171,22 +140,21 @@
 		chrome.storage.onChanged.removeListener(onStorageChanged);
 	});
 
-	function onStorageChanged(changes, areaName) {
+	function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>, areaName: string) {
 		if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
-		const newData = changes.pullRequests.newValue;
+		const newData = changes.pullRequests.newValue as PullRequestData;
 		prData = newData;
 
-		// Count PRs that weren't in the snapshot taken when the popup opened
 		if (viewedPrIds.size > 0) {
-			const allNewIds = [...(newData.myPRs || []), ...(newData.reviewRequests || [])].map(pr => pr.id);
-			newPrCount = allNewIds.filter(id => !viewedPrIds.has(id)).length;
+			const allNewIds = [...(newData.myPRs || []), ...(newData.reviewRequests || [])].map((pr) => pr.id);
+			newPrCount = allNewIds.filter((id) => !viewedPrIds.has(id)).length;
 		}
 	}
 
 	async function init() {
 		isFullpageMode = new URLSearchParams(window.location.search).has('fullpage');
 		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getPopupBootstrapData();
-		settings = bootstrapData.settings || {};
+		settings = bootstrapData.settings;
 
 		if (settings.displayMode === 'fullpage' && !isFullpageMode) {
 			chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?fullpage=1') });
@@ -200,12 +168,14 @@
 
 		if (!setupRequired) {
 			prData = bootstrapData.pullRequests;
-			// Snapshot current PR IDs so we can detect new ones from background refreshes
 			const allPrs = [...(prData.myPRs || []), ...(prData.reviewRequests || [])];
-			viewedPrIds = new Set(allPrs.map(pr => pr.id));
+			viewedPrIds = new Set(allPrs.map((pr) => pr.id));
 
 			if (settings.persistFilters) {
-				const initialFilters = await new Promise(resolve => chrome.storage.local.get(['searchFilters'], res => resolve(res.searchFilters)));
+				const initialFilters = await new Promise<{ activeFilters?: LegacyFilters } | undefined>((resolve) =>
+					chrome.storage.local.get(['searchFilters'], (result) => resolve(result.searchFilters as { activeFilters?: LegacyFilters } | undefined))
+				);
+
 				if (initialFilters) {
 					const legacyFilters = initialFilters.activeFilters || {};
 					const ownerSelections = Array.from(new Set([
@@ -222,7 +192,6 @@
 					};
 				}
 			} else {
-				// Clear if not persisting
 				chrome.storage.local.remove(['searchFilters']);
 			}
 		} else {
@@ -230,7 +199,6 @@
 		}
 
 		loading = false;
-
 		chrome.storage.onChanged.addListener(onStorageChanged);
 	}
 
@@ -267,7 +235,7 @@
 		}
 	}
 
-	function showToast(message, type = 'info') {
+	function showToast(message: string, type: typeof toastType = 'info') {
 		toastMessage = message;
 		toastType = type;
 		toastVisible = true;
@@ -311,7 +279,7 @@
 		isFilterOpen = false;
 	}
 
-	function safeOpenUrl(url) {
+	function safeOpenUrl(url: string) {
 		if (!isValidHttpUrl(url)) {
 			return;
 		}
@@ -319,7 +287,7 @@
 		chrome.tabs.create({ url });
 	}
 
-	async function handleCopy(value, id) {
+	async function handleCopy(value: string, id: string) {
 		await copyToClipboard(value);
 		copiedItemId = id;
 		setTimeout(() => {
@@ -328,6 +296,55 @@
 			}
 		}, 1000);
 	}
+
+	let currentItems = $derived(currentTab === 'myPRs' ? prData.myPRs || [] : prData.reviewRequests || []);
+	let myPrCount = $derived(prData.myPRs?.length || 0);
+	let reviewCount = $derived(prData.reviewRequests?.length || 0);
+	let lastUpdatedText = $derived(prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync');
+	let fullpageShellClasses = $derived(isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full');
+	let cardListClasses = $derived(isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin');
+	let availableOwners = $derived(Array.from(
+		new Map<string, OwnerFilterOption>(
+			currentItems
+				.map((pr) => {
+					const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+					const ownerType = pr.repoOwner?.type || 'unknown';
+					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
+				})
+				.filter(([login]) => Boolean(login))
+		).values()
+	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' })));
+	let availableRepos = $derived(Array.from(
+		new Map<string, RepoFilterOption>(
+			currentItems
+				.filter((pr) => pr.repoFullName)
+				.map((pr) => {
+					const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
+					return [
+						pr.repoFullName,
+						{
+							fullName: pr.repoFullName,
+							owner,
+							ownerType: pr.repoOwner?.type || 'unknown',
+							name,
+						},
+					] as const;
+				})
+		).values()
+	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })));
+	let showSearchControls = $derived(!loading && !setupRequired && !errorMessage && currentItems.length > 0);
+	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
+	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
+	// let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
+	let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length);
+	let filterActive = $derived(filterCount > 0);
+	let filteredItems = $derived(filterItems(currentItems, searchQuery, activeFilters));
+
+	$effect(() => {
+		if (settings.persistFilters && typeof chrome !== 'undefined') {
+			chrome.storage.local.set({ searchFilters: { activeFilters } });
+		}
+	});
 </script>
 
 
@@ -382,7 +399,7 @@
 					{#if filteredItems.length === 0}
 						<div class="py-8 text-center text-soft">
 							<p>No PRs match your filters.</p>
-							<button class="mt-2 text-sm text-(--accent) hover:underline" on:click={() => { searchQuery = ''; activeFilters = { ...DEFAULT_FILTERS }; }}>Clear filters</button>
+							<button class="mt-2 text-sm text-(--accent) hover:underline" onclick={() => { searchQuery = ''; activeFilters = { ...DEFAULT_FILTERS }; }}>Clear filters</button>
 						</div>
 					{:else}
 						<div class={cardListClasses}>

@@ -1,11 +1,35 @@
-<svelte:options runes={false} />
-
-<script>
+<script lang="ts">
     import { tick } from 'svelte';
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, X } from 'lucide-svelte';
+    import type { PullRequestRepoOwner } from '../../lib/types';
 
-    const EMPTY_FILTERS = {
+    type PopupFilters = {
+        owners: string[];
+        repos: string[];
+        ageRange: string;
+    };
+
+    type RepoFilterOption = {
+        fullName: string;
+        owner: string;
+        ownerType: PullRequestRepoOwner['type'];
+        name: string;
+    };
+
+    type OwnerFilterOption = {
+        login: string;
+        type: PullRequestRepoOwner['type'];
+    };
+
+    type FilterChip = {
+        key: string;
+        label: string;
+        value: string;
+        onRemove: () => void;
+    };
+
+    const EMPTY_FILTERS: PopupFilters = {
         owners: [],
         repos: [],
         ageRange: '',
@@ -22,61 +46,38 @@
     ];
     */
 
-    export let query = '';
-    export let activeFilters = { ...EMPTY_FILTERS };
-    export let availableRepos = [];
-    export let availableOwners = [];
-    export let isSearchOpen = false;
-    export let isFilterOpen = false;
+    interface Props {
+        query?: string;
+        activeFilters?: PopupFilters;
+        availableRepos?: RepoFilterOption[];
+        availableOwners?: OwnerFilterOption[];
+        isSearchOpen?: boolean;
+        isFilterOpen?: boolean;
+    }
 
-    let expandedSections = {
+    let {
+        query = $bindable(''),
+        activeFilters = $bindable({ ...EMPTY_FILTERS }),
+        availableRepos = [] as RepoFilterOption[],
+        availableOwners = [] as OwnerFilterOption[],
+        isSearchOpen = $bindable(false),
+        isFilterOpen = $bindable(false),
+    }: Props = $props();
+
+    let expandedSections = $state({
         owners: false,
         repos: false,
         // age: false,
-    };
-    let searchInput = null;
-    let surfaceElement = null;
+    });
+
+    let searchInput = $state<HTMLInputElement | null>(null);
+    let surfaceElement = $state<HTMLDivElement | null>(null);
     let ignoreOutsideClick = false;
     let wasSearchOpen = false;
-    let openGuardTimeout = null;
-
-    $: hasQuery = query.trim().length > 0;
-    // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-    // $: activeFilterCount = activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange));
-    $: activeFilterCount =
-        activeFilters.owners.length +
-        activeFilters.repos.length;
-    $: hasActiveFilters = activeFilterCount > 0;
-    $: selectedFilterChips = [
-        ...activeFilters.owners.map((ownerLogin) => ({
-            key: `owner:${ownerLogin}`,
-            label: ownerLogin,
-            value: getOwnerDisplay(ownerLogin),
-            onRemove: () => toggleOwner(ownerLogin),
-        })),
-        ...activeFilters.repos.map((repoFullName) => ({
-            key: `repo:${repoFullName}`,
-            label: getRepoDisplay(repoFullName).name,
-            value: getRepoDisplay(repoFullName).owner,
-            onRemove: () => toggleRepo(repoFullName),
-        })),
-        /*
-        ...(activeFilters.ageRange
-            ? [
-                    {
-                        key: `age:${activeFilters.ageRange}`,
-                        label: 'Age',
-                        value: AGE_OPTIONS.find((option) => option.value === activeFilters.ageRange)?.label || activeFilters.ageRange,
-                        onRemove: () => selectAgeRange(activeFilters.ageRange),
-                    },
-                ]
-            : []),
-        */
-    ];
-    $: syncSearchSurfaceState(isSearchOpen);
+    let openGuardTimeout: ReturnType<typeof setTimeout> | null = null;
 
     onMount(() => {
-        function handleClick(event) {
+        function handleClick(event: MouseEvent) {
             if (!isSearchOpen || !surfaceElement || ignoreOutsideClick) {
                 return;
             }
@@ -98,7 +99,7 @@
         clearOutsideClickGuard();
     });
 
-    function syncSearchSurfaceState(searchOpen) {
+    function syncSearchSurfaceState(searchOpen: boolean) {
         if (searchOpen === wasSearchOpen) {
             return;
         }
@@ -140,14 +141,14 @@
         isFilterOpen = !isFilterOpen;
     }
 
-    function toggleSection(section) {
+    function toggleSection(section: keyof typeof expandedSections) {
         expandedSections = {
             ...expandedSections,
             [section]: !expandedSections[section],
         };
     }
 
-    function toggleRepo(repo) {
+    function toggleRepo(repo: string) {
         const repos = activeFilters.repos.includes(repo)
             ? activeFilters.repos.filter((entry) => entry !== repo)
             : [...activeFilters.repos, repo];
@@ -155,7 +156,7 @@
         activeFilters = { ...activeFilters, repos };
     }
 
-    function toggleOwner(owner) {
+    function toggleOwner(owner: string) {
         const owners = activeFilters.owners.includes(owner)
             ? activeFilters.owners.filter((entry) => entry !== owner)
             : [...activeFilters.owners, owner];
@@ -164,7 +165,7 @@
     }
 
     /*
-    function selectAgeRange(value) {
+    function selectAgeRange(value: string) {
         activeFilters = {
             ...activeFilters,
             ageRange: activeFilters.ageRange === value ? '' : value,
@@ -186,12 +187,12 @@
         activeFilters = { ...EMPTY_FILTERS };
     }
 
-    function getOwnerDisplay(ownerLogin) {
+    function getOwnerDisplay(ownerLogin: string) {
         const owner = availableOwners.find((entry) => entry.login === ownerLogin);
         return owner ? getOwnerTypeLabel(owner.type) : 'Owner';
     }
 
-    function getRepoDisplay(repoFullName) {
+    function getRepoDisplay(repoFullName: string) {
         const repo = availableRepos.find((entry) => entry.fullName === repoFullName);
 
         if (repo) {
@@ -202,7 +203,7 @@
         return { name, owner };
     }
 
-    function getOwnerTypeLabel(type) {
+    function getOwnerTypeLabel(type: PullRequestRepoOwner['type']) {
         if (type === 'org') {
             return 'Org';
         }
@@ -213,6 +214,42 @@
 
         return 'Unknown';
     }
+
+    let hasQuery = $derived(query.trim().length > 0);
+    // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
+    // let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
+    let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length);
+    let hasActiveFilters = $derived(activeFilterCount > 0);
+    let selectedFilterChips = $derived<FilterChip[]>([
+        ...activeFilters.owners.map((ownerLogin) => ({
+            key: `owner:${ownerLogin}`,
+            label: ownerLogin,
+            value: getOwnerDisplay(ownerLogin),
+            onRemove: () => toggleOwner(ownerLogin),
+        })),
+        ...activeFilters.repos.map((repoFullName) => ({
+            key: `repo:${repoFullName}`,
+            label: getRepoDisplay(repoFullName).name,
+            value: getRepoDisplay(repoFullName).owner,
+            onRemove: () => toggleRepo(repoFullName),
+        })),
+        /*
+        ...(activeFilters.ageRange
+            ? [
+                    {
+                        key: `age:${activeFilters.ageRange}`,
+                        label: 'Age',
+                        value: AGE_OPTIONS.find((option) => option.value === activeFilters.ageRange)?.label || activeFilters.ageRange,
+                        onRemove: () => selectAgeRange(activeFilters.ageRange),
+                    },
+                ]
+            : []),
+        */
+    ]);
+
+    $effect(() => {
+        syncSearchSurfaceState(isSearchOpen);
+    });
 </script>
 
 {#if isSearchOpen}
@@ -229,7 +266,7 @@
                         class="h-9 w-full rounded-md border border-soft bg-(--bg-panel-strong) py-1.5 pl-9 pr-9 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
                     />
                     {#if hasQuery}
-                        <button class="unstyled-button absolute right-2 top-1/2 -translate-y-1/2 text-soft hover:text-white" on:click={clearSearch} aria-label="Clear search">
+                        <button class="unstyled-button absolute right-2 top-1/2 -translate-y-1/2 text-soft hover:text-white" onclick={clearSearch} aria-label="Clear search">
                             <X class="h-4 w-4" />
                         </button>
                     {/if}
@@ -237,7 +274,7 @@
 
                 <button
                     class={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition ${isFilterOpen || hasActiveFilters ? 'border-(--accent) bg-(--accent)/10 text-(--accent) shadow-[0_0_0_1px_rgba(55,148,255,0.22),0_0_16px_rgba(55,148,255,0.14)]' : 'border-soft bg-transparent text-soft hover:border-strong hover:bg-(--bg-muted) hover:text-white'}`}
-                    on:click={toggleFilterPanel}
+                    onclick={toggleFilterPanel}
                     aria-label="Toggle filters"
                     title="Toggle filters"
                 >
@@ -255,7 +292,7 @@
                                 {#each selectedFilterChips as chip (chip.key)}
                                     <button
                                         class="unstyled-button inline-flex items-center gap-2 rounded-full border border-soft bg-(--bg-muted) px-2.5 py-1 text-[11px] text-soft transition hover:border-(--accent) hover:text-white"
-                                        on:click={chip.onRemove}
+                                        onclick={chip.onRemove}
                                         title={`Remove ${chip.label} filter`}
                                     >
                                         <span class="font-medium text-white">{chip.label}</span>
@@ -268,7 +305,7 @@
                     </div>
                     <div class="shrink-0 flex items-center gap-3">
                         {#if hasActiveFilters}
-                            <button class="unstyled-button text-xs font-medium text-(--accent) hover:underline" on:click={clearFilters}>Clear</button>
+                            <button class="unstyled-button text-xs font-medium text-(--accent) hover:underline" onclick={clearFilters}>Clear</button>
                         {/if}
                     </div>
                 </div>
@@ -277,7 +314,7 @@
                     <div class="overflow-hidden rounded-lg border border-soft">
                         <button
                             class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
-                            on:click={() => toggleSection('owners')}
+                            onclick={() => toggleSection('owners')}
                         >
                             <span class="flex items-center gap-2">
                                     {#if expandedSections.owners}
@@ -301,7 +338,7 @@
                                                         type="checkbox"
                                                         class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                         checked={activeFilters.owners.includes(owner.login)}
-                                                        on:change={() => toggleOwner(owner.login)}
+                                                        onchange={() => toggleOwner(owner.login)}
                                                     />
                                                     <span class="min-w-0 flex-1 truncate">{owner.login}</span>
                                                     {#if owner.type !== 'unknown'}
@@ -318,7 +355,7 @@
                     <div class="overflow-hidden rounded-lg border border-soft">
                         <button
                             class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
-                            on:click={() => toggleSection('repos')}
+                            onclick={() => toggleSection('repos')}
                         >
                             <span class="flex items-center gap-2">
                                     {#if expandedSections.repos}
@@ -342,7 +379,7 @@
                                                         type="checkbox"
                                                         class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                         checked={activeFilters.repos.includes(repo.fullName)}
-                                                        on:change={() => toggleRepo(repo.fullName)}
+                                                        onchange={() => toggleRepo(repo.fullName)}
                                                     />
                                                     <span class="min-w-0 flex-1 truncate" title={repo.fullName}>{repo.name}</span>
                                                     <span class="shrink-0 text-[11px] uppercase tracking-[0.08em] text-soft">{repo.owner}</span>

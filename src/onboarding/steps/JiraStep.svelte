@@ -1,15 +1,26 @@
-<script>
+<script lang="ts">
 	import { ArrowLeft, ArrowRight, Link2 } from 'lucide-svelte';
 	import Button from '../../lib/components/Button.svelte';
 	import SectionCard from '../../lib/components/SectionCard.svelte';
 	import { isValidHttpUrl } from '../../../lib/utils';
 
-	export let jiraBaseUrl = '';
-	export let onJiraUrlChange = () => {};
-	export let onNext = () => {};
-	export let onBack = () => {};
+	type VoidCallback = () => void;
 
-	$: previewUrl = jiraBaseUrl && isValidHttpUrl(jiraBaseUrl) ? `${jiraBaseUrl}/browse/JIRA-1234` : '';
+	interface Props {
+		jiraBaseUrl?: string;
+		onJiraUrlChange?: (value: string) => void;
+		onNext?: VoidCallback;
+		onBack?: VoidCallback;
+	}
+
+	let {
+		jiraBaseUrl = '',
+		onJiraUrlChange = () => {},
+		onNext = () => {},
+		onBack = () => {}
+	}: Props = $props();
+
+	let previewUrl = $derived(jiraBaseUrl && isValidHttpUrl(jiraBaseUrl) ? `${jiraBaseUrl}/browse/JIRA-1234` : '');
 </script>
 
 <SectionCard className="p-6">
@@ -23,7 +34,7 @@
 		</div>
 	</div>
 	<div class="space-y-4">
-		<input class="field-input" type="url" value={jiraBaseUrl} on:input={(e) => onJiraUrlChange(e.currentTarget.value)} placeholder="https://company.atlassian.net/browse/PROJ-123" />
+		<input class="field-input" type="url" value={jiraBaseUrl} oninput={(e) => onJiraUrlChange(e.currentTarget.value)} placeholder="https://company.atlassian.net/browse/PROJ-123" />
 		<div class="rounded-lg border border-soft bg-(--bg-panel) p-4 text-sm text-soft">
 			<div class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-dim">Preview</div>
 			<div class="flex flex-wrap items-center gap-2">
@@ -38,7 +49,7 @@
 		</div>
 	</div>
 	<div class="mt-6 flex flex-wrap gap-3">
-		<Button variant="secondary" on:click={onBack}><ArrowLeft class="h-4 w-4" />Back</Button>
-		<Button on:click={onNext}>Continue<ArrowRight class="h-4 w-4" /></Button>
+		<Button variant="secondary" onclick={onBack}><ArrowLeft class="h-4 w-4" />Back</Button>
+		<Button onclick={onNext}>Continue<ArrowRight class="h-4 w-4" /></Button>
 	</div>
 </SectionCard>

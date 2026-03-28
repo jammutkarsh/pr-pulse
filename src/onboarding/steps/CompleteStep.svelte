@@ -1,12 +1,17 @@
-<script>
+<script lang="ts">
 	import { CheckCircle2 } from 'lucide-svelte';
 	import Button from '../../lib/components/Button.svelte';
 	import SectionCard from '../../lib/components/SectionCard.svelte';
 	import InteractiveGuide from '../../lib/components/InteractiveGuide.svelte';
+	import type { Settings } from '../../../lib/types';
 
-	export let displayMode = 'popup';
-	export let syncedPrCount = 0;
-	export let onClose = () => {};
+	interface Props {
+		displayMode?: Settings['displayMode'];
+		syncedPrCount?: number;
+		onClose?: () => void;
+	}
+
+	let { displayMode = 'popup', syncedPrCount = 0, onClose = () => {} }: Props = $props();
 </script>
 
 <SectionCard className="p-6">
@@ -28,12 +33,12 @@
 		</div>
 		{#if displayMode === 'popup'}
 			<div class="flex flex-col items-center gap-2 mt-4">
-				<Button on:click={onClose}>Close Setup</Button>
+				<Button onclick={onClose}>Close Setup</Button>
 				<span class="text-sm text-soft">Pin the extension and click on it to open.</span>
 			</div>
 		{:else}
 			<div class="mt-4">
-				<Button on:click={onClose}>Open PR Pulse</Button>
+				<Button onclick={onClose}>Open PR Pulse</Button>
 			</div>
 		{/if}
 	</div>
