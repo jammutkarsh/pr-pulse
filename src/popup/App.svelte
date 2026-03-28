@@ -34,10 +34,29 @@
 		ownerType: PullRequestRepoOwner['type'];
 		name: string;
 	};
-	type LegacyFilters = Partial<PopupFilters> & {
-		orgs?: string[];
-		myRepo?: boolean;
-	};
+	type StoredFilters = Partial<PopupFilters>;
+
+	function toStringArray(value: unknown): string[] {
+		if (!Array.isArray(value)) {
+			return [];
+		}
+
+		return value.filter((entry): entry is string => typeof entry === 'string');
+	}
+
+	function normalizeStoredFilters(value: StoredFilters | undefined): PopupFilters {
+		const storedFilters = value ?? {};
+		const owners = toStringArray(storedFilters.owners);
+		const repos = toStringArray(storedFilters.repos);
+		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
+
+		return {
+			...DEFAULT_FILTERS,
+			repos,
+			owners,
+			ageRange,
+		};
+	}
 
 	const DEFAULT_FILTERS: PopupFilters = {
 		owners: [],
@@ -124,7 +143,8 @@
 			});
 
 			result = fuse.search(query).map(({ item }) => {
-				const { _jiraTicket, ...pr } = item;
+				const pr = { ...item };
+				delete pr._jiraTicket;
 				return pr;
 			});
 		}
@@ -172,24 +192,12 @@
 			viewedPrIds = new Set(allPrs.map((pr) => pr.id));
 
 			if (settings.persistFilters) {
-				const initialFilters = await new Promise<{ activeFilters?: LegacyFilters } | undefined>((resolve) =>
-					chrome.storage.local.get(['searchFilters'], (result) => resolve(result.searchFilters as { activeFilters?: LegacyFilters } | undefined))
+				const initialFilters = await new Promise<{ activeFilters?: StoredFilters } | undefined>((resolve) =>
+					chrome.storage.local.get(['searchFilters'], (result) => resolve(result.searchFilters as { activeFilters?: StoredFilters } | undefined))
 				);
 
 				if (initialFilters) {
-					const legacyFilters = initialFilters.activeFilters || {};
-					const ownerSelections = Array.from(new Set([
-						...(legacyFilters.owners || []),
-						...(legacyFilters.orgs || []),
-						...(legacyFilters.myRepo && provider?.user?.login ? [provider.user.login] : []),
-					]));
-
-					activeFilters = {
-						...DEFAULT_FILTERS,
-						...legacyFilters,
-						owners: ownerSelections,
-						ageRange: legacyFilters.ageRange || '',
-					};
+					activeFilters = normalizeStoredFilters(initialFilters.activeFilters);
 				}
 			} else {
 				chrome.storage.local.remove(['searchFilters']);
