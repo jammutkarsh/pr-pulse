@@ -1,12 +1,23 @@
-<script>
+<script lang="ts">
 	import { Inbox, UserRound } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
+	import type { Settings } from '../../lib/types';
 
-	export let setupRequired = false;
-	export let errorMessage = '';
-	export let currentTab = 'myPRs';
-	export let onOpenSetup = () => {};
-	export let onRetry = () => {};
+	interface Props {
+		setupRequired?: boolean;
+		errorMessage?: string;
+		currentTab?: Settings['pinnedTab'];
+		onOpenSetup?: () => void;
+		onRetry?: () => void;
+	}
+
+	let {
+		setupRequired = false,
+		errorMessage = '',
+		currentTab = 'myPRs',
+		onOpenSetup = () => {},
+		onRetry = () => {}
+	}: Props = $props();
 </script>
 
 {#if setupRequired}
@@ -18,12 +29,12 @@
 			<h2 class="text-lg font-semibold">Setup Required</h2>
 			<p class="max-w-sm text-sm text-soft">Connect your GitHub account to start tracking PRs in the popup.</p>
 		</div>
-		<Button on:click={onOpenSetup}>Open Setup</Button>
+		<Button onclick={onOpenSetup}>Open Setup</Button>
 	</div>
 {:else if errorMessage}
 	<div class="state-shell">
 		<div class="text-sm text-(--danger)">{errorMessage}</div>
-		<Button variant="secondary" on:click={onRetry}>Try Again</Button>
+		<Button variant="secondary" onclick={onRetry}>Try Again</Button>
 	</div>
 {:else}
 	<div class="state-shell">

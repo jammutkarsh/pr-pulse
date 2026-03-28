@@ -12,6 +12,11 @@ export interface PullRequestAuthor {
 	name: string;
 }
 
+export interface PullRequestRepoOwner {
+	login: string;
+	type: 'org' | 'user' | 'unknown';
+}
+
 export interface PullRequestChanges {
 	additions: number;
 	deletions: number;
@@ -47,6 +52,7 @@ export interface PullRequest {
 	title: string;
 	url: string;
 	repoFullName: string;
+	repoOwner: PullRequestRepoOwner;
 	branchName: string;
 	author: PullRequestAuthor;
 	state: string;
@@ -86,6 +92,7 @@ export interface Settings {
 	pinnedTab: 'myPRs' | 'toReview';
 	visibleColumns: string[];
 	pollingIntervalMs: number;
+	persistFilters: boolean;
 	ui: UiConfig;
 }
 
