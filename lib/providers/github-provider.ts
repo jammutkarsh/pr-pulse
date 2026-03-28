@@ -1,5 +1,5 @@
 import { ProviderError } from '../errors';
-import type { PullRequest, PullRequestCheckDetail, PullRequestChecks, PullRequestReviews, ProviderConfig, User } from '../types';
+import type { PullRequest, PullRequestCheckDetail, PullRequestChecks, PullRequestRepoOwner, PullRequestReviews, ProviderConfig, User } from '../types';
 import { BaseProvider } from './base-provider';
 
 type GitHubSearchIssue = {
@@ -17,12 +17,14 @@ type GitHubSearchIssue = {
 type PullRequestDetails = {
 	branchName: string;
 	changes: PullRequest['changes'];
+	repoOwner: PullRequest['repoOwner'];
 	requestedReviewers: string[];
 	_raw: { head?: { sha?: string } } & Record<string, unknown>;
 };
 
 export class GitHubProvider extends BaseProvider {
 	#etagCache = new Map<string, { etag: string; data: unknown }>();
+	#repoOwnerCache = new Map<string, PullRequest['repoOwner']>();
 
 	constructor(config: ProviderConfig = {}) {
 		super(config);
@@ -93,6 +95,7 @@ export class GitHubProvider extends BaseProvider {
 	#transformPullRequest(issue: GitHubSearchIssue, prDetails: PullRequestDetails | null = null): PullRequest {
 		const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
 		const repoFullName = repoMatch ? repoMatch[1] : '';
+		const fallbackOwnerLogin = repoFullName.split('/')[0] || '';
 
 		return {
 			id: `github-${issue.id}`,
@@ -100,6 +103,10 @@ export class GitHubProvider extends BaseProvider {
 			title: issue.title,
 			url: issue.html_url,
 			repoFullName,
+			repoOwner: prDetails?.repoOwner || {
+				login: fallbackOwnerLogin,
+				type: 'unknown',
+			},
 			branchName: prDetails?.branchName || '',
 			author: {
 				login: issue.user?.login || '',
@@ -115,6 +122,32 @@ export class GitHubProvider extends BaseProvider {
 			_prNumber: issue.number,
 			_repoFullName: repoFullName,
 		};
+	}
+
+	async getRepoOwner(repoFullName: string): Promise<PullRequest['repoOwner']> {
+		if (!repoFullName) {
+			return { login: '', type: 'unknown' };
+		}
+
+		const cached = this.#repoOwnerCache.get(repoFullName);
+		if (cached) {
+			return cached;
+		}
+
+		const data = await this.#request<{
+			owner?: {
+				login?: string;
+				type?: string;
+			};
+		}>(`/repos/${repoFullName}`);
+
+		const repoOwner: PullRequestRepoOwner = {
+			login: data.owner?.login || repoFullName.split('/')[0] || '',
+			type: (data.owner?.type || '').toLowerCase() === 'organization' ? 'org' : (data.owner?.type || '').toLowerCase() === 'user' ? 'user' : 'unknown',
+		};
+
+		this.#repoOwnerCache.set(repoFullName, repoOwner);
+		return repoOwner;
 	}
 
 	async #fetchPRsWithQuery(query: string): Promise<PullRequest[]> {
@@ -141,7 +174,12 @@ export class GitHubProvider extends BaseProvider {
 					};
 				} catch (error) {
 					console.warn(`Failed to get details for PR #${issue.number}:`, error);
-					return this.#transformPullRequest(issue);
+					const fallbackPullRequest = this.#transformPullRequest(issue);
+					const repoOwner = await this.getRepoOwner(repoFullName).catch(() => fallbackPullRequest.repoOwner);
+					return {
+						...fallbackPullRequest,
+						repoOwner,
+					};
 				}
 			})
 		);
@@ -158,11 +196,28 @@ export class GitHubProvider extends BaseProvider {
 	async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<PullRequestDetails> {
 		const data = await this.#request<{
 			head?: { ref?: string; sha?: string };
+			base?: {
+				repo?: {
+					owner?: {
+						login?: string;
+						type?: string;
+					};
+				};
+			};
 			additions?: number;
 			deletions?: number;
 			changed_files?: number;
 			requested_reviewers?: Array<{ login: string }>;
 		}>(`/repos/${repoFullName}/pulls/${prNumber}`);
+
+		const repoOwnerLogin = data.base?.repo?.owner?.login || repoFullName.split('/')[0] || '';
+		const repoOwnerType = (data.base?.repo?.owner?.type || '').toLowerCase();
+		const repoOwner: PullRequestRepoOwner = {
+			login: repoOwnerLogin,
+			type: repoOwnerType === 'organization' ? 'org' : repoOwnerType === 'user' ? 'user' : 'unknown',
+		};
+
+		this.#repoOwnerCache.set(repoFullName, repoOwner);
 
 		return {
 			branchName: data.head?.ref || '',
@@ -171,6 +226,7 @@ export class GitHubProvider extends BaseProvider {
 				deletions: data.deletions || 0,
 				filesChanged: data.changed_files || 0,
 			},
+			repoOwner: repoOwner,
 			requestedReviewers: (data.requested_reviewers || []).map((reviewer) => reviewer.login),
 			_raw: data,
 		};

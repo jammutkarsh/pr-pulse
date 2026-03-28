@@ -32,12 +32,12 @@
 	let toastVisible = false;
 	let viewedPrIds = new Set();
 	let newPrCount = 0;
+	let isSearchOpen = false;
+	let isFilterOpen = false;
 	const DEFAULT_FILTERS = {
+		owners: [],
 		repos: [],
-		orgs: [],
-		myRepo: false,
-		checksPassing: false,
-		readyToMerge: false,
+		ageRange: '',
 	};
 
 	// Search & Filter state
@@ -54,11 +54,43 @@
 	$: cardListClasses = isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin';
 
 	// Compute available options for dropdowns based on current tab's items
-	$: availableRepos = Array.from(new Set(currentItems.map(pr => pr.repoFullName))).filter(Boolean);
-	$: availableOrgs = Array.from(new Set(currentItems.map(pr => pr.repoFullName?.split('/')[0]))).filter(Boolean);
+	$: availableOwners = Array.from(
+		new Map(
+			currentItems
+				.map((pr) => {
+					const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+					const ownerType = pr.repoOwner?.type || 'unknown';
+					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }];
+				})
+				.filter(([login]) => Boolean(login))
+		).values()
+	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }));
+	$: availableRepos = Array.from(
+		new Map(
+			currentItems
+				.filter((pr) => pr.repoFullName)
+				.map((pr) => {
+					const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
+					return [
+						pr.repoFullName,
+						{
+							fullName: pr.repoFullName,
+							owner,
+							ownerType: pr.repoOwner?.type || 'unknown',
+							name,
+						},
+					];
+				})
+		).values()
+	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' }));
 	$: showSearchControls = !loading && !setupRequired && !errorMessage && currentItems.length > 0;
+	$: searchActive = isSearchOpen || searchQuery.trim().length > 0;
+	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
+	// $: filterCount = activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange));
+	$: filterCount = activeFilters.owners.length + activeFilters.repos.length;
+	$: filterActive = filterCount > 0;
 	
-	$: filteredItems = filterItems(currentItems, searchQuery, activeFilters, provider);
+	$: filteredItems = filterItems(currentItems, searchQuery, activeFilters);
 
 	// Persist filters when they change, if setting is enabled
 	$: {
@@ -67,36 +99,48 @@
 		}
 	}
 
-	function filterItems(items, query, filters, prov) {
+	function filterItems(items, query, filters) {
 		let result = items;
 
-		// 1. Binary active filters
-		if (filters.myRepo && prov?.user?.login) {
-			result = result.filter(pr => pr.repoFullName.startsWith(`${prov.user.login}/`));
-		}
-		if (filters.checksPassing) {
-			result = result.filter(pr => pr.checks?.status === 'success');
-		}
-		if (filters.readyToMerge) {
-			result = result.filter(pr => 
-				pr.checks?.status === 'success' && 
-				pr.reviews?.status === 'approved' && 
-				pr.state !== 'draft'
-			);
-		}
-
-		// 2. Dropdown filters
+		// 1. Dropdown filters
 		if (filters.repos.length > 0) {
 			result = result.filter(pr => filters.repos.includes(pr.repoFullName));
 		}
-		if (filters.orgs.length > 0) {
-			result = result.filter(pr => {
-				const org = pr.repoFullName?.split('/')[0];
-				return filters.orgs.includes(org);
+		if (filters.owners.length > 0) {
+			result = result.filter(pr => filters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
+		}
+		/*
+		if (filters.ageRange) {
+			const now = Date.now();
+			result = result.filter((pr) => {
+				const createdAt = new Date(pr.createdAt).getTime();
+				if (Number.isNaN(createdAt)) {
+					return false;
+				}
+
+				const ageInDays = (now - createdAt) / 86400000;
+
+				switch (filters.ageRange) {
+					case '24h':
+						return ageInDays <= 1;
+					case '7d':
+						return ageInDays > 1 && ageInDays <= 7;
+					case '14d':
+						return ageInDays > 7 && ageInDays <= 14;
+					case '1m':
+						return ageInDays > 14 && ageInDays <= 30;
+					case '3m':
+						return ageInDays > 30 && ageInDays <= 90;
+					case 'gt3m':
+						return ageInDays > 90;
+					default:
+						return true;
+				}
 			});
 		}
+		*/
 
-		// 3. Search query with fuse.js
+		// 2. Search query with fuse.js
 		if (query.trim()) {
 			const searchInput = result.map(pr => ({
 				...pr,
@@ -163,9 +207,18 @@
 			if (settings.persistFilters) {
 				const initialFilters = await new Promise(resolve => chrome.storage.local.get(['searchFilters'], res => resolve(res.searchFilters)));
 				if (initialFilters) {
+					const legacyFilters = initialFilters.activeFilters || {};
+					const ownerSelections = Array.from(new Set([
+						...(legacyFilters.owners || []),
+						...(legacyFilters.orgs || []),
+						...(legacyFilters.myRepo && provider?.user?.login ? [provider.user.login] : []),
+					]));
+
 					activeFilters = {
 						...DEFAULT_FILTERS,
-						...(initialFilters.activeFilters || {}),
+						...legacyFilters,
+						owners: ownerSelections,
+						ageRange: legacyFilters.ageRange || '',
 					};
 				}
 			} else {
@@ -247,6 +300,17 @@
 		chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?fullpage=1') });
 	}
 
+	function toggleSearch() {
+		if (!isSearchOpen) {
+			isSearchOpen = true;
+			isFilterOpen = false;
+			return;
+		}
+
+		isSearchOpen = false;
+		isFilterOpen = false;
+	}
+
 	function safeOpenUrl(url) {
 		if (!isValidHttpUrl(url)) {
 			return;
@@ -274,7 +338,12 @@
 				{provider}
 				{isFullpageMode}
 				{refreshInProgress}
+				showCompactIdentity={!isFullpageMode && showSearchControls}
+				{showSearchControls}
+				{searchActive}
+				{filterActive}
 				onOpenUrl={safeOpenUrl}
+				onToggleSearch={toggleSearch}
 				onRefresh={refreshPrs}
 				onOpenFullscreen={openFullscreen}
 				onOpenSettings={openSettings}
@@ -291,8 +360,10 @@
 				<SearchFilter 
 					bind:query={searchQuery}
 					bind:activeFilters={activeFilters}
+					bind:isSearchOpen={isSearchOpen}
+					bind:isFilterOpen={isFilterOpen}
 					{availableRepos}
-					{availableOrgs}
+					{availableOwners}
 				/>
 			{/if}
 

@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, MonitorCog, Pin, Search, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, MonitorCog, Pin, ListFilter, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
@@ -289,10 +289,10 @@
 		<SectionCard>
 			<div class="mb-4 flex items-center gap-3">
 				<div class="rounded-2xl bg-white/6 p-3 text-white">
-					<Search class="h-5 w-5" />
+					<ListFilter class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Search & filters</h2>
+					<h2 class="text-base font-semibold text-white">Filters</h2>
 					<p class="text-sm text-soft">Configure the active filter persistence.</p>
 				</div>
 			</div>
