@@ -34,7 +34,36 @@
 		ownerType: PullRequestRepoOwner['type'];
 		name: string;
 	};
+	type PopupTab = Settings['pinnedTab'];
 	type StoredFilters = Partial<PopupFilters>;
+	type StoredFilterState = {
+		tabs?: Partial<Record<PopupTab, StoredFilters>>;
+		activeFilters?: StoredFilters;
+	};
+	type FiltersByTab = Record<PopupTab, PopupFilters>;
+
+	function createDefaultFilters(): PopupFilters {
+		return {
+			owners: [],
+			repos: [],
+			ageRange: '',
+		};
+	}
+
+	function createDefaultFiltersByTab(): FiltersByTab {
+		return {
+			myPRs: createDefaultFilters(),
+			toReview: createDefaultFilters(),
+		};
+	}
+
+	function cloneFilters(filters: PopupFilters): PopupFilters {
+		return {
+			owners: [...filters.owners],
+			repos: [...filters.repos],
+			ageRange: filters.ageRange,
+		};
+	}
 
 	function toStringArray(value: unknown): string[] {
 		if (!Array.isArray(value)) {
@@ -58,11 +87,28 @@
 		};
 	}
 
-	const DEFAULT_FILTERS: PopupFilters = {
-		owners: [],
-		repos: [],
-		ageRange: '',
-	};
+	function normalizeStoredFilterState(value: StoredFilterState | undefined, fallbackTab: PopupTab): FiltersByTab {
+		const defaultState = createDefaultFiltersByTab();
+		const storedTabs = value?.tabs;
+
+		if (storedTabs) {
+			return {
+				myPRs: normalizeStoredFilters(storedTabs.myPRs),
+				toReview: normalizeStoredFilters(storedTabs.toReview),
+			};
+		}
+
+		if (value?.activeFilters) {
+			return {
+				...defaultState,
+				[fallbackTab]: normalizeStoredFilters(value.activeFilters),
+			};
+		}
+
+		return defaultState;
+	}
+
+	const DEFAULT_FILTERS = createDefaultFilters();
 
 	interface Props {
 		bootstrapDataPromise?: Promise<PopupBootstrapData> | null;
@@ -89,6 +135,8 @@
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
 	let activeFilters = $state<PopupFilters>({ ...DEFAULT_FILTERS });
+	let filtersByTab = $state<FiltersByTab>(createDefaultFiltersByTab());
+	let filterPersistenceReady = $state(false);
 
 	function filterItems(items: PullRequest[], query: string, filters: PopupFilters): PullRequest[] {
 		let result = items;
@@ -172,6 +220,7 @@
 	}
 
 	async function init() {
+		filterPersistenceReady = false;
 		isFullpageMode = new URLSearchParams(window.location.search).has('fullpage');
 		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getPopupBootstrapData();
 		settings = bootstrapData.settings;
@@ -192,20 +241,22 @@
 			viewedPrIds = new Set(allPrs.map((pr) => pr.id));
 
 			if (settings.persistFilters) {
-				const initialFilters = await new Promise<{ activeFilters?: StoredFilters } | undefined>((resolve) =>
-					chrome.storage.local.get(['searchFilters'], (result) => resolve(result.searchFilters as { activeFilters?: StoredFilters } | undefined))
+				const initialFilters = await new Promise<StoredFilterState | undefined>((resolve) =>
+					chrome.storage.local.get(['searchFilters'], (result) => resolve(result.searchFilters as StoredFilterState | undefined))
 				);
 
-				if (initialFilters) {
-					activeFilters = normalizeStoredFilters(initialFilters.activeFilters);
-				}
+				filtersByTab = normalizeStoredFilterState(initialFilters, currentTab);
+				activeFilters = cloneFilters(filtersByTab[currentTab]);
 			} else {
 				chrome.storage.local.remove(['searchFilters']);
 			}
 		} else {
 			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
+			filtersByTab = createDefaultFiltersByTab();
+			activeFilters = createDefaultFilters();
 		}
 
+		filterPersistenceReady = true;
 		loading = false;
 		chrome.storage.onChanged.addListener(onStorageChanged);
 	}
@@ -287,6 +338,20 @@
 		isFilterOpen = false;
 	}
 
+	function handleTabChange(tab: PopupTab) {
+		if (tab === currentTab) {
+			return;
+		}
+
+		filtersByTab = {
+			...filtersByTab,
+			[currentTab]: cloneFilters(activeFilters),
+		};
+		currentTab = tab;
+		activeFilters = cloneFilters(filtersByTab[tab]);
+		isFilterOpen = false;
+	}
+
 	function safeOpenUrl(url: string) {
 		if (!isValidHttpUrl(url)) {
 			return;
@@ -349,9 +414,27 @@
 	let filteredItems = $derived(filterItems(currentItems, searchQuery, activeFilters));
 
 	$effect(() => {
-		if (settings.persistFilters && typeof chrome !== 'undefined') {
-			chrome.storage.local.set({ searchFilters: { activeFilters } });
+		if (!filterPersistenceReady || typeof chrome === 'undefined') {
+			return;
 		}
+
+		if (settings.persistFilters) {
+			const nextFiltersByTab = {
+				...filtersByTab,
+				[currentTab]: cloneFilters(activeFilters),
+			};
+			chrome.storage.local.set({
+				searchFilters: {
+					tabs: {
+						myPRs: nextFiltersByTab.myPRs,
+						toReview: nextFiltersByTab.toReview,
+					},
+				},
+			});
+			return;
+		}
+
+		chrome.storage.local.remove(['searchFilters']);
 	});
 </script>
 
@@ -363,7 +446,7 @@
 				{provider}
 				{isFullpageMode}
 				{refreshInProgress}
-				showCompactIdentity={!isFullpageMode && showSearchControls}
+				showCompactIdentity={showSearchControls}
 				{showSearchControls}
 				{searchActive}
 				{filterActive}
@@ -378,7 +461,7 @@
 				{currentTab}
 				{myPrCount}
 				{reviewCount}
-				onTabChange={(tab) => currentTab = tab}
+				onTabChange={handleTabChange}
 			/>
 
 			{#if showSearchControls}

@@ -82,8 +82,8 @@
                 return;
             }
 
-            const target = event.target;
-            if (target instanceof Node && !surfaceElement.contains(target)) {
+            const clickPath = event.composedPath();
+            if (!clickPath.includes(surfaceElement)) {
                 closeSearchSurface();
             }
         }
@@ -285,7 +285,7 @@
         {#if isFilterOpen}
             <div class="absolute left-4 right-4 top-full z-30 mt-2 max-h-88 overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) p-3 shadow-lg sm:left-4 sm:right-4">
                 <div class="mb-3 flex items-center justify-between gap-3">
-                    <p class="shrink-0 text-sm font-semibold text-white">Filters</p>
+                    <!-- <p class="shrink-0 text-sm font-semibold text-white">Filters</p> -->
                     <div class="min-w-0 flex-1 overflow-x-auto scroll-thin">
                         {#if hasActiveFilters}
                             <div class="flex min-w-max items-center gap-2 px-1">

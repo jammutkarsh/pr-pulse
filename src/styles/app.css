@@ -25,7 +25,6 @@
 	--accent-muted: rgba(55, 148, 255, 0.14);
 	--accent-border: rgba(55, 148, 255, 0.26);
 	--success: #89d185;
-	--success-muted: rgba(137, 209, 133, 0.14);
 	--warning: #d7ba7d;
 	--warning-muted: rgba(215, 186, 125, 0.14);
 	--danger: #f14c4c;
@@ -319,40 +318,6 @@ a {
 		color: var(--danger);
 		filter: none;
 		text-shadow: 0 0 1px rgba(241, 76, 76, 0.18);
-	}
-
-	.status-badge {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-		border: 1px solid var(--border-soft);
-		border-radius: 9999px;
-		background: var(--bg-muted);
-		padding: 0.25rem 0.625rem;
-		font-size: 0.75rem;
-		font-weight: 500;
-	}
-
-	.status-badge-success {
-		border-color: rgba(137, 209, 133, 0.24);
-		background: var(--success-muted);
-		color: var(--success);
-	}
-
-	.status-badge-warning {
-		border-color: rgba(215, 186, 125, 0.24);
-		background: var(--warning-muted);
-		color: var(--warning);
-	}
-
-	.status-badge-danger {
-		border-color: rgba(241, 76, 76, 0.24);
-		background: var(--danger-muted);
-		color: var(--danger);
-	}
-
-	.status-badge-neutral {
-		color: var(--text-soft);
 	}
 
 	.status-dot {
