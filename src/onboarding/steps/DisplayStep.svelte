@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, MonitorSmartphone, Sparkles } from 'lucide-svelte';
+	import { ArrowLeft, Expand, MonitorSmartphone, Sparkles } from 'lucide-svelte';
 	import Button from '../../lib/components/Button.svelte';
 	import RadioCard from '../../lib/components/RadioCard.svelte';
 	import SectionCard from '../../lib/components/SectionCard.svelte';
@@ -35,8 +35,8 @@
 		</div>
 	</div>
 	<div class="grid gap-3 md:grid-cols-2">
-		<RadioCard name="displayMode" value="popup" currentValue={displayMode} title="Popup" description="A compact glanceable interface from the toolbar for quick daily use." icon="📱" onchange={onDisplayModeChange} />
-		<RadioCard name="displayMode" value="fullpage" currentValue={displayMode} title="Full page" description="A broader canvas better suited for future filters, search, and richer organization." icon="🖥️" onchange={onDisplayModeChange} />
+		<RadioCard name="displayMode" value="popup" currentValue={displayMode} title="Popup" description="A compact glanceable interface from the toolbar for quick daily use." iconComponent={MonitorSmartphone} onchange={onDisplayModeChange} />
+		<RadioCard name="displayMode" value="fullpage" currentValue={displayMode} title="Full page" description="A broader canvas better suited for future filters, search, and richer organization." iconComponent={Expand} onchange={onDisplayModeChange} />
 	</div>
 	<div class="mt-6 flex flex-wrap gap-3">
 		<Button variant="secondary" onclick={onBack}><ArrowLeft class="h-4 w-4" />Back</Button>

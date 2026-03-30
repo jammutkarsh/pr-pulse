@@ -16,6 +16,7 @@
 		getReviewStatusDisplay,
 		isValidHttpUrl,
 		safeParseInt,
+		formatLocalDateTime,
 		formatPrAge,
 	} from '../../lib/utils';
 	import type { PullRequest, Settings } from '../../lib/types';
@@ -124,6 +125,7 @@
 	let checkDisplay = $derived(getCheckStatusDisplay(pr.checks?.status));
 	let jiraLink = $derived(getJiraLink(pr));
 	let branchUrl = $derived(getBranchUrl(pr));
+	let createdAtText = $derived(formatLocalDateTime(pr.createdAt));
 	let statusRowClasses = $derived(isFullpageMode
 		? 'flex flex-wrap gap-x-5 gap-y-1.5 text-xs'
 		: 'flex min-w-0 items-center gap-2.5 text-xs');
@@ -210,7 +212,7 @@
 					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
 				</span>
-				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium text-dim">
+				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium text-dim" title={createdAtText}>
 					<Clock class="h-3 w-3" />
 					<span>{formatPrAge(pr.createdAt)}</span>
 				</div>

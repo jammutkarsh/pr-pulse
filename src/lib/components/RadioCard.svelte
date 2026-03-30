@@ -1,5 +1,7 @@
 <script lang="ts">
- 	type RadioCardValue = string | boolean;
+	import type { ComponentType } from 'svelte';
+
+	type RadioCardValue = string | boolean;
 
 	interface Props {
 		value?: RadioCardValue;
@@ -7,6 +9,7 @@
 		title?: string;
 		description?: string;
 		icon?: string;
+		iconComponent?: ComponentType;
 		name?: string;
 		onchange?: (value: RadioCardValue) => void;
 	}
@@ -17,6 +20,7 @@
 		title = '',
 		description = '',
 		icon = '',
+		iconComponent = undefined,
 		name = '',
 		onchange,
 	}: Props = $props();
@@ -43,7 +47,14 @@
 	<div class="flex items-start justify-between gap-4">
 		<div class="space-y-3">
 			<div class="flex items-center gap-3">
-				<span class="text-2xl">{icon}</span>
+				{#if iconComponent}
+					{@const IconComponent = iconComponent}
+					<span class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-soft bg-white/6 text-white">
+						<IconComponent class="h-5 w-5" />
+					</span>
+				{:else}
+					<span class="text-2xl">{icon}</span>
+				{/if}
 				<div>
 					<div class="text-sm font-semibold text-white">{title}</div>
 				</div>

@@ -112,6 +112,23 @@ export function formatPrAge(date: string | number | Date): string {
 	return then.toLocaleDateString(undefined, options);
 }
 
+export function formatLocalDateTime(date: string | number | Date): string {
+	if (!date) return '';
+
+	const value = new Date(date);
+	if (Number.isNaN(value.getTime())) {
+		return '';
+	}
+
+	return value.toLocaleString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+	});
+}
+
 export function debounce<TArgs extends unknown[]>(func: (...args: TArgs) => void, wait: number) {
 	let timeout: number | undefined;
 	return function executedFunction(...args: TArgs) {

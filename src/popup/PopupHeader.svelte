@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Expand, GitPullRequest, Inbox, ListFilter, RefreshCw, Search, Settings2 } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
+	import DelayedTooltip from '../lib/components/DelayedTooltip.svelte';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
 
 	const ACTIVE_CONTROL_CLASSES = '!text-(--accent) [filter:drop-shadow(0_0_1px_rgba(55,148,255,0.7))_drop-shadow(0_0_10px_rgba(55,148,255,0.35))] hover:!text-(--accent)';
@@ -79,7 +80,6 @@
 			class={`unstyled-button group flex min-w-0 items-center text-left transition ${showCompactIdentity ? 'gap-2' : 'gap-3'}`}
 			onclick={() => provider?.user && onOpenUrl(`https://github.com/${provider.user.login}`)}
 			aria-label={provider?.user?.login ? `Open ${provider.user.login} on GitHub` : 'Open profile'}
-			title={provider?.user?.login ? `@${provider.user.login}` : 'PR Pulse'}
 		>
 			<img src={provider?.user?.avatarUrl || '../icons/icon128.png'} alt="Avatar" class="h-9 w-9 rounded-md border border-soft object-cover" />
 			<div class={`min-w-0 ${showCompactIdentity ? 'max-w-28' : ''}`}>
@@ -95,50 +95,60 @@
 		</button>
 		<div class="flex items-center gap-1.5">
 			{#if showTabToggle}
-				<Button
-					className={currentTab === 'myPRs' ? ACTIVE_CONTROL_CLASSES : 'hover:text-(--accent)'}
-					size="icon"
-					variant="ghost"
-					onclick={() => onTabChange('myPRs')}
-					aria-label={`Show My PRs (${myPrCount})`}
-					title={`My PRs (${myPrCount})`}
-				>
-					<span class="relative inline-flex">
-						<GitPullRequest class="h-4 w-4" />
-						<span class="absolute -right-2 -top-2 min-w-4 rounded-full bg-black/60 px-1 text-center text-[10px] font-semibold leading-4 text-white">{myPrCount}</span>
-					</span>
-				</Button>
-				<Button
-					className={currentTab === 'toReview' ? ACTIVE_CONTROL_CLASSES : 'hover:text-(--accent)'}
-					size="icon"
-					variant="ghost"
-					onclick={() => onTabChange('toReview')}
-					aria-label={`Show To Review (${reviewCount})`}
-					title={`To Review (${reviewCount})`}
-				>
-					<span class="relative inline-flex">
-						<Inbox class="h-4 w-4" />
-						<span class="absolute -right-2 -top-2 min-w-4 rounded-full bg-black/60 px-1 text-center text-[10px] font-semibold leading-4 text-white">{reviewCount}</span>
-					</span>
-				</Button>
+				<DelayedTooltip text={`My PRs (${myPrCount})`}>
+					<Button
+						className={currentTab === 'myPRs' ? ACTIVE_CONTROL_CLASSES : 'hover:text-(--accent)'}
+						size="icon"
+						variant="ghost"
+						onclick={() => onTabChange('myPRs')}
+						aria-label={`Show My PRs (${myPrCount})`}
+					>
+						<span class="relative inline-flex">
+							<GitPullRequest class="h-4 w-4" />
+							<span class="absolute -right-2 -top-2 min-w-4 rounded-full bg-black/60 px-1 text-center text-[10px] font-semibold leading-4 text-white">{myPrCount}</span>
+						</span>
+					</Button>
+				</DelayedTooltip>
+				<DelayedTooltip text={`To Review (${reviewCount})`}>
+					<Button
+						className={currentTab === 'toReview' ? ACTIVE_CONTROL_CLASSES : 'hover:text-(--accent)'}
+						size="icon"
+						variant="ghost"
+						onclick={() => onTabChange('toReview')}
+						aria-label={`Show To Review (${reviewCount})`}
+					>
+						<span class="relative inline-flex">
+							<Inbox class="h-4 w-4" />
+							<span class="absolute -right-2 -top-2 min-w-4 rounded-full bg-black/60 px-1 text-center text-[10px] font-semibold leading-4 text-white">{reviewCount}</span>
+						</span>
+					</Button>
+				</DelayedTooltip>
 			{/if}
 			{#if showSearchControls}
-				<Button className={searchActive || filterActive ? ACTIVE_CONTROL_CLASSES : 'hover:text-(--accent)'} size="icon" variant="ghost" onclick={onToggleSearch} aria-label={headerControlLabel} title={headerControlLabel}>
-					{@const SvelteComponent = headerControlIcon}
-					<SvelteComponent class="h-4 w-4" />
-				</Button>
+				<DelayedTooltip text={headerControlLabel}>
+					<Button className={searchActive || filterActive ? ACTIVE_CONTROL_CLASSES : 'hover:text-(--accent)'} size="icon" variant="ghost" onclick={onToggleSearch} aria-label={headerControlLabel}>
+						{@const SvelteComponent = headerControlIcon}
+						<SvelteComponent class="h-4 w-4" />
+					</Button>
+				</DelayedTooltip>
 			{/if}
-			<Button className="hover:text-(--accent)" size="icon" variant="ghost" onclick={onRefresh} disabled={refreshInProgress} aria-label="Refresh pull requests" title="Refresh pull requests">
-				<RefreshCw class={`h-4 w-4 ${refreshInProgress ? 'animate-spin' : ''}`} />
-			</Button>
+			<DelayedTooltip text="Refresh pull requests">
+				<Button className="hover:text-(--accent)" size="icon" variant="ghost" onclick={onRefresh} disabled={refreshInProgress} aria-label="Refresh pull requests">
+					<RefreshCw class={`h-4 w-4 ${refreshInProgress ? 'animate-spin' : ''}`} />
+				</Button>
+			</DelayedTooltip>
 			{#if !isFullpageMode}
-				<Button className="hover:text-(--accent)" size="icon" variant="ghost" onclick={onOpenFullscreen} aria-label="Open full page view" title="Open full page view">
-					<Expand class="h-4 w-4" />
-				</Button>
+				<DelayedTooltip text="Open full page view">
+					<Button className="hover:text-(--accent)" size="icon" variant="ghost" onclick={onOpenFullscreen} aria-label="Open full page view">
+						<Expand class="h-4 w-4" />
+					</Button>
+				</DelayedTooltip>
 			{/if}
-			<Button className="hover:text-(--accent)" size="icon" variant="ghost" onclick={onOpenSettings} aria-label="Open settings" title="Open settings">
-				<Settings2 class="h-4 w-4" />
-			</Button>
+			<DelayedTooltip text="Open settings">
+				<Button className="hover:text-(--accent)" size="icon" variant="ghost" onclick={onOpenSettings} aria-label="Open settings">
+					<Settings2 class="h-4 w-4" />
+				</Button>
+			</DelayedTooltip>
 		</div>
 	</div>
 </div>

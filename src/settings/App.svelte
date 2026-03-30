@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, MonitorCog, Pin, ListFilter, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
@@ -228,8 +228,8 @@
 				</div>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
-				<RadioCard name="pinnedTab" value="myPRs" currentValue={currentSettings.pinnedTab || 'myPRs'} title="My PRs" description="Track the pull requests you created and keep an eye on CI and review status." icon="📤" onchange={updatePinnedTab} />
-				<RadioCard name="pinnedTab" value="toReview" currentValue={currentSettings.pinnedTab || 'myPRs'} title="To Review" description="Focus the popup on pull requests that need your attention as a reviewer." icon="📥" onchange={updatePinnedTab} />
+				<RadioCard name="pinnedTab" value="myPRs" currentValue={currentSettings.pinnedTab || 'myPRs'} title="My PRs" description="Track the pull requests you created and keep an eye on CI and review status." iconComponent={GitPullRequest} onchange={updatePinnedTab} />
+				<RadioCard name="pinnedTab" value="toReview" currentValue={currentSettings.pinnedTab || 'myPRs'} title="To Review" description="Focus the popup on pull requests that need your attention as a reviewer." iconComponent={Inbox} onchange={updatePinnedTab} />
 			</div>
 		</SectionCard>
 
@@ -287,8 +287,8 @@
 					</div>
 				</div>
 				<div class="grid gap-3">
-					<RadioCard name="displayMode" value="popup" currentValue={currentSettings.displayMode || 'popup'} title="Popup" description="Keep the toolbar interaction lightweight and compact." icon="📱" onchange={updateDisplayMode} />
-					<RadioCard name="displayMode" value="fullpage" currentValue={currentSettings.displayMode || 'popup'} title="Full page" description="Use a larger tab surface for denser layouts and future filters." icon="🖥️" onchange={updateDisplayMode} />
+					<RadioCard name="displayMode" value="popup" currentValue={currentSettings.displayMode || 'popup'} title="Popup" description="Keep the toolbar interaction lightweight and compact." iconComponent={MonitorSmartphone} onchange={updateDisplayMode} />
+					<RadioCard name="displayMode" value="fullpage" currentValue={currentSettings.displayMode || 'popup'} title="Full page" description="Use a larger tab surface for denser layouts and future filters." iconComponent={Expand} onchange={updateDisplayMode} />
 				</div>
 			</SectionCard>
 		</div>
@@ -304,8 +304,8 @@
 				</div>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
-				<RadioCard name="persistFilters" value={true} currentValue={currentSettings.persistFilters ?? true} title="Remember Filters" description="Keep your search and active filters across extension sessions forever." icon="💾" onchange={() => updateSetting('persistFilters', true)} />
-				<RadioCard name="persistFilters" value={false} currentValue={currentSettings.persistFilters ?? true} title="Per Session" description="Clear search query and filters every time you close the popup." icon="🧹" onchange={() => updateSetting('persistFilters', false)} />
+				<RadioCard name="persistFilters" value={true} currentValue={currentSettings.persistFilters ?? true} title="Remember Filters" description="Keep your search and active filters across extension sessions forever." iconComponent={Save} onchange={() => updateSetting('persistFilters', true)} />
+				<RadioCard name="persistFilters" value={false} currentValue={currentSettings.persistFilters ?? true} title="Per Session" description="Clear search query and filters every time you close the popup." iconComponent={Eraser} onchange={() => updateSetting('persistFilters', false)} />
 			</div>
 		</SectionCard>
 
