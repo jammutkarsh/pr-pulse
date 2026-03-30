@@ -6,6 +6,7 @@
 		currentTab?: Settings['pinnedTab'];
 		myPrCount?: number;
 		reviewCount?: number;
+		embedded?: boolean;
 		onTabChange?: (tab: Settings['pinnedTab']) => void;
 	}
 
@@ -13,11 +14,15 @@
 		currentTab = 'myPRs',
 		myPrCount = 0,
 		reviewCount = 0,
+		embedded = false,
 		onTabChange = () => {}
 	}: Props = $props();
+
+	let containerClasses = $derived(embedded ? '' : 'border-b border-soft px-4 py-2.5 sm:px-4');
 </script>
 
-<div class="border-b border-soft px-4 py-2.5 sm:px-4">
+
+<div class={containerClasses}>
 	<div class="grid grid-cols-2 gap-1 rounded-lg bg-(--bg-muted) p-1">
 		<button
 			class={`unstyled-button rounded-md px-3 py-1.5 text-sm font-medium transition ${currentTab === 'myPRs' ? 'bg-(--bg-panel-strong) text-white shadow-sm' : 'text-soft hover:bg-[#3a3d41] hover:text-white'}`}

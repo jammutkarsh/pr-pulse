@@ -3,6 +3,7 @@
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, X } from 'lucide-svelte';
     import type { PullRequestRepoOwner } from '../../lib/types';
+    import Button from '../lib/components/Button.svelte';
 
     type PopupFilters = {
         owners: string[];
@@ -53,6 +54,7 @@
         availableOwners?: OwnerFilterOption[];
         isSearchOpen?: boolean;
         isFilterOpen?: boolean;
+        embedded?: boolean;
     }
 
     let {
@@ -62,6 +64,7 @@
         availableOwners = [] as OwnerFilterOption[],
         isSearchOpen = $bindable(false),
         isFilterOpen = $bindable(false),
+        embedded = false,
     }: Props = $props();
 
     let expandedSections = $state({
@@ -74,6 +77,7 @@
     let surfaceElement = $state<HTMLDivElement | null>(null);
     let ignoreOutsideClick = false;
     let wasSearchOpen = false;
+    let wasFilterOpen = false;
     let openGuardTimeout: ReturnType<typeof setTimeout> | null = null;
 
     onMount(() => {
@@ -138,6 +142,10 @@
     }
 
     function toggleFilterPanel() {
+        if (!hasMeaningfulFilters) {
+            return;
+        }
+
         isFilterOpen = !isFilterOpen;
     }
 
@@ -216,10 +224,14 @@
     }
 
     let hasQuery = $derived(query.trim().length > 0);
+    let showOwnerFilter = $derived(availableOwners.length > 1);
+    let showRepoFilter = $derived(availableRepos.length > 1);
+    let hasMeaningfulFilters = $derived(showOwnerFilter || showRepoFilter);
     // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
     // let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
     let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length);
     let hasActiveFilters = $derived(activeFilterCount > 0);
+    let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
     let selectedFilterChips = $derived<FilterChip[]>([
         ...activeFilters.owners.map((ownerLogin) => ({
             key: `owner:${ownerLogin}`,
@@ -250,11 +262,57 @@
     $effect(() => {
         syncSearchSurfaceState(isSearchOpen);
     });
+
+    $effect(() => {
+        const availableOwnerLogins = new Set(availableOwners.map((owner) => owner.login));
+        const availableRepoNames = new Set(availableRepos.map((repo) => repo.fullName));
+        const owners = showOwnerFilter ? activeFilters.owners.filter((owner) => availableOwnerLogins.has(owner)) : [];
+        const repos = showRepoFilter ? activeFilters.repos.filter((repo) => availableRepoNames.has(repo)) : [];
+
+        if (owners.length !== activeFilters.owners.length || repos.length !== activeFilters.repos.length) {
+            activeFilters = {
+                ...activeFilters,
+                owners,
+                repos,
+            };
+        }
+
+        if (!hasMeaningfulFilters && isFilterOpen) {
+            isFilterOpen = false;
+        }
+    });
+
+    $effect(() => {
+        if (isFilterOpen === wasFilterOpen) {
+            return;
+        }
+
+        wasFilterOpen = isFilterOpen;
+
+        if (!isFilterOpen) {
+            return;
+        }
+
+        if (showOwnerFilter) {
+            expandedSections = {
+                owners: true,
+                repos: false,
+            };
+            return;
+        }
+
+        if (showRepoFilter) {
+            expandedSections = {
+                owners: false,
+                repos: true,
+            };
+        }
+    });
 </script>
 
 {#if isSearchOpen}
-<div bind:this={surfaceElement} class="relative z-20 border-b border-soft px-4 py-2.5 sm:px-4">
-    <div class="space-y-2">
+<div bind:this={surfaceElement} class={embedded ? 'relative z-20' : 'relative z-20 border-b border-soft px-4 py-2.5 sm:px-4'}>
+    <div class="space-y-1.5">
             <div class="flex items-center gap-2">
                 <div class="relative min-w-0 flex-1">
                     <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-soft" />
@@ -272,22 +330,24 @@
                     {/if}
                 </div>
 
-                <button
-                    class={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition ${isFilterOpen || hasActiveFilters ? 'border-(--accent) bg-(--accent)/10 text-(--accent) shadow-[0_0_0_1px_rgba(55,148,255,0.22),0_0_16px_rgba(55,148,255,0.14)]' : 'border-soft bg-transparent text-soft hover:border-strong hover:bg-(--bg-muted) hover:text-white'}`}
+                <Button
+                    className={isFilterOpen || hasActiveFilters ? 'border-(--accent) bg-(--accent)/10 text-(--accent) shadow-[0_0_0_1px_rgba(55,148,255,0.22),0_0_16px_rgba(55,148,255,0.14)] hover:border-(--accent) hover:bg-(--accent)/10 hover:text-(--accent)' : 'border-soft bg-transparent text-soft hover:border-strong hover:bg-(--bg-muted) hover:text-white'}
+                    size="icon"
+                    variant="ghost"
                     onclick={toggleFilterPanel}
-                    aria-label="Toggle filters"
-                    title="Toggle filters"
+                    disabled={!hasMeaningfulFilters}
+                    aria-label={filterButtonLabel}
+                    title={filterButtonLabel}
                 >
                     <ListFilter class="h-4 w-4" />
-                </button>
+                </Button>
             </div>
 
-        {#if isFilterOpen}
-            <div class="absolute left-4 right-4 top-full z-30 mt-2 max-h-88 overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) p-3 shadow-lg sm:left-4 sm:right-4">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                    <!-- <p class="shrink-0 text-sm font-semibold text-white">Filters</p> -->
-                    <div class="min-w-0 flex-1 overflow-x-auto scroll-thin">
-                        {#if hasActiveFilters}
+        {#if isFilterOpen && hasMeaningfulFilters}
+            <div class="max-h-88 overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) px-3 py-2 shadow-lg">
+                {#if hasActiveFilters}
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex-1 overflow-x-auto scroll-thin">
                             <div class="flex min-w-max items-center gap-2 px-1">
                                 {#each selectedFilterChips as chip (chip.key)}
                                     <button
@@ -301,95 +361,89 @@
                                     </button>
                                 {/each}
                             </div>
-                        {/if}
-                    </div>
-                    <div class="shrink-0 flex items-center gap-3">
-                        {#if hasActiveFilters}
+                        </div>
+                        <div class="shrink-0 flex items-center gap-3">
                             <button class="unstyled-button text-xs font-medium text-(--accent) hover:underline" onclick={clearFilters}>Clear</button>
-                        {/if}
+                        </div>
                     </div>
-                </div>
+                {/if}
 
                 <div class="space-y-2">
-                    <div class="overflow-hidden rounded-lg border border-soft">
-                        <button
-                            class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
-                            onclick={() => toggleSection('owners')}
-                        >
-                            <span class="flex items-center gap-2">
-                                    {#if expandedSections.owners}
-                                        <ChevronDown class="h-4 w-4 text-soft" />
-                                    {:else}
-                                        <ChevronRight class="h-4 w-4 text-soft" />
-                                    {/if}
-                                    <span>Owners</span>
-                                </span>
-                        </button>
-
-                        {#if expandedSections.owners}
-                            <div class="border-t border-soft px-3 py-2">
-                                    {#if availableOwners.length === 0}
-                                        <p class="text-xs text-soft">No owners available in this tab.</p>
-                                    {:else}
-                                        <div class="max-h-40 space-y-1 overflow-y-auto pr-1 scroll-thin">
-                                            {#each availableOwners as owner (owner.login)}
-                                                <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
-                                                    <input
-                                                        type="checkbox"
-                                                        class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
-                                                        checked={activeFilters.owners.includes(owner.login)}
-                                                        onchange={() => toggleOwner(owner.login)}
-                                                    />
-                                                    <span class="min-w-0 flex-1 truncate">{owner.login}</span>
-                                                    {#if owner.type !== 'unknown'}
-                                                        <span class="shrink-0 text-[11px] uppercase tracking-[0.08em] text-soft">{getOwnerTypeLabel(owner.type)}</span>
-                                                    {/if}
-                                                </label>
-                                            {/each}
-                                        </div>
-                                    {/if}
-                            </div>
-                        {/if}
-                    </div>
-
-                    <div class="overflow-hidden rounded-lg border border-soft">
-                        <button
-                            class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
-                            onclick={() => toggleSection('repos')}
-                        >
-                            <span class="flex items-center gap-2">
-                                    {#if expandedSections.repos}
-                                        <ChevronDown class="h-4 w-4 text-soft" />
-                                    {:else}
-                                        <ChevronRight class="h-4 w-4 text-soft" />
-                                    {/if}
-                                    <span>Repositories</span>
-                                </span>
+                    {#if showOwnerFilter}
+                        <div class="overflow-hidden rounded-lg border border-soft">
+                            <button
+                                class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
+                                onclick={() => toggleSection('owners')}
+                            >
+                                <span class="flex items-center gap-2">
+                                        {#if expandedSections.owners}
+                                            <ChevronDown class="h-4 w-4 text-soft" />
+                                        {:else}
+                                            <ChevronRight class="h-4 w-4 text-soft" />
+                                        {/if}
+                                        <span>Owners</span>
+                                    </span>
                             </button>
 
-                        {#if expandedSections.repos}
-                            <div class="border-t border-soft px-3 py-2">
-                                    {#if availableRepos.length === 0}
-                                        <p class="text-xs text-soft">No repositories available in this tab.</p>
-                                    {:else}
-                                        <div class="max-h-48 space-y-1 overflow-y-auto pr-1 scroll-thin">
-                                            {#each availableRepos as repo (repo.fullName)}
-                                                <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
-                                                    <input
-                                                        type="checkbox"
-                                                        class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
-                                                        checked={activeFilters.repos.includes(repo.fullName)}
-                                                        onchange={() => toggleRepo(repo.fullName)}
-                                                    />
-                                                    <span class="min-w-0 flex-1 truncate" title={repo.fullName}>{repo.name}</span>
-                                                    <span class="shrink-0 text-[11px] uppercase tracking-[0.08em] text-soft">{repo.owner}</span>
-                                                </label>
-                                            {/each}
-                                        </div>
-                                    {/if}
-                            </div>
-                        {/if}
-                    </div>
+                            {#if expandedSections.owners}
+                                <div class="border-t border-soft px-3 py-2">
+                                    <div class="max-h-40 space-y-1 overflow-y-auto pr-1 scroll-thin">
+                                        {#each availableOwners as owner (owner.login)}
+                                            <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
+                                                <input
+                                                    type="checkbox"
+                                                    class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
+                                                    checked={activeFilters.owners.includes(owner.login)}
+                                                    onchange={() => toggleOwner(owner.login)}
+                                                />
+                                                <span class="min-w-0 flex-1 truncate">{owner.login}</span>
+                                                {#if owner.type !== 'unknown'}
+                                                    <span class="shrink-0 text-[11px] uppercase tracking-[0.08em] text-soft">{getOwnerTypeLabel(owner.type)}</span>
+                                                {/if}
+                                            </label>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if showRepoFilter}
+                        <div class="overflow-hidden rounded-lg border border-soft">
+                            <button
+                                class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
+                                onclick={() => toggleSection('repos')}
+                            >
+                                <span class="flex items-center gap-2">
+                                        {#if expandedSections.repos}
+                                            <ChevronDown class="h-4 w-4 text-soft" />
+                                        {:else}
+                                            <ChevronRight class="h-4 w-4 text-soft" />
+                                        {/if}
+                                        <span>Repositories</span>
+                                    </span>
+                                </button>
+
+                            {#if expandedSections.repos}
+                                <div class="border-t border-soft px-3 py-2">
+                                    <div class="max-h-48 space-y-1 overflow-y-auto pr-1 scroll-thin">
+                                        {#each availableRepos as repo (repo.fullName)}
+                                            <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
+                                                <input
+                                                    type="checkbox"
+                                                    class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
+                                                    checked={activeFilters.repos.includes(repo.fullName)}
+                                                    onchange={() => toggleRepo(repo.fullName)}
+                                                />
+                                                <span class="min-w-0 flex-1 truncate" title={repo.fullName}>{repo.name}</span>
+                                                <span class="shrink-0 text-[11px] uppercase tracking-[0.08em] text-soft">{repo.owner}</span>
+                                            </label>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
 
                     <!--
                     <div class="overflow-hidden rounded-lg border border-soft">

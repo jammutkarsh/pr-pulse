@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
-	const BASE_CLASSES = 'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(55,148,255,0.24)] disabled:cursor-not-allowed disabled:opacity-60';
+	const BASE_CLASSES = 'box-border inline-flex items-center justify-center gap-2 rounded-md font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(55,148,255,0.24)] disabled:cursor-not-allowed disabled:opacity-60';
 
 	const VARIANT_CLASSES = {
 		primary: 'bg-(--accent) text-white hover:bg-(--accent-strong)',
@@ -14,7 +14,7 @@
 		sm: 'h-9 px-3 text-xs',
 		md: 'h-10 px-4 text-sm',
 		lg: 'h-11 px-5 text-sm',
-		icon: 'h-9 w-9 px-0 text-sm',
+		icon: 'h-9 w-9 shrink-0 px-0 text-sm',
 	} as const;
 
 	type ButtonVariant = keyof typeof VARIANT_CLASSES;

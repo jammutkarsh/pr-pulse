@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import PopupHeader from './PopupHeader.svelte';
-	import PopupTabs from './PopupTabs.svelte';
 	import PrCard from './PrCard.svelte';
 	import PopupStates from './PopupStates.svelte';
 	import PopupSkeleton from './PopupSkeleton.svelte';
@@ -330,7 +329,7 @@
 	function toggleSearch() {
 		if (!isSearchOpen) {
 			isSearchOpen = true;
-			isFilterOpen = false;
+			isFilterOpen = hasMeaningfulFilters;
 			return;
 		}
 
@@ -406,6 +405,8 @@
 		).values()
 	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })));
 	let showSearchControls = $derived(!loading && !setupRequired && !errorMessage && currentItems.length > 0);
+	let showTabToggle = $derived(!loading && !setupRequired && !errorMessage);
+	let hasMeaningfulFilters = $derived(availableOwners.length > 1 || availableRepos.length > 1);
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
 	// let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
@@ -447,32 +448,33 @@
 				{isFullpageMode}
 				{refreshInProgress}
 				showCompactIdentity={showSearchControls}
+				{showTabToggle}
 				{showSearchControls}
 				{searchActive}
 				{filterActive}
+				{currentTab}
+				{myPrCount}
+				{reviewCount}
 				onOpenUrl={safeOpenUrl}
+				onTabChange={handleTabChange}
 				onToggleSearch={toggleSearch}
 				onRefresh={refreshPrs}
 				onOpenFullscreen={openFullscreen}
 				onOpenSettings={openSettings}
 			/>
 
-			<PopupTabs
-				{currentTab}
-				{myPrCount}
-				{reviewCount}
-				onTabChange={handleTabChange}
-			/>
-
-			{#if showSearchControls}
-				<SearchFilter 
-					bind:query={searchQuery}
-					bind:activeFilters={activeFilters}
-					bind:isSearchOpen={isSearchOpen}
-					bind:isFilterOpen={isFilterOpen}
-					{availableRepos}
-					{availableOwners}
-				/>
+			{#if showSearchControls && isSearchOpen}
+				<div class="border-b border-soft px-4 py-2.5 sm:px-4">
+					<SearchFilter
+						embedded={true}
+						bind:query={searchQuery}
+						bind:activeFilters={activeFilters}
+						bind:isSearchOpen={isSearchOpen}
+						bind:isFilterOpen={isFilterOpen}
+						{availableRepos}
+						{availableOwners}
+					/>
+				</div>
 			{/if}
 
 			<div class={`px-4 ${showSearchControls ? 'pb-3 pt-3' : 'py-3'} sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
