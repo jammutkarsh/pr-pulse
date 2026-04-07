@@ -212,7 +212,7 @@
 					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
 				</span>
-				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium text-dim" title={createdAtText}>
+				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none text-dim" title={createdAtText}>
 					<Clock class="h-3 w-3" />
 					<span>{formatPrAge(pr.createdAt)}</span>
 				</div>

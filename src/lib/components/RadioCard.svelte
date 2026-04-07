@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ComponentType } from 'svelte';
+	import { Check } from 'lucide-svelte';
 
 	type RadioCardValue = string | boolean;
 
@@ -33,7 +34,7 @@
 			: 'border-soft bg-(--bg-panel) hover:border-strong hover:bg-[#333337]',
 	].join(' '));
 	let indicatorClasses = $derived([
-		'mt-1 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold transition',
+		'mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition',
 		checked ? 'border-(--accent) bg-(--accent) text-white' : 'border-soft text-transparent',
 	].join(' '));
 
@@ -62,7 +63,7 @@
 			<p class="text-sm leading-[1.2rem] text-soft">{description}</p>
 		</div>
 		<div class={indicatorClasses}>
-			✓
+			<Check class="h-3.5 w-3.5" />
 		</div>
 	</div>
 </label>

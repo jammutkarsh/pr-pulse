@@ -12,18 +12,24 @@
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 
 	const pollingOptions = [
+		{ value: 0, label: 'Manual' },
 		{ value: 60000, label: '1 minute' },
 		{ value: 300000, label: '5 minutes' },
 		{ value: 600000, label: '10 minutes' },
 		{ value: 900000, label: '15 minutes' },
 		{ value: 1800000, label: '30 minutes' },
 		{ value: 3600000, label: '60 minutes' },
+		{ value: -1, label: 'Custom' },
 	];
+
+	const PRESET_POLLING_VALUES = new Set([0, 60000, 300000, 600000, 900000, 1800000, 3600000]);
 
 	let provider = $state<StoredProviderConfig | undefined>(undefined);
 	let currentSettings = $state<Settings>(DEFAULT_SETTINGS);
 	let jiraUrl = $state('');
 	let pollingIntervalMs = $state(600000);
+	let selectedPollingValue = $state(600000);
+	let customMinutes = $state(10);
 	let token = $state('');
 	let tokenError = $state('');
 	let tokenSuccess = $state('');
@@ -44,7 +50,13 @@
 		currentSettings = nextSettings;
 		provider = nextProvider;
 		jiraUrl = sanitizeJiraUrl(currentSettings.jiraBaseUrl || '');
-		pollingIntervalMs = currentSettings.pollingIntervalMs || 600000;
+		pollingIntervalMs = currentSettings.pollingIntervalMs ?? 600000;
+		if (PRESET_POLLING_VALUES.has(pollingIntervalMs)) {
+			selectedPollingValue = pollingIntervalMs;
+		} else {
+			selectedPollingValue = -1;
+			customMinutes = Math.round(pollingIntervalMs / 60000);
+		}
 	}
 
 	function flashSaved() {
@@ -77,13 +89,22 @@
 		}
 
 		const value = Number.parseInt(target.value, 10);
-		if (!Number.isFinite(value)) {
+		if (!Number.isFinite(value) || value === -1) {
 			return;
 		}
 
 		pollingIntervalMs = value;
 		await updateSetting('pollingIntervalMs', value);
 		await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: value } });
+	}
+
+	async function applyCustomInterval() {
+		const mins = Math.min(1440, Math.max(1, Math.floor(customMinutes)));
+		customMinutes = mins;
+		const ms = mins * 60000;
+		pollingIntervalMs = ms;
+		await updateSetting('pollingIntervalMs', ms);
+		await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
 	}
 
 	async function saveJiraUrl() {
@@ -264,15 +285,26 @@
 						<p class="text-sm text-soft">Control how often the background worker refreshes cached PR data.</p>
 					</div>
 				</div>
-				<div class="relative">
-					<select class="select-input pr-10" bind:value={pollingIntervalMs} onchange={updatePollingInterval}>
-						{#each pollingOptions as option (option.value)}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
-					<div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-soft">
-						<ChevronDown class="h-4 w-4" />
+				<div class="space-y-3">
+					<div class="relative">
+						<select class="select-input pr-10" bind:value={selectedPollingValue} onchange={updatePollingInterval}>
+							{#each pollingOptions as option (option.value)}
+								<option value={option.value}>{option.label}</option>
+							{/each}
+						</select>
+						<div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-soft">
+							<ChevronDown class="h-4 w-4" />
+						</div>
 					</div>
+					{#if selectedPollingValue === 0}
+						<p class="text-sm text-soft">Pull requests will only update when you click the refresh button in the popup.</p>
+					{:else if selectedPollingValue === -1}
+						<div class="flex items-center gap-3">
+							<input class="field-input" type="number" min="1" max="1440" bind:value={customMinutes} placeholder="Minutes (1–1440)" />
+							<Button onclick={applyCustomInterval}>Apply</Button>
+						</div>
+						<p class="text-sm text-soft">Enter a value between 1 and 1440 minutes (1 day max).</p>
+					{/if}
 				</div>
 			</SectionCard>
 

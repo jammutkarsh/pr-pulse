@@ -226,6 +226,11 @@
     let hasQuery = $derived(query.trim().length > 0);
     let showOwnerFilter = $derived(availableOwners.length > 1);
     let showRepoFilter = $derived(availableRepos.length > 1);
+    let visibleRepos = $derived(
+        activeFilters.owners.length > 0
+            ? availableRepos.filter((repo) => activeFilters.owners.includes(repo.owner))
+            : availableRepos
+    );
     let hasMeaningfulFilters = $derived(showOwnerFilter || showRepoFilter);
     // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
     // let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
@@ -427,7 +432,7 @@
                             {#if expandedSections.repos}
                                 <div class="border-t border-soft px-3 py-2">
                                     <div class="max-h-48 space-y-1 overflow-y-auto pr-1 scroll-thin">
-                                        {#each availableRepos as repo (repo.fullName)}
+                                        {#each visibleRepos as repo (repo.fullName)}
                                             <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
                                                 <input
                                                     type="checkbox"
