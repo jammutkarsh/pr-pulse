@@ -8,7 +8,7 @@
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import { storage } from '../../lib/storage';
 	import Fuse from 'fuse.js';
-	import type { PullRequest, PullRequestData, PullRequestRepoOwner, Settings, StoredProviderConfig } from '../../lib/types';
+	import type { PullRequest, PullRequestData, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption, Settings, StoredProviderConfig } from '../../lib/types';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
 		copyToClipboard,
@@ -17,22 +17,9 @@
 	} from '../../lib/utils';
 
 	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getPopupBootstrapData>>;
-	type PopupFilters = {
-		owners: string[];
-		repos: string[];
-		ageRange: string;
-	};
 	type SearchablePullRequest = PullRequest & { _jiraTicket: string };
-	type OwnerFilterOption = {
-		login: string;
-		type: PullRequestRepoOwner['type'];
-	};
-	type RepoFilterOption = {
-		fullName: string;
-		owner: string;
-		ownerType: PullRequestRepoOwner['type'];
-		name: string;
-	};
+	type OwnerFilterOption = PopupOwnerFilterOption;
+	type RepoFilterOption = PopupRepoFilterOption;
 	type PopupTab = Settings['pinnedTab'];
 	type StoredFilters = Partial<PopupFilters>;
 	type StoredFilterState = {
@@ -136,68 +123,6 @@
 	let activeFilters = $state<PopupFilters>({ ...DEFAULT_FILTERS });
 	let filtersByTab = $state<FiltersByTab>(createDefaultFiltersByTab());
 	let filterPersistenceReady = $state(false);
-
-	function filterItems(items: PullRequest[], query: string, filters: PopupFilters): PullRequest[] {
-		let result = items;
-
-		if (filters.repos.length > 0) {
-			result = result.filter((pr) => filters.repos.includes(pr.repoFullName));
-		}
-		if (filters.owners.length > 0) {
-			result = result.filter((pr) => filters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
-		}
-		/*
-		if (filters.ageRange) {
-			const now = Date.now();
-			result = result.filter((pr) => {
-				const createdAt = new Date(pr.createdAt).getTime();
-				if (Number.isNaN(createdAt)) {
-					return false;
-				}
-
-				const ageInDays = (now - createdAt) / 86400000;
-
-				switch (filters.ageRange) {
-					case '24h':
-						return ageInDays <= 1;
-					case '7d':
-						return ageInDays > 1 && ageInDays <= 7;
-					case '14d':
-						return ageInDays > 7 && ageInDays <= 14;
-					case '1m':
-						return ageInDays > 14 && ageInDays <= 30;
-					case '3m':
-						return ageInDays > 30 && ageInDays <= 90;
-					case 'gt3m':
-						return ageInDays > 90;
-					default:
-						return true;
-				}
-			});
-		}
-		*/
-
-		if (query.trim()) {
-			const searchInput: SearchablePullRequest[] = result.map((pr) => ({
-				...pr,
-				_jiraTicket: pr.branchName ? (pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '') : '',
-			}));
-
-			const fuse = new Fuse<SearchablePullRequest>(searchInput, {
-				keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'],
-				threshold: 0.3,
-				ignoreLocation: true,
-			});
-
-			result = fuse.search(query).map(({ item }) => {
-				const pr = { ...item };
-				delete pr._jiraTicket;
-				return pr;
-			});
-		}
-
-		return result;
-	}
 
 	onMount(() => {
 		void init();
@@ -412,7 +337,37 @@
 	// let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
 	let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length);
 	let filterActive = $derived(filterCount > 0);
-	let filteredItems = $derived(filterItems(currentItems, searchQuery, activeFilters));
+	let preSearchItems = $derived.by(() => {
+		let result = currentItems;
+		if (activeFilters.repos.length > 0) {
+			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
+		}
+		if (activeFilters.owners.length > 0) {
+			result = result.filter((pr) => activeFilters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
+		}
+		return result;
+	});
+	let fuseIndex = $derived.by(() => {
+		const searchInput: SearchablePullRequest[] = preSearchItems.map((pr) => ({
+			...pr,
+			_jiraTicket: pr.branchName ? (pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '') : '',
+		}));
+		return new Fuse<SearchablePullRequest>(searchInput, {
+			keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'],
+			threshold: 0.3,
+			ignoreLocation: true,
+		});
+	});
+	let filteredItems = $derived.by(() => {
+		if (!searchQuery.trim()) {
+			return preSearchItems;
+		}
+		return fuseIndex.search(searchQuery).map(({ item }) => {
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			const { _jiraTicket, ...pr } = item;
+			return pr;
+		});
+	});
 
 	$effect(() => {
 		if (!filterPersistenceReady || typeof chrome === 'undefined') {
@@ -450,6 +405,7 @@
 				showCompactIdentity={showSearchControls}
 				{showTabToggle}
 				{showSearchControls}
+				{isSearchOpen}
 				{searchActive}
 				{filterActive}
 				{currentTab}

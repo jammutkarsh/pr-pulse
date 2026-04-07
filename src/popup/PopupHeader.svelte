@@ -16,6 +16,7 @@
 		showCompactIdentity?: boolean;
 		showTabToggle?: boolean;
 		showSearchControls?: boolean;
+		isSearchOpen?: boolean;
 		searchActive?: boolean;
 		filterActive?: boolean;
 		currentTab?: Settings['pinnedTab'];
@@ -36,6 +37,7 @@
 		showCompactIdentity = false,
 		showTabToggle = false,
 		showSearchControls = false,
+		isSearchOpen = false,
 		searchActive = false,
 		filterActive = false,
 		currentTab = 'myPRs',
@@ -54,7 +56,7 @@
 	let loginVisibilityThreshold = $derived(showTabToggle ? (isFullpageMode ? 640 : 470) : showSearchControls ? 380 : 320);
 	let showLoginLine = $derived(headerWidth >= loginVisibilityThreshold);
 	let headerControlIcon = $derived(!searchActive && filterActive ? ListFilter : Search);
-	let headerControlLabel = $derived(searchActive ? 'Close search and filters' : !searchActive && filterActive ? 'Open search and active filters' : 'Open search and filters');
+	let headerControlLabel = $derived(isSearchOpen ? 'Close search and filters' : filterActive ? 'Open search and active filters' : 'Open search and filters');
 
 	onMount(() => {
 		if (typeof ResizeObserver === 'undefined' || !headerElement) {

@@ -102,6 +102,24 @@ export interface PullRequestData {
 	lastFetched: number | null;
 }
 
+export interface PopupFilters {
+	owners: string[];
+	repos: string[];
+	ageRange: string;
+}
+
+export interface PopupOwnerFilterOption {
+	login: string;
+	type: PullRequestRepoOwner['type'];
+}
+
+export interface PopupRepoFilterOption {
+	fullName: string;
+	owner: string;
+	ownerType: PullRequestRepoOwner['type'];
+	name: string;
+}
+
 export type RuntimeMessage =
 	| { type: 'PROVIDER_CONFIGURED' }
 	| { type: 'REFRESH_PRS' }

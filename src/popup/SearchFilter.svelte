@@ -2,26 +2,11 @@
     import { tick } from 'svelte';
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, X } from 'lucide-svelte';
-    import type { PullRequestRepoOwner } from '../../lib/types';
+    import type { PullRequestRepoOwner, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
     import Button from '../lib/components/Button.svelte';
 
-    type PopupFilters = {
-        owners: string[];
-        repos: string[];
-        ageRange: string;
-    };
-
-    type RepoFilterOption = {
-        fullName: string;
-        owner: string;
-        ownerType: PullRequestRepoOwner['type'];
-        name: string;
-    };
-
-    type OwnerFilterOption = {
-        login: string;
-        type: PullRequestRepoOwner['type'];
-    };
+    type RepoFilterOption = PopupRepoFilterOption;
+    type OwnerFilterOption = PopupOwnerFilterOption;
 
     type FilterChip = {
         key: string;

@@ -336,8 +336,8 @@
 				</div>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
-				<RadioCard name="persistFilters" value={true} currentValue={currentSettings.persistFilters ?? true} title="Remember Filters" description="Keep your search and active filters across extension sessions forever." iconComponent={Save} onchange={() => updateSetting('persistFilters', true)} />
-				<RadioCard name="persistFilters" value={false} currentValue={currentSettings.persistFilters ?? true} title="Per Session" description="Clear search query and filters every time you close the popup." iconComponent={Eraser} onchange={() => updateSetting('persistFilters', false)} />
+				<RadioCard name="persistFilters" value={true} currentValue={currentSettings.persistFilters ?? true} title="Remember Filters" description="Keep your active filters across extension sessions." iconComponent={Save} onchange={() => updateSetting('persistFilters', true)} />
+				<RadioCard name="persistFilters" value={false} currentValue={currentSettings.persistFilters ?? true} title="Per Session" description="Clear active filters every time you close the popup." iconComponent={Eraser} onchange={() => updateSetting('persistFilters', false)} />
 			</div>
 		</SectionCard>
 

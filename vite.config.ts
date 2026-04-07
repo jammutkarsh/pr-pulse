@@ -49,7 +49,7 @@ export default defineConfig({
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,
-		minify: false,
+		minify: true,
 		reportCompressedSize: false,
 		cssMinify: true,
 		target: 'es2022',
