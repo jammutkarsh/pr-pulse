@@ -5,5 +5,4 @@ build/
 .svelte-check/
 .env
 .DS_Store
-demo/
 pr-pulse-*.zip
