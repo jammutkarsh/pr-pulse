@@ -2,9 +2,7 @@
 
 All notable changes to PR Pulse are documented in this file.
 
-## Unreleased
-
-## [1.2.0] – 2026-04-10
+## [1.2.0] – 2026-04-12
 
 - Introduces searchable/filterable PR list in the popup (Fuse-based search, filter UI, per-tab filter state, persistence toggle).
 - Updates settings + onboarding UIs for new options (manual/custom polling, persist filters), and refactors several components to Svelte 5 + TypeScript patterns.
