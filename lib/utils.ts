@@ -94,6 +94,41 @@ export function formatRelativeTime(date: string | number | Date): string {
 	return then.toLocaleDateString();
 }
 
+export function formatPrAge(date: string | number | Date): string {
+	if (!date) return '';
+	const now = new Date();
+	const then = new Date(date);
+	const diffMs = now.getTime() - then.getTime();
+	const diffDays = Math.floor(diffMs / 86400000);
+
+	if (diffDays === 0) return 'today';
+	if (diffDays === 1) return '1 day ago';
+	if (diffDays < 7) return `${diffDays} days ago`;
+	
+	const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+	if (now.getFullYear() !== then.getFullYear()) {
+		options.year = 'numeric';
+	}
+	return then.toLocaleDateString(undefined, options);
+}
+
+export function formatLocalDateTime(date: string | number | Date): string {
+	if (!date) return '';
+
+	const value = new Date(date);
+	if (Number.isNaN(value.getTime())) {
+		return '';
+	}
+
+	return value.toLocaleString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+	});
+}
+
 export function debounce<TArgs extends unknown[]>(func: (...args: TArgs) => void, wait: number) {
 	let timeout: number | undefined;
 	return function executedFunction(...args: TArgs) {

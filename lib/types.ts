@@ -12,6 +12,11 @@ export interface PullRequestAuthor {
 	name: string;
 }
 
+export interface PullRequestRepoOwner {
+	login: string;
+	type: 'org' | 'user' | 'unknown';
+}
+
 export interface PullRequestChanges {
 	additions: number;
 	deletions: number;
@@ -47,6 +52,7 @@ export interface PullRequest {
 	title: string;
 	url: string;
 	repoFullName: string;
+	repoOwner: PullRequestRepoOwner;
 	branchName: string;
 	author: PullRequestAuthor;
 	state: string;
@@ -86,6 +92,7 @@ export interface Settings {
 	pinnedTab: 'myPRs' | 'toReview';
 	visibleColumns: string[];
 	pollingIntervalMs: number;
+	persistFilters: boolean;
 	ui: UiConfig;
 }
 
@@ -93,6 +100,24 @@ export interface PullRequestData {
 	myPRs: PullRequest[];
 	reviewRequests: PullRequest[];
 	lastFetched: number | null;
+}
+
+export interface PopupFilters {
+	owners: string[];
+	repos: string[];
+	ageRange: string;
+}
+
+export interface PopupOwnerFilterOption {
+	login: string;
+	type: PullRequestRepoOwner['type'];
+}
+
+export interface PopupRepoFilterOption {
+	fullName: string;
+	owner: string;
+	ownerType: PullRequestRepoOwner['type'];
+	name: string;
 }
 
 export type RuntimeMessage =

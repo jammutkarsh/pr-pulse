@@ -1,8 +1,8 @@
-<svelte:options runes={false} />
-
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import { storage } from '../../lib/storage';
+	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
+	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
 	import GithubStep from './steps/GithubStep.svelte';
 	import DefaultViewStep from './steps/DefaultViewStep.svelte';
@@ -16,6 +16,13 @@
 	const STEP_JIRA = 3;
 	const STEP_DISPLAY = 4;
 	const STEP_COMPLETE = 5;
+	type OnboardingSettings = Pick<Settings, 'pinnedTab' | 'jiraBaseUrl' | 'displayMode'>;
+	type OnboardingSessionState = {
+		currentStep?: number;
+		providerData?: StoredProviderConfig | null;
+		settings?: Partial<OnboardingSettings>;
+		token?: string;
+	};
 
 	const steps = [
 		{ id: STEP_GITHUB, label: 'GitHub' },
@@ -24,26 +31,26 @@
 		{ id: STEP_DISPLAY, label: 'Display' },
 	];
 
-	let currentStep = STEP_GITHUB;
-	let providerData = null;
-	let settings = {
-		pinnedTab: 'myPRs',
-		jiraBaseUrl: '',
-		displayMode: 'popup',
-	};
-	let token = '';
-	let tokenVisible = false;
-	let testingConnection = false;
-	let errorMessage = '';
-	let completingSetup = false;
-	let onboardingStateReady = false;
-	let syncedPrCount = 0;
+	let currentStep = $state<number>(STEP_GITHUB);
+	let providerData = $state<StoredProviderConfig | null>(null);
+	let settings = $state<OnboardingSettings>({
+		pinnedTab: DEFAULT_SETTINGS.pinnedTab,
+		jiraBaseUrl: DEFAULT_SETTINGS.jiraBaseUrl,
+		displayMode: DEFAULT_SETTINGS.displayMode,
+	});
+	let token = $state('');
+	let tokenVisible = $state(false);
+	let testingConnection = $state(false);
+	let errorMessage = $state('');
+	let completingSetup = $state(false);
+	let onboardingStateReady = $state(false);
+	let syncedPrCount = $state(0);
 
 	onMount(() => {
 		const saved = sessionStorage.getItem('prPulseOnboarding');
 		if (saved) {
 			try {
-				const state = JSON.parse(saved);
+				const state = JSON.parse(saved) as OnboardingSessionState;
 				if (state.settings) settings = { ...settings, ...state.settings };
 				if (state.token) token = state.token;
 				if (state.providerData) providerData = state.providerData;
@@ -55,9 +62,11 @@
 		onboardingStateReady = true;
 	});
 
-	$: if (onboardingStateReady) {
-		sessionStorage.setItem('prPulseOnboarding', JSON.stringify({ currentStep, providerData, settings, token }));
-	}
+	$effect(() => {
+		if (onboardingStateReady) {
+			sessionStorage.setItem('prPulseOnboarding', JSON.stringify({ currentStep, providerData, settings, token }));
+		}
+	});
 
 	async function testConnection() {
 		errorMessage = '';
@@ -107,7 +116,7 @@
 		currentStep = Math.max(STEP_GITHUB, currentStep - 1);
 	}
 
-	function updateJiraUrl(value) {
+	function updateJiraUrl(value: string) {
 		settings = {
 			...settings,
 			jiraBaseUrl: sanitizeJiraUrl(value.trim()),
@@ -129,11 +138,11 @@
 			await storage.setSettings(settings);
 
 			// Listen for the PR data write triggered by the service worker
-			const prSyncPromise = new Promise((resolve) => {
-				function onChanged(changes, areaName) {
+			const prSyncPromise = new Promise<number>((resolve) => {
+				function onChanged(changes: Record<string, chrome.storage.StorageChange>, areaName: string) {
 					if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
 					chrome.storage.onChanged.removeListener(onChanged);
-					const data = changes.pullRequests.newValue;
+					const data = changes.pullRequests.newValue as PullRequestData;
 					resolve((data.myPRs?.length || 0) + (data.reviewRequests?.length || 0));
 				}
 				chrome.storage.onChanged.addListener(onChanged);

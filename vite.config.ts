@@ -44,10 +44,13 @@ function copyExtensionAssets() {
 }
 
 export default defineConfig({
+	cacheDir: '.cache/vite',
 	plugins: [svelte(), tailwindcss(), copyExtensionAssets()],
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,
+		minify: true,
+		reportCompressedSize: false,
 		cssMinify: true,
 		target: 'es2022',
 		rollupOptions: {

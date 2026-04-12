@@ -68,6 +68,15 @@ function updateBadge(count: number): void {
 }
 
 async function setupPollingAlarm(forceRecreate = false): Promise<void> {
+	const { settings } = await getRuntimeConfig();
+
+	// Manual refresh mode — clear any existing alarm and stop
+	if (!settings.pollingIntervalMs) {
+		await chrome.alarms.clear(ALARM_NAME);
+		console.log('Manual refresh mode: polling alarm cleared');
+		return;
+	}
+
 	if (!forceRecreate) {
 		const existing = await chrome.alarms.get(ALARM_NAME);
 		if (existing) {
@@ -76,8 +85,7 @@ async function setupPollingAlarm(forceRecreate = false): Promise<void> {
 		}
 	}
 
-	const { settings } = await getRuntimeConfig();
-	const intervalMinutes = (settings.pollingIntervalMs || 600000) / 60000;
+	const intervalMinutes = settings.pollingIntervalMs / 60000;
 	await chrome.alarms.clear(ALARM_NAME);
 	chrome.alarms.create(ALARM_NAME, {
 		delayInMinutes: Math.max(1, intervalMinutes),
@@ -133,7 +141,7 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		if ('settings' in message) {
 			await storage.setSettings(message.settings);
 			cachedSettings = cachedSettings ? { ...cachedSettings, ...message.settings } : await storage.getSettings();
-			if (message.settings.pollingIntervalMs) {
+			if ('pollingIntervalMs' in message.settings) {
 				await setupPollingAlarm(true);
 			}
 		}

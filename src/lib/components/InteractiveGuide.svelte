@@ -1,5 +1,3 @@
-<svelte:options runes={false} />
-
 <script>
 	import {
 		Copy,
@@ -10,7 +8,7 @@
 	} from "lucide-svelte";
 	import SectionCard from "./SectionCard.svelte";
 
-	let activeTooltip = null;
+	let activeTooltip = $state(null);
 
 	const tooltips = {
 		title: "Opens Pull Request on GitHub",
@@ -48,24 +46,24 @@
 		],
 	};
 
-	$: activeLegend = legendSets[activeTooltip] || legendSets.default;
+	let activeLegend = $derived(legendSets[activeTooltip] || legendSets.default);
 
 	// When hovering a legend pill, override card colors and text
-	let legendHoverTone = null; // 'success' | 'warning' | 'danger' | null
+	let legendHoverTone = $state(null); // 'success' | 'warning' | 'danger' | null
 
 	const checkLabels = { success: 'All checks passed', warning: 'Checks pending', danger: 'Checks failed' };
 	const reviewLabels = { success: 'Approved', warning: 'Review pending', danger: 'Changes requested' };
 
-	$: cardTitleDot = legendHoverTone ? `bg-(--${legendHoverTone})` : 'bg-(--success)';
-	$: cardCheckTone = legendHoverTone ? `status-inline-${legendHoverTone}` : 'status-inline-success';
-	$: cardCheckDot = legendHoverTone ? `status-dot-${legendHoverTone}` : 'status-dot-success';
-	$: cardCheckLabel = legendHoverTone ? checkLabels[legendHoverTone] : 'All checks passed';
-	$: cardReviewTone = legendHoverTone ? `status-inline-${legendHoverTone}` : 'status-inline-success';
-	$: cardReviewDot = legendHoverTone ? `status-dot-${legendHoverTone}` : 'status-dot-success';
-	$: cardReviewLabel = legendHoverTone ? reviewLabels[legendHoverTone] : 'Approved';
+	let cardTitleDot = $derived(legendHoverTone ? `bg-(--${legendHoverTone})` : 'bg-(--success)');
+	let cardCheckTone = $derived(legendHoverTone ? `status-inline-${legendHoverTone}` : 'status-inline-success');
+	let cardCheckDot = $derived(legendHoverTone ? `status-dot-${legendHoverTone}` : 'status-dot-success');
+	let cardCheckLabel = $derived(legendHoverTone ? checkLabels[legendHoverTone] : 'All checks passed');
+	let cardReviewTone = $derived(legendHoverTone ? `status-inline-${legendHoverTone}` : 'status-inline-success');
+	let cardReviewDot = $derived(legendHoverTone ? `status-dot-${legendHoverTone}` : 'status-dot-success');
+	let cardReviewLabel = $derived(legendHoverTone ? reviewLabels[legendHoverTone] : 'Approved');
 
-	let mouseX = 0;
-	let mouseY = 0;
+	let mouseX = $state(0);
+	let mouseY = $state(0);
 
 	function handleMousemove(e) {
 		mouseX = e.clientX;
@@ -73,7 +71,7 @@
 	}
 </script>
 
-<svelte:window on:mousemove={handleMousemove} />
+<svelte:window onmousemove={handleMousemove} />
 
 <div class="relative mx-auto w-full select-none py-8">
 	<!-- Tooltip Overlay -->
@@ -93,8 +91,8 @@
 					<div class="flex min-w-0 items-start gap-1">
 						<button
 							class="unstyled-button flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)"
-							on:mouseenter={() => (activeTooltip = "title")}
-							on:mouseleave={() => (activeTooltip = null)}
+							onmouseenter={() => (activeTooltip = "title")}
+							onmouseleave={() => (activeTooltip = null)}
 						>
 							<span
 								class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full transition-colors duration-200 ${cardTitleDot}`}
@@ -106,8 +104,8 @@
 						class="unstyled-button metadata-copy-button absolute right-0 top-0 transition-colors hover:text-white"
 						type="button"
 						aria-label="Copy PR link"
-						on:mouseenter={() => (activeTooltip = "copyPR")}
-						on:mouseleave={() => (activeTooltip = null)}
+						onmouseenter={() => (activeTooltip = "copyPR")}
+						onmouseleave={() => (activeTooltip = null)}
 					>
 						<Copy class="metadata-copy-icon" />
 					</button>
@@ -118,9 +116,9 @@
 				>
 					<button
 						class="unstyled-button action-chip"
-						on:mouseenter={() => (activeTooltip = "repo")}
-						on:mouseleave={() => (activeTooltip = null)}
-						on:click={() =>
+						onmouseenter={() => (activeTooltip = "repo")}
+						onmouseleave={() => (activeTooltip = null)}
+						onclick={() =>
 							window.open(
 								"https://github.com/jammutkarsh/pr-pulse",
 								"_blank",
@@ -134,8 +132,8 @@
 					<span aria-hidden="true" class="text-dim">•</span>
 					<button
 						class="unstyled-button action-chip"
-						on:mouseenter={() => (activeTooltip = "diff")}
-						on:mouseleave={() => (activeTooltip = null)}
+						onmouseenter={() => (activeTooltip = "diff")}
+						onmouseleave={() => (activeTooltip = null)}
 					>
 						<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
 						<span class="metadata-diff">
@@ -150,8 +148,8 @@
 				>
 					<button
 						class="unstyled-button action-chip"
-						on:mouseenter={() => (activeTooltip = "jira")}
-						on:mouseleave={() => (activeTooltip = null)}
+						onmouseenter={() => (activeTooltip = "jira")}
+						onmouseleave={() => (activeTooltip = null)}
 					>
 						<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
 						<span class="hyperlink-text metadata-jira">PULSE-1337</span>
@@ -160,8 +158,8 @@
 					<div class="flex items-center gap-0.5">
 						<button
 							class="unstyled-button action-chip"
-							on:mouseenter={() => (activeTooltip = "branch")}
-							on:mouseleave={() => (activeTooltip = null)}
+							onmouseenter={() => (activeTooltip = "branch")}
+							onmouseleave={() => (activeTooltip = null)}
 						>
 							<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
 							<span class="hyperlink-text metadata-branch"
@@ -172,8 +170,8 @@
 							class="unstyled-button metadata-copy-button"
 							type="button"
 							aria-label="Copy branch name"
-							on:mouseenter={() => (activeTooltip = "copyBranch")}
-							on:mouseleave={() => (activeTooltip = null)}
+							onmouseenter={() => (activeTooltip = "copyBranch")}
+							onmouseleave={() => (activeTooltip = null)}
 						>
 							<Copy class="metadata-copy-icon" />
 						</button>
@@ -184,16 +182,16 @@
 					<div class="grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs">
 						<button
 							class={`unstyled-button status-inline status-inline-button ${cardCheckTone} transition-all duration-200 hover:opacity-80`}
-							on:mouseenter={() => (activeTooltip = "statusChecks")}
-							on:mouseleave={() => (activeTooltip = null)}
+							onmouseenter={() => (activeTooltip = "statusChecks")}
+							onmouseleave={() => (activeTooltip = null)}
 						>
 							<span class={`status-dot ${cardCheckDot} transition-colors duration-200`}></span>
 							<span class="status-inline-label">{cardCheckLabel}</span>
 						</button>
 						<button
 							class={`unstyled-button status-inline status-inline-button ${cardReviewTone} transition-all duration-200 hover:opacity-80`}
-							on:mouseenter={() => (activeTooltip = "statusReview")}
-							on:mouseleave={() => (activeTooltip = null)}
+							onmouseenter={() => (activeTooltip = "statusReview")}
+							onmouseleave={() => (activeTooltip = null)}
 						>
 							<span class={`status-dot ${cardReviewDot} transition-colors duration-200`}></span>
 							<span class="status-inline-label">{cardReviewLabel}</span>
@@ -210,8 +208,8 @@
 			<button
 				type="button"
 				class="unstyled-button flex min-h-10 w-full min-w-0 cursor-default items-center justify-center rounded-md px-2 py-1.5 transition-all duration-200 hover:bg-white/5"
-				on:mouseenter={() => (legendHoverTone = ['success', 'warning', 'danger'][i])}
-				on:mouseleave={() => (legendHoverTone = null)}
+				onmouseenter={() => (legendHoverTone = ['success', 'warning', 'danger'][i])}
+				onmouseleave={() => (legendHoverTone = null)}
 			>
 				<span class={`status-inline ${item.tone} min-w-0`}>
 					<span class={`status-dot ${item.dot} shrink-0`}></span>
