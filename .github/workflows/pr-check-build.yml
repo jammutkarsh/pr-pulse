@@ -1,9 +1,12 @@
-name: PR Check And Build
+name: Lint, Check, and Build
 
 on:
   pull_request:
     branches:
       - main
+
+permissions:
+  contents: read
 
 jobs:
   check-and-build:
