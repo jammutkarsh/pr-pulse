@@ -79,11 +79,11 @@ npm install
 npm run build
 ```
 
-1. Open Chrome and go to [chrome://extensions](chrome://extensions)
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select `pr-pulse/dist` folder
-5. Pin the extension to your toolbar for easy access
+2. Open Chrome and go to [chrome://extensions](chrome://extensions)
+3. Enable **Developer mode**
+4. Click **Load unpacked**
+5. Select `pr-pulse/dist` folder
+6. Pin the extension to your toolbar for easy access
 
 <!-- ## Practical Value
 
@@ -94,7 +94,7 @@ It is built for developers who want a clearer operational view of their PRs with
 ## Project Structure
 
 ```bash
-chrome-extension/
+pr-pulse/
 ├── manifest.json           # Extension manifest (MV3)
 ├── service-worker.ts       # Background sync logic
 ├── lib/                    # Shared libraries and providers
