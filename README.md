@@ -6,7 +6,6 @@
 
 </div>
 
-
 > PR Pulse is a Pull Request dashboard for GitHub, delivered as a Chrome extension.
 > Say No to Navigation!
 
@@ -65,11 +64,11 @@ That means better control, less noise, and a setup that matches how you actually
 
 ### Install
 
-Use install link above to add PR Pulse to Chrome:
+Direct link to Chrome Web Store listing:
 
 - [Install PR Pulse](https://short.utkarshchourasia.in/prpulse)
 
-### From Source (Developer Mode)
+### From Source (Developer Mode) - Unreleased version with the latest features and fixes
 
 1. Clone and build the repository
 
