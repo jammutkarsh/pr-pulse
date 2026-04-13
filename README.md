@@ -17,7 +17,7 @@ PR Pulse collapses that workflow into one dashboard inside Chrome. Open extensio
 
 ## Screenshots
 
-| | |
+|||
 | :---: | :---: |
 | ![Demo 1](demo/Demo-01.png) | ![Demo 2](demo/Demo-02.png) |
 | ![Demo 3](demo/Demo-03.png) | ![Demo 4](demo/Demo-04.png) |

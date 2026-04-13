@@ -2,7 +2,13 @@
 
 All notable changes to PR Pulse are documented in this file.
 
-## Unreleased
+## [1.2.0] – 2026-04-13
+
+### 2026-04-13
+
+- **Update README**: Added new sections to the README to better explain the value proposition and purpose of PR Pulse.
+- **Change Extension Name and Description**: Rebranded extension to "PR Pulse - GitHub Pull Request Dashboard" for SEO
+- **Visual Demo**: Add product screenshots.
 
 ### 2026-04-12
 
