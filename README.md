@@ -1,6 +1,11 @@
 # PR Pulse - GitHub Pull Request Dashboard
 
-[![Chrome Extension](icons/chrome-web-store-m.png)](https://short.utkarshchourasia.in/prpulse)
+<div align="center">
+
+[![Chrome Extension](icons/chrome-web-store.png)](https://short.utkarshchourasia.in/prpulse)
+
+</div>
+
 
 > PR Pulse is a Pull Request dashboard for GitHub, delivered as a Chrome extension.
 > Say No to Navigation!
@@ -17,7 +22,6 @@ PR Pulse collapses that workflow into one dashboard inside Chrome. Open extensio
 | :---: | :---: |
 | ![Demo 1](demo/Demo-01.png) | ![Demo 2](demo/Demo-02.png) |
 | ![Demo 3](demo/Demo-03.png) | ![Demo 4](demo/Demo-04.png) |
-| ![Demo 5](demo/Demo-05.png)||
 
 <!-- ## Why PR Pulse
 
