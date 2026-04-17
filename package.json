@@ -8,15 +8,28 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:watch": "vite build --watch",
     "check": "svelte-check --incremental",
     "lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
-    "generate": "npm run lint && npm run package:chrome && npm run package:firefox",
-    "generate:chrome": "npm run lint && npm run package:chrome",
-    "generate:firefox": "npm run lint && npm run package:firefox",
-    "package:chrome": "rm -rf dist/chrome && rm -f pr-pulse-chrome-v*.zip && vite build --outDir dist/chrome && tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version && cd dist/chrome && zip -rq ../../pr-pulse-chrome-v$npm_package_version.zip .",
-    "package:firefox": "rm -rf dist/firefox && rm -f pr-pulse-firefox-v*.xpi && vite build --outDir dist/firefox && tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version && cd dist/firefox && zip -rq ../../pr-pulse-firefox-v$npm_package_version.xpi ."
+
+    "clean:cache": " && rm -rf .cache .svelte-check",
+    "clean": "rm -rf dist && rm -f pr-pulse-*.zip pr-pulse-*.xpi",
+
+    "manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
+    "manifest:firefox": "tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
+    "manifest": "npm run manifest:chrome && npm run manifest:firefox",
+
+    "build:watch": "vite build --watch --outDir dist/chrome",
+    "build:chrome": "vite build --outDir dist/chrome && npm run manifest:chrome",
+    "build:firefox": "vite build --outDir dist/firefox && npm run manifest:firefox",
+    "build": "npm run build:chrome && npm run build:firefox",
+
+    "zip:chrome": "cd dist/chrome && zip -rq ../../pr-pulse-v$npm_package_version-chrome.zip .",
+    "zip:firefox": "cd dist/firefox && zip -rq ../../pr-pulse-v$npm_package_version-firefox.xpi .",
+    "zip": "npm run zip:chrome && npm run zip:firefox",
+
+    "generate:chrome": "npm run clean && npm run lint && npm run build:chrome && npm run zip:chrome",
+    "generate:firefox": "npm run clean && npm run lint && npm run build:firefox && npm run zip:firefox",
+    "generate": "npm run clean && npm run lint && npm run build && npm run zip"
   },
   "repository": {
     "type": "git",
@@ -31,8 +44,8 @@
     "Dashboard",
     "Developer Tools"
   ],
-  "author": "Utkarsh Jammut",
-  "license": "ISC",
+  "author": "Utkarsh Chourasia <utkarshchourasia.in>",
+  "license": "MIT",
   "type": "module",
   "bugs": {
     "url": "https://github.com/jammutkarsh/pr-pulse/issues"

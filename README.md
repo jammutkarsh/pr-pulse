@@ -115,7 +115,7 @@ pr-pulse/
 
 ## Privacy
 
-- Your GitHub token is stored locally in extension storage
+- Your GitHub token is stored locally in Chrome/Firefox extension storage
 - No pull request data is sent to third-party servers by PR Pulse
 - GitHub API communication happens directly from extension to GitHub
 
