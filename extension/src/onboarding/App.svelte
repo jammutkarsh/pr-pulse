@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { extensionBrowser, runtimeGetURL, runtimeSendMessage, type StorageChangeMap } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
@@ -139,21 +140,21 @@
 
 			// Listen for the PR data write triggered by the service worker
 			const prSyncPromise = new Promise<number>((resolve) => {
-				function onChanged(changes: Record<string, chrome.storage.StorageChange>, areaName: string) {
+				function onChanged(changes: StorageChangeMap, areaName: string) {
 					if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
-					chrome.storage.onChanged.removeListener(onChanged);
+					extensionBrowser.storage.onChanged.removeListener(onChanged);
 					const data = changes.pullRequests.newValue as PullRequestData;
 					resolve((data.myPRs?.length || 0) + (data.reviewRequests?.length || 0));
 				}
-				chrome.storage.onChanged.addListener(onChanged);
+				extensionBrowser.storage.onChanged.addListener(onChanged);
 				// Timeout fallback in case no PRs are fetched
 				setTimeout(() => {
-					chrome.storage.onChanged.removeListener(onChanged);
+					extensionBrowser.storage.onChanged.removeListener(onChanged);
 					resolve(0);
 				}, 15000);
 			});
 
-			await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
+			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
 			syncedPrCount = await prSyncPromise;
 			currentStep = STEP_COMPLETE;
 		} catch (error) {
@@ -168,7 +169,7 @@
 		sessionStorage.removeItem('prPulseOnboarding');
 
 		if (settings.displayMode === 'fullpage') {
-			window.location.href = chrome.runtime.getURL('popup/popup.html?fullpage=1');
+			window.location.href = runtimeGetURL('popup/popup.html?fullpage=1');
 			return;
 		}
 

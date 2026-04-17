@@ -5,20 +5,24 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 
 function copyExtensionAssets() {
+	let outDir = resolve(process.cwd(), 'dist');
+
 	return {
 		name: 'copy-extension-assets',
+		configResolved(config) {
+			outDir = resolve(config.root, config.build.outDir);
+		},
 		closeBundle() {
-			const root = process.cwd();
-			const outDir = resolve(root, 'dist');
-			const assetsToCopy = ['manifest.json', 'icons'];
+			const sourceRoot = resolve(process.cwd(), 'extension');
+			const assetsToCopy = ['icons'];
 			const generatedHtmlFiles = [
-				{ source: resolve(outDir, 'src/popup/index.html'), destination: resolve(outDir, 'popup/popup.html') },
-				{ source: resolve(outDir, 'src/settings/index.html'), destination: resolve(outDir, 'settings/settings.html') },
-				{ source: resolve(outDir, 'src/onboarding/index.html'), destination: resolve(outDir, 'onboarding/onboarding.html') },
+				{ source: resolve(outDir, 'extension/src/popup/index.html'), destination: resolve(outDir, 'popup/popup.html') },
+				{ source: resolve(outDir, 'extension/src/settings/index.html'), destination: resolve(outDir, 'settings/settings.html') },
+				{ source: resolve(outDir, 'extension/src/onboarding/index.html'), destination: resolve(outDir, 'onboarding/onboarding.html') },
 			];
 
 			for (const asset of assetsToCopy) {
-				const source = resolve(root, asset);
+				const source = resolve(sourceRoot, asset);
 				if (!existsSync(source)) {
 					continue;
 				}
@@ -35,9 +39,9 @@ function copyExtensionAssets() {
 				renameSync(htmlFile.source, htmlFile.destination);
 			}
 
-			const generatedSrcDir = resolve(outDir, 'src');
-			if (existsSync(generatedSrcDir)) {
-				rmSync(generatedSrcDir, { recursive: true, force: true });
+			const generatedExtensionDir = resolve(outDir, 'extension');
+			if (existsSync(generatedExtensionDir)) {
+				rmSync(generatedExtensionDir, { recursive: true, force: true });
 			}
 		},
 	};
@@ -55,10 +59,10 @@ export default defineConfig({
 		target: 'es2022',
 		rollupOptions: {
 			input: {
-				'popup/popup': resolve(process.cwd(), 'src/popup/index.html'),
-				'settings/settings': resolve(process.cwd(), 'src/settings/index.html'),
-				'onboarding/onboarding': resolve(process.cwd(), 'src/onboarding/index.html'),
-				'service-worker': resolve(process.cwd(), 'service-worker.ts'),
+				'popup/popup': resolve(process.cwd(), 'extension/src/popup/index.html'),
+				'settings/settings': resolve(process.cwd(), 'extension/src/settings/index.html'),
+				'onboarding/onboarding': resolve(process.cwd(), 'extension/src/onboarding/index.html'),
+				'service-worker': resolve(process.cwd(), 'extension/service-worker.ts'),
 			},
 			output: {
 				entryFileNames: (chunkInfo) => {

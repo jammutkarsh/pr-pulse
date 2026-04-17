@@ -6,6 +6,16 @@
 	import PopupSkeleton from './PopupSkeleton.svelte';
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import {
+		extensionBrowser,
+		runtimeGetURL,
+		runtimeSendMessage,
+		storageLocalGet,
+		storageLocalRemove,
+		storageLocalSet,
+		tabsCreate,
+		type StorageChangeMap,
+	} from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import Fuse from 'fuse.js';
 	import type { PullRequest, PullRequestData, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption, Settings, StoredProviderConfig } from '../../lib/types';
@@ -129,10 +139,10 @@
 	});
 
 	onDestroy(() => {
-		chrome.storage.onChanged.removeListener(onStorageChanged);
+		extensionBrowser.storage.onChanged.removeListener(onStorageChanged);
 	});
 
-	function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>, areaName: string) {
+	function onStorageChanged(changes: StorageChangeMap, areaName: string) {
 		if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
 		const newData = changes.pullRequests.newValue as PullRequestData;
 		prData = newData;
@@ -150,7 +160,7 @@
 		settings = bootstrapData.settings;
 
 		if (settings.displayMode === 'fullpage' && !isFullpageMode) {
-			chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?fullpage=1') });
+			await tabsCreate({ url: runtimeGetURL('popup/popup.html?fullpage=1') });
 			window.close();
 			return;
 		}
@@ -165,14 +175,12 @@
 			viewedPrIds = new Set(allPrs.map((pr) => pr.id));
 
 			if (settings.persistFilters) {
-				const initialFilters = await new Promise<StoredFilterState | undefined>((resolve) =>
-					chrome.storage.local.get(['searchFilters'], (result) => resolve(result.searchFilters as StoredFilterState | undefined))
-				);
+				const initialFilters = (await storageLocalGet<StoredFilterState | undefined>(['searchFilters'])).searchFilters;
 
 				filtersByTab = normalizeStoredFilterState(initialFilters, currentTab);
 				activeFilters = cloneFilters(filtersByTab[currentTab]);
 			} else {
-				chrome.storage.local.remove(['searchFilters']);
+				await storageLocalRemove(['searchFilters']);
 			}
 		} else {
 			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
@@ -182,7 +190,7 @@
 
 		filterPersistenceReady = true;
 		loading = false;
-		chrome.storage.onChanged.addListener(onStorageChanged);
+		extensionBrowser.storage.onChanged.addListener(onStorageChanged);
 	}
 
 	async function loadPrData() {
@@ -207,7 +215,7 @@
 
 		refreshInProgress = true;
 		try {
-			await chrome.runtime.sendMessage({ type: 'REFRESH_PRS' });
+			await runtimeSendMessage({ type: 'REFRESH_PRS' });
 			await loadPrData();
 			showToast('PR data refreshed', 'success');
 		} catch (error) {
@@ -228,27 +236,27 @@
 	}
 
 	function openSetup() {
-		const target = chrome.runtime.getURL('onboarding/onboarding.html');
+		const target = runtimeGetURL('onboarding/onboarding.html');
 		if (isFullpageMode) {
 			window.location.href = target;
 			return;
 		}
 
-		chrome.tabs.create({ url: target });
+		void tabsCreate({ url: target });
 	}
 
 	function openSettings() {
-		const target = chrome.runtime.getURL('settings/settings.html');
+		const target = runtimeGetURL('settings/settings.html');
 		if (isFullpageMode) {
 			window.location.href = target;
 			return;
 		}
 
-		chrome.tabs.create({ url: target });
+		void tabsCreate({ url: target });
 	}
 
 	function openFullscreen() {
-		chrome.tabs.create({ url: chrome.runtime.getURL('popup/popup.html?fullpage=1') });
+		void tabsCreate({ url: runtimeGetURL('popup/popup.html?fullpage=1') });
 	}
 
 	function toggleSearch() {
@@ -281,7 +289,7 @@
 			return;
 		}
 
-		chrome.tabs.create({ url });
+		void tabsCreate({ url });
 	}
 
 	async function handleCopy(value: string, id: string) {
@@ -379,7 +387,7 @@
 				...filtersByTab,
 				[currentTab]: cloneFilters(activeFilters),
 			};
-			chrome.storage.local.set({
+			void storageLocalSet({
 				searchFilters: {
 					tabs: {
 						myPRs: nextFiltersByTab.myPRs,
@@ -390,7 +398,7 @@
 			return;
 		}
 
-		chrome.storage.local.remove(['searchFilters']);
+		void storageLocalRemove(['searchFilters']);
 	});
 </script>
 

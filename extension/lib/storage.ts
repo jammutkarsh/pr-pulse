@@ -1,4 +1,5 @@
 import type { PullRequestData, Settings, StoredProviderConfig } from './types';
+import { storageLocalClear, storageLocalGet, storageLocalRemove, storageLocalSet } from './extension-api';
 import { normalizeSettings } from './ui-config';
 
 const STORAGE_KEYS = {
@@ -13,31 +14,21 @@ export const DEFAULT_USER = {
 } as const;
 
 async function get<T>(key: string): Promise<T | undefined> {
-	return new Promise((resolve) => {
-		chrome.storage.local.get([key], (result) => {
-			resolve(result[key] as T | undefined);
-		});
-	});
+	const result = await storageLocalGet<T>([key]);
+	return result[key] as T | undefined;
 }
 
 async function getMany<TKeys extends readonly string[]>(keys: TKeys): Promise<Record<TKeys[number], unknown>> {
-	return new Promise((resolve) => {
-		chrome.storage.local.get([...keys], (result) => {
-			resolve(result as Record<TKeys[number], unknown>);
-		});
-	});
+	const result = await storageLocalGet([...keys]);
+	return result as Record<TKeys[number], unknown>;
 }
 
 async function set<T>(key: string, value: T): Promise<void> {
-	return new Promise((resolve) => {
-		chrome.storage.local.set({ [key]: value }, () => resolve());
-	});
+	return storageLocalSet({ [key]: value });
 }
 
 async function remove(key: string): Promise<void> {
-	return new Promise((resolve) => {
-		chrome.storage.local.remove([key], () => resolve());
-	});
+	return storageLocalRemove([key]);
 }
 
 async function getProvider(): Promise<StoredProviderConfig | undefined> {
@@ -123,9 +114,7 @@ async function isOnboardingComplete(): Promise<boolean> {
 }
 
 async function clearAll(): Promise<void> {
-	return new Promise((resolve) => {
-		chrome.storage.local.clear(() => resolve());
-	});
+	return storageLocalClear();
 }
 
 export const storage = {

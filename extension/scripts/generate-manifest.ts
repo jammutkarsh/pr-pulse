@@ -1,0 +1,98 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+
+type BrowserTarget = 'chrome' | 'firefox';
+
+type ExtensionManifest = {
+	manifest_version: 3;
+	name: string;
+	version: string;
+	description: string;
+	permissions: string[];
+	host_permissions: string[];
+	action: {
+		default_popup: string;
+		default_icon: Record<string, string>;
+	};
+	background: {
+		scripts?: string[];
+		service_worker?: string;
+		type: 'module';
+	};
+	options_page: string;
+	icons: Record<string, string>;
+	browser_specific_settings?: {
+		gecko: {
+			id: string;
+			strict_min_version: string;
+		};
+	};
+};
+
+const browser = process.argv[2] as BrowserTarget | undefined;
+const outputPath = process.argv[3];
+const packageVersion = process.argv[4];
+
+if (!browser || !outputPath || !packageVersion || !isBrowserTarget(browser)) {
+	throw new Error('Usage: tsx scripts/generate-manifest.ts <chrome|firefox> <output-path> <version>');
+}
+
+const baseManifest = {
+	manifest_version: 3,
+	name: 'PR Pulse - GitHub Pull Request Dashboard',
+	version: packageVersion,
+	description: 'PR Pulse is a Pull Request dashboard for GitHub, delivered as a browser extension. Say No to Navigation!',
+	permissions: ['storage', 'alarms'],
+	host_permissions: ['https://api.github.com/*'],
+	action: {
+		default_popup: 'popup/popup.html',
+		default_icon: {
+			'48': 'icons/icon48.png',
+			'128': 'icons/icon128.png',
+		},
+	},
+	options_page: 'settings/settings.html',
+	icons: {
+		'48': 'icons/icon48.png',
+		'128': 'icons/icon128.png',
+	},
+} satisfies Omit<ExtensionManifest, 'background'>;
+
+const manifest = createManifest(browser, baseManifest);
+const resolvedOutputPath = resolve(process.cwd(), outputPath);
+
+mkdirSync(dirname(resolvedOutputPath), { recursive: true });
+writeFileSync(resolvedOutputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+function isBrowserTarget(value: string): value is BrowserTarget {
+	return value === 'chrome' || value === 'firefox';
+}
+
+function createManifest(
+	target: BrowserTarget,
+	base: Omit<ExtensionManifest, 'background'>,
+): ExtensionManifest {
+	if (target === 'firefox') {
+		return {
+			...base,
+			background: {
+				scripts: ['service-worker.js'],
+				type: 'module',
+			},
+			browser_specific_settings: {
+				gecko: {
+					id: 'pr-pulse@utkarshchourasia.in',
+					strict_min_version: '121.0',
+				},
+			},
+		};
+	}
+
+	return {
+		...base,
+		background: {
+			service_worker: 'service-worker.js',
+			type: 'module',
+		},
+	};
+}

@@ -6,6 +6,7 @@
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
@@ -75,7 +76,7 @@
 
 	async function updatePinnedTab(value: Settings['pinnedTab']) {
 		await updateSetting('pinnedTab', value);
-		await chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATED', settings: { pinnedTab: value } });
+		await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { pinnedTab: value } });
 	}
 
 	async function updateDisplayMode(value: Settings['displayMode']) {
@@ -95,7 +96,7 @@
 
 		pollingIntervalMs = value;
 		await updateSetting('pollingIntervalMs', value);
-		await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: value } });
+		await runtimeSendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: value } });
 	}
 
 	async function applyCustomInterval() {
@@ -104,7 +105,7 @@
 		const ms = mins * 60000;
 		pollingIntervalMs = ms;
 		await updateSetting('pollingIntervalMs', ms);
-		await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
+		await runtimeSendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
 	}
 
 	async function saveJiraUrl() {
@@ -141,7 +142,7 @@
 			};
 
 			await storage.setProvider(provider);
-			await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
+			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
 			tokenSuccess = `Connected as ${user.name || user.login}`;
 			reconnecting = false;
 			token = '';
@@ -155,7 +156,7 @@
 	}
 
 	function goBack() {
-		window.location.href = chrome.runtime.getURL('popup/popup.html?fullpage=1');
+		window.location.href = runtimeGetURL('popup/popup.html?fullpage=1');
 	}
 
 	async function resetAll() {
@@ -164,8 +165,8 @@
 		}
 
 		await storage.clearAll();
-		await chrome.runtime.sendMessage({ type: 'CLEAR_ALL' });
-		window.location.href = chrome.runtime.getURL('onboarding/onboarding.html');
+		await runtimeSendMessage({ type: 'CLEAR_ALL' });
+		window.location.href = runtimeGetURL('onboarding/onboarding.html');
 	}
 </script>
 
