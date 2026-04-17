@@ -87,12 +87,6 @@ npm run generate
 	Run `npm run generate:firefox`, open [about:debugging#/runtime/this-firefox](about:debugging#/runtime/this-firefox), click **Load Temporary Add-on**, and select `pr-pulse/dist/firefox/manifest.json`.
 4. Pin the extension to your toolbar for easy access
 
-Generated archives:
-
-- `npm run generate:chrome` creates `pr-pulse-chrome-v<version>.zip`
-- `npm run generate:firefox` creates `pr-pulse-firefox-v<version>.xpi`
-- `npm run generate` creates both packages
-
 <!-- ## Practical Value
 
 PR Pulse helps you recover small pockets of time that disappear into routine GitHub navigation. Over day, that means fewer interruptions. Over week, that means less friction around reviews, updates, and follow-up. Over time, it becomes a calmer way to manage pull requests.
