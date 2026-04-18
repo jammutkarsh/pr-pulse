@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { extensionBrowser, runtimeGetURL, runtimeSendMessage, type StorageChangeMap } from '../../lib/extension-api';
+	import { runtimeGetURL, runtimeSendMessage, storageOnChangedAddListener, storageOnChangedRemoveListener, type StorageChangeMap } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
@@ -142,14 +142,14 @@
 			const prSyncPromise = new Promise<number>((resolve) => {
 				function onChanged(changes: StorageChangeMap, areaName: string) {
 					if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
-					extensionBrowser.storage.onChanged.removeListener(onChanged);
+					storageOnChangedRemoveListener(onChanged);
 					const data = changes.pullRequests.newValue as PullRequestData;
 					resolve((data.myPRs?.length || 0) + (data.reviewRequests?.length || 0));
 				}
-				extensionBrowser.storage.onChanged.addListener(onChanged);
+				storageOnChangedAddListener(onChanged);
 				// Timeout fallback in case no PRs are fetched
 				setTimeout(() => {
-					extensionBrowser.storage.onChanged.removeListener(onChanged);
+					storageOnChangedRemoveListener(onChanged);
 					resolve(0);
 				}, 15000);
 			});

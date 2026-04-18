@@ -2,10 +2,16 @@ import browser from 'webextension-polyfill';
 import type { RuntimeMessage } from './types';
 
 type CloneableValue = null | undefined | string | number | boolean | CloneableValue[] | { [key: string]: CloneableValue };
+type AsyncLike<T> = T | Promise<T>;
 
-export const extensionBrowser = browser;
+const extensionBrowser = browser;
 
 export type StorageChangeMap = Record<string, browser.Storage.StorageChange>;
+export type StorageOnChangedListener = Parameters<typeof extensionBrowser.storage.onChanged.addListener>[0];
+export type RuntimeOnInstalledListener = Parameters<typeof extensionBrowser.runtime.onInstalled.addListener>[0];
+export type RuntimeOnMessageListener = (message: unknown, sender: browser.Runtime.MessageSender) => void | Promise<unknown>;
+export type AlarmsOnAlarmListener = Parameters<typeof extensionBrowser.alarms.onAlarm.addListener>[0];
+export type Unsubscribe = () => void;
 
 export function toPlainData<T>(value: T): T {
 	return normalizeCloneableValue(value, new WeakMap()) as T;
@@ -88,4 +94,65 @@ export function alarmsCreate(name: string, alarmInfo: browser.Alarms.CreateAlarm
 
 export function alarmsClear(name: string): Promise<boolean> {
 	return extensionBrowser.alarms.clear(name);
+}
+
+function logExtensionApiError(context: string, error: unknown): void {
+	console.error(`Extension API error in ${context}:`, error);
+}
+
+function wrapListener<TArgs extends unknown[], TResult>(context: string, listener: (...args: TArgs) => AsyncLike<TResult>) {
+	return (...args: TArgs): AsyncLike<TResult> => {
+		try {
+			const result = listener(...args);
+			if (result instanceof Promise) {
+				return result.catch((error) => {
+					logExtensionApiError(context, error);
+					throw error;
+				}) as Promise<TResult>;
+			}
+
+			return result;
+		} catch (error) {
+			logExtensionApiError(context, error);
+			throw error;
+		}
+	};
+}
+
+export function storageOnChangedAddListener(listener: StorageOnChangedListener): Unsubscribe {
+	extensionBrowser.storage.onChanged.addListener(listener);
+	return () => storageOnChangedRemoveListener(listener);
+}
+
+export function storageOnChangedRemoveListener(listener: StorageOnChangedListener): void {
+	extensionBrowser.storage.onChanged.removeListener(listener);
+}
+
+export function runtimeOnInstalledAddListener(listener: RuntimeOnInstalledListener): void {
+	extensionBrowser.runtime.onInstalled.addListener(wrapListener('runtime.onInstalled', listener));
+}
+
+export function runtimeOnMessageAddListener(listener: RuntimeOnMessageListener): void {
+	const wrappedListener = (message: unknown, sender: browser.Runtime.MessageSender) => {
+		try {
+			const result = listener(message, sender);
+			if (result instanceof Promise) {
+				return result.catch((error) => {
+					logExtensionApiError('runtime.onMessage', error);
+					throw error;
+				});
+			}
+
+			return result;
+		} catch (error) {
+			logExtensionApiError('runtime.onMessage', error);
+			throw error;
+		}
+	};
+
+	extensionBrowser.runtime.onMessage.addListener(wrappedListener);
+}
+
+export function alarmsOnAlarmAddListener(listener: AlarmsOnAlarmListener): void {
+	extensionBrowser.alarms.onAlarm.addListener(wrapListener('alarms.onAlarm', listener));
 }

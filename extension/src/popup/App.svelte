@@ -7,8 +7,9 @@
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import {
-		extensionBrowser,
 		runtimeGetURL,
+		storageOnChangedAddListener,
+		storageOnChangedRemoveListener,
 		runtimeSendMessage,
 		storageLocalGet,
 		storageLocalRemove,
@@ -144,7 +145,7 @@
 	});
 
 	onDestroy(() => {
-		extensionBrowser.storage.onChanged.removeListener(onStorageChanged);
+		storageOnChangedRemoveListener(onStorageChanged);
 	});
 
 	function onStorageChanged(changes: StorageChangeMap, areaName: string) {
@@ -195,7 +196,7 @@
 
 		filterPersistenceReady = true;
 		loading = false;
-		extensionBrowser.storage.onChanged.addListener(onStorageChanged);
+		storageOnChangedAddListener(onStorageChanged);
 	}
 
 	async function loadPrData() {

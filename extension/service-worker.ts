@@ -2,11 +2,13 @@ import { providerManager } from './lib/provider-manager';
 import {
 	actionSetBadgeBackgroundColor,
 	actionSetBadgeText,
+	alarmsOnAlarmAddListener,
 	alarmsClear,
 	alarmsCreate,
 	alarmsGet,
-	extensionBrowser,
 	runtimeGetURL,
+	runtimeOnInstalledAddListener,
+	runtimeOnMessageAddListener,
 	tabsCreate,
 } from './lib/extension-api';
 import { storage } from './lib/storage';
@@ -104,7 +106,7 @@ async function setupPollingAlarm(forceRecreate = false): Promise<void> {
 	console.log(`Polling alarm set for every ${intervalMinutes} minute(s)`);
 }
 
-extensionBrowser.runtime.onInstalled.addListener(async (details) => {
+runtimeOnInstalledAddListener(async (details) => {
 	console.log('Extension installed/updated:', details.reason);
 	if (details.reason === 'install') {
 		const onboardingUrl = runtimeGetURL('onboarding/onboarding.html');
@@ -117,14 +119,14 @@ extensionBrowser.runtime.onInstalled.addListener(async (details) => {
 	await setupPollingAlarm(true);
 });
 
-extensionBrowser.alarms.onAlarm.addListener(async (alarm) => {
+alarmsOnAlarmAddListener(async (alarm) => {
 	if (alarm.name === ALARM_NAME) {
 		console.log('Polling alarm triggered');
 		await fetchAndCachePRs();
 	}
 });
 
-extensionBrowser.runtime.onMessage.addListener(async (message) => {
+runtimeOnMessageAddListener(async (message) => {
 	try {
 		return await handleMessage(message as RuntimeMessage);
 	} catch (error) {
