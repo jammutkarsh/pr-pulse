@@ -103,9 +103,15 @@ export interface PullRequestData {
 }
 
 export interface PopupFilters {
+	authors: string[];
 	owners: string[];
 	repos: string[];
 	ageRange: string;
+}
+
+export interface PopupAuthorFilterOption {
+	login: string;
+	name: string;
 }
 
 export interface PopupOwnerFilterOption {

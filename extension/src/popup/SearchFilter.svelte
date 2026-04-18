@@ -2,9 +2,10 @@
     import { tick } from 'svelte';
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, X } from 'lucide-svelte';
-    import type { PullRequestRepoOwner, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
+    import type { PullRequestRepoOwner, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
     import Button from '../lib/components/Button.svelte';
 
+    type AuthorFilterOption = PopupAuthorFilterOption;
     type RepoFilterOption = PopupRepoFilterOption;
     type OwnerFilterOption = PopupOwnerFilterOption;
 
@@ -16,6 +17,7 @@
     };
 
     const EMPTY_FILTERS: PopupFilters = {
+        authors: [],
         owners: [],
         repos: [],
         ageRange: '',
@@ -35,30 +37,44 @@
     interface Props {
         query?: string;
         activeFilters?: PopupFilters;
+        availableAuthors?: AuthorFilterOption[];
         availableRepos?: RepoFilterOption[];
         availableOwners?: OwnerFilterOption[];
+        hasAuthorFilter?: boolean;
+        hasOwnerFilter?: boolean;
+        hasRepoFilter?: boolean;
         isSearchOpen?: boolean;
         isFilterOpen?: boolean;
         embedded?: boolean;
+        fullpageMode?: boolean;
     }
 
     let {
         query = $bindable(''),
         activeFilters = $bindable({ ...EMPTY_FILTERS }),
+        availableAuthors = [] as AuthorFilterOption[],
         availableRepos = [] as RepoFilterOption[],
         availableOwners = [] as OwnerFilterOption[],
+        hasAuthorFilter = false,
+        hasOwnerFilter = false,
+        hasRepoFilter = false,
         isSearchOpen = $bindable(false),
         isFilterOpen = $bindable(false),
         embedded = false,
+        fullpageMode = false,
     }: Props = $props();
 
     let expandedSections = $state({
+        authors: false,
         owners: false,
         repos: false,
         // age: false,
     });
 
     let searchInput = $state<HTMLInputElement | null>(null);
+    let authorSearchQuery = $state('');
+    let ownerSearchQuery = $state('');
+    let repoSearchQuery = $state('');
     let surfaceElement = $state<HTMLDivElement | null>(null);
     let ignoreOutsideClick = false;
     let wasSearchOpen = false;
@@ -149,6 +165,14 @@
         activeFilters = { ...activeFilters, repos };
     }
 
+    function toggleAuthor(author: string) {
+        const authors = activeFilters.authors.includes(author)
+            ? activeFilters.authors.filter((entry) => entry !== author)
+            : [...activeFilters.authors, author];
+
+        activeFilters = { ...activeFilters, authors };
+    }
+
     function toggleOwner(owner: string) {
         const owners = activeFilters.owners.includes(owner)
             ? activeFilters.owners.filter((entry) => entry !== owner)
@@ -180,6 +204,42 @@
         activeFilters = { ...EMPTY_FILTERS };
     }
 
+    function matchesFilterQuery(value: string, filterQuery: string, alternateValue = '') {
+        const normalizedQuery = filterQuery.trim().toLowerCase();
+
+        if (!normalizedQuery) {
+            return true;
+        }
+
+        return value.toLowerCase().includes(normalizedQuery) || alternateValue.toLowerCase().includes(normalizedQuery);
+    }
+
+    function getSectionListClass(optionCount: number) {
+        const visibleLimit = fullpageMode ? 4 : 3;
+
+        if (optionCount <= visibleLimit) {
+            return 'space-y-1 pr-1';
+        }
+
+        return fullpageMode
+            ? 'max-h-[11rem] space-y-1 overflow-y-auto pr-1 scroll-thin'
+            : 'max-h-[8.25rem] space-y-1 overflow-y-auto pr-1 scroll-thin';
+    }
+
+    function shouldShowSectionSearch(optionCount: number) {
+        const visibleLimit = fullpageMode ? 4 : 3;
+        return optionCount > visibleLimit;
+    }
+
+    function sortSelectedFirst<T>(items: T[], isSelected: (item: T) => boolean) {
+        return [...items].sort((left, right) => Number(isSelected(right)) - Number(isSelected(left)));
+    }
+
+    function getAuthorName(authorLogin: string) {
+        const author = availableAuthors.find((entry) => entry.login === authorLogin);
+        return author?.name && author.name !== authorLogin ? author.name : '';
+    }
+
     function getOwnerDisplay(ownerLogin: string) {
         const owner = availableOwners.find((entry) => entry.login === ownerLogin);
         return owner ? getOwnerTypeLabel(owner.type) : 'Owner';
@@ -209,20 +269,50 @@
     }
 
     let hasQuery = $derived(query.trim().length > 0);
-    let showOwnerFilter = $derived(availableOwners.length > 1);
-    let showRepoFilter = $derived(availableRepos.length > 1);
-    let visibleRepos = $derived(
-        activeFilters.owners.length > 0
-            ? availableRepos.filter((repo) => activeFilters.owners.includes(repo.owner))
-            : availableRepos
+    let showAuthorFilter = $derived(hasAuthorFilter || activeFilters.authors.length > 0);
+    let showOwnerFilter = $derived(hasOwnerFilter || activeFilters.owners.length > 0);
+    let showRepoFilter = $derived(hasRepoFilter || activeFilters.repos.length > 0);
+    let visibleAuthors = $derived(
+        activeFilters.authors.length > 0 || availableAuthors.length > 1
+            ? sortSelectedFirst(availableAuthors, (author) => activeFilters.authors.includes(author.login))
+            : []
     );
-    let hasMeaningfulFilters = $derived(showOwnerFilter || showRepoFilter);
+    let visibleOwners = $derived(
+        activeFilters.owners.length > 0 || availableOwners.length > 1
+            ? sortSelectedFirst(availableOwners, (owner) => activeFilters.owners.includes(owner.login))
+            : []
+    );
+    let visibleRepos = $derived(
+        activeFilters.repos.length > 0 || availableRepos.length > 1
+            ? sortSelectedFirst(availableRepos, (repo) => activeFilters.repos.includes(repo.fullName))
+            : []
+    );
+    let filteredAuthors = $derived(
+        visibleAuthors.filter((author) => matchesFilterQuery(author.login, authorSearchQuery, author.name))
+    );
+    let filteredOwners = $derived(
+        visibleOwners.filter((owner) => matchesFilterQuery(owner.login, ownerSearchQuery, getOwnerTypeLabel(owner.type)))
+    );
+    let filteredRepos = $derived(
+        visibleRepos.filter((repo) => matchesFilterQuery(repo.fullName, repoSearchQuery, `${repo.name} ${repo.owner}`))
+    );
+    let hasMeaningfulFilters = $derived(showAuthorFilter || showOwnerFilter || showRepoFilter);
+    let showAuthorSearch = $derived(shouldShowSectionSearch(visibleAuthors.length));
+    let showOwnerSearch = $derived(shouldShowSectionSearch(visibleOwners.length));
+    let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
     // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-    // let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-    let activeFilterCount = $derived(activeFilters.owners.length + activeFilters.repos.length);
+    // let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
+    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length);
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
+    let filterPanelMaxHeight = $derived(fullpageMode ? 'min(40rem, calc(100vh - 13rem))' : '22rem');
     let selectedFilterChips = $derived<FilterChip[]>([
+        ...activeFilters.authors.map((authorLogin) => ({
+            key: `author:${authorLogin}`,
+            label: authorLogin,
+            value: getAuthorName(authorLogin),
+            onRemove: () => toggleAuthor(authorLogin),
+        })),
         ...activeFilters.owners.map((ownerLogin) => ({
             key: `owner:${ownerLogin}`,
             label: ownerLogin,
@@ -254,14 +344,17 @@
     });
 
     $effect(() => {
+        const availableAuthorLogins = new Set(availableAuthors.map((author) => author.login));
         const availableOwnerLogins = new Set(availableOwners.map((owner) => owner.login));
         const availableRepoNames = new Set(availableRepos.map((repo) => repo.fullName));
+        const authors = showAuthorFilter ? activeFilters.authors.filter((author) => availableAuthorLogins.has(author)) : [];
         const owners = showOwnerFilter ? activeFilters.owners.filter((owner) => availableOwnerLogins.has(owner)) : [];
         const repos = showRepoFilter ? activeFilters.repos.filter((repo) => availableRepoNames.has(repo)) : [];
 
-        if (owners.length !== activeFilters.owners.length || repos.length !== activeFilters.repos.length) {
+        if (authors.length !== activeFilters.authors.length || owners.length !== activeFilters.owners.length || repos.length !== activeFilters.repos.length) {
             activeFilters = {
                 ...activeFilters,
+                authors,
                 owners,
                 repos,
             };
@@ -273,6 +366,20 @@
     });
 
     $effect(() => {
+        if (!showAuthorSearch && authorSearchQuery) {
+            authorSearchQuery = '';
+        }
+
+        if (!showOwnerSearch && ownerSearchQuery) {
+            ownerSearchQuery = '';
+        }
+
+        if (!showRepoSearch && repoSearchQuery) {
+            repoSearchQuery = '';
+        }
+    });
+
+    $effect(() => {
         if (isFilterOpen === wasFilterOpen) {
             return;
         }
@@ -280,21 +387,10 @@
         wasFilterOpen = isFilterOpen;
 
         if (!isFilterOpen) {
-            return;
-        }
-
-        if (showOwnerFilter) {
             expandedSections = {
-                owners: true,
-                repos: false,
-            };
-            return;
-        }
-
-        if (showRepoFilter) {
-            expandedSections = {
+                authors: false,
                 owners: false,
-                repos: true,
+                repos: false,
             };
         }
     });
@@ -334,7 +430,7 @@
             </div>
 
         {#if isFilterOpen && hasMeaningfulFilters}
-            <div class="max-h-88 overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) px-3 py-2 shadow-lg">
+            <div class="overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) px-3 py-2 shadow-lg" style:max-height={filterPanelMaxHeight}>
                 {#if hasActiveFilters}
                     <div class="mb-2 flex items-center justify-between gap-3">
                         <div class="min-w-0 flex-1 overflow-x-auto scroll-thin">
@@ -346,7 +442,9 @@
                                         title={`Remove ${chip.label} filter`}
                                     >
                                         <span class="font-medium text-white">{chip.label}</span>
-                                        <span class="truncate text-soft">{chip.value}</span>
+                                        {#if chip.value}
+                                            <span class="truncate text-soft">{chip.value}</span>
+                                        {/if}
                                         <X class="h-3.5 w-3.5 shrink-0" />
                                     </button>
                                 {/each}
@@ -377,8 +475,18 @@
 
                             {#if expandedSections.owners}
                                 <div class="border-t border-soft px-3 py-2">
-                                    <div class="max-h-40 space-y-1 overflow-y-auto pr-1 scroll-thin">
-                                        {#each availableOwners as owner (owner.login)}
+                                    {#if showOwnerSearch}
+                                        <div class="mb-2">
+                                            <input
+                                                type="text"
+                                                bind:value={ownerSearchQuery}
+                                                placeholder="Search owners"
+                                                class="h-8 w-full rounded-md border border-soft bg-(--bg-muted) px-3 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                                            />
+                                        </div>
+                                    {/if}
+                                    <div class={getSectionListClass(filteredOwners.length)}>
+                                        {#each filteredOwners as owner (owner.login)}
                                             <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
                                                 <input
                                                     type="checkbox"
@@ -389,6 +497,55 @@
                                                 <span class="min-w-0 flex-1 truncate">{owner.login}</span>
                                                 {#if owner.type !== 'unknown'}
                                                     <span class="shrink-0 text-[11px] uppercase tracking-[0.08em] text-soft">{getOwnerTypeLabel(owner.type)}</span>
+                                                {/if}
+                                            </label>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    {#if showAuthorFilter}
+                        <div class="overflow-hidden rounded-lg border border-soft">
+                            <button
+                                class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
+                                onclick={() => toggleSection('authors')}
+                            >
+                                <span class="flex items-center gap-2">
+                                        {#if expandedSections.authors}
+                                            <ChevronDown class="h-4 w-4 text-soft" />
+                                        {:else}
+                                            <ChevronRight class="h-4 w-4 text-soft" />
+                                        {/if}
+                                        <span>PR Author</span>
+                                    </span>
+                            </button>
+
+                            {#if expandedSections.authors}
+                                <div class="border-t border-soft px-3 py-2">
+                                    {#if showAuthorSearch}
+                                        <div class="mb-2">
+                                            <input
+                                                type="text"
+                                                bind:value={authorSearchQuery}
+                                                placeholder="Search PR authors"
+                                                class="h-8 w-full rounded-md border border-soft bg-(--bg-muted) px-3 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                                            />
+                                        </div>
+                                    {/if}
+                                    <div class={getSectionListClass(filteredAuthors.length)}>
+                                        {#each filteredAuthors as author (author.login)}
+                                            <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
+                                                <input
+                                                    type="checkbox"
+                                                    class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
+                                                    checked={activeFilters.authors.includes(author.login)}
+                                                    onchange={() => toggleAuthor(author.login)}
+                                                />
+                                                <span class="min-w-0 flex-1 truncate">{author.login}</span>
+                                                {#if getAuthorName(author.login)}
+                                                    <span class="shrink-0 truncate text-[11px] text-soft">{getAuthorName(author.login)}</span>
                                                 {/if}
                                             </label>
                                         {/each}
@@ -416,8 +573,18 @@
 
                             {#if expandedSections.repos}
                                 <div class="border-t border-soft px-3 py-2">
-                                    <div class="max-h-48 space-y-1 overflow-y-auto pr-1 scroll-thin">
-                                        {#each visibleRepos as repo (repo.fullName)}
+                                    {#if showRepoSearch}
+                                        <div class="mb-2">
+                                            <input
+                                                type="text"
+                                                bind:value={repoSearchQuery}
+                                                placeholder="Search repositories"
+                                                class="h-8 w-full rounded-md border border-soft bg-(--bg-muted) px-3 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                                            />
+                                        </div>
+                                    {/if}
+                                    <div class={getSectionListClass(filteredRepos.length)}>
+                                        {#each filteredRepos as repo (repo.fullName)}
                                             <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
                                                 <input
                                                     type="checkbox"

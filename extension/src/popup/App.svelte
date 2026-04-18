@@ -18,7 +18,7 @@
 	} from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import Fuse from 'fuse.js';
-	import type { PullRequest, PullRequestData, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption, Settings, StoredProviderConfig } from '../../lib/types';
+	import type { PullRequest, PullRequestData, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption, Settings, StoredProviderConfig } from '../../lib/types';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
 		copyToClipboard,
@@ -28,6 +28,7 @@
 
 	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getPopupBootstrapData>>;
 	type SearchablePullRequest = PullRequest & { _jiraTicket: string };
+	type AuthorFilterOption = PopupAuthorFilterOption;
 	type OwnerFilterOption = PopupOwnerFilterOption;
 	type RepoFilterOption = PopupRepoFilterOption;
 	type PopupTab = Settings['pinnedTab'];
@@ -40,6 +41,7 @@
 
 	function createDefaultFilters(): PopupFilters {
 		return {
+			authors: [],
 			owners: [],
 			repos: [],
 			ageRange: '',
@@ -55,6 +57,7 @@
 
 	function cloneFilters(filters: PopupFilters): PopupFilters {
 		return {
+			authors: [...filters.authors],
 			owners: [...filters.owners],
 			repos: [...filters.repos],
 			ageRange: filters.ageRange,
@@ -71,12 +74,14 @@
 
 	function normalizeStoredFilters(value: StoredFilters | undefined): PopupFilters {
 		const storedFilters = value ?? {};
+		const authors = toStringArray(storedFilters.authors);
 		const owners = toStringArray(storedFilters.owners);
 		const repos = toStringArray(storedFilters.repos);
 		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
 
 		return {
 			...DEFAULT_FILTERS,
+			authors,
 			repos,
 			owners,
 			ageRange,
@@ -308,7 +313,7 @@
 	let lastUpdatedText = $derived(prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync');
 	let fullpageShellClasses = $derived(isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full');
 	let cardListClasses = $derived(isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin');
-	let availableOwners = $derived(Array.from(
+	let allAvailableOwners = $derived(Array.from(
 		new Map<string, OwnerFilterOption>(
 			currentItems
 				.map((pr) => {
@@ -317,9 +322,24 @@
 					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
 				})
 				.filter(([login]) => Boolean(login))
-		).values()
+	).values()
 	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' })));
-	let availableRepos = $derived(Array.from(
+	let allAvailableAuthors = $derived(currentTab === 'toReview'
+		? Array.from(
+			new Map<string, AuthorFilterOption>(
+				currentItems
+					.map((pr) => [pr.author?.login?.toLowerCase() || '', {
+						login: pr.author?.login || '',
+						name: pr.author?.name || pr.author?.login || '',
+					}] as const)
+					.filter(([login]) => Boolean(login))
+			).values()
+		).sort((left, right) =>
+			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
+			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+		)
+		: []);
+	let allAvailableRepos = $derived(Array.from(
 		new Map<string, RepoFilterOption>(
 			currentItems
 				.filter((pr) => pr.repoFullName)
@@ -337,16 +357,96 @@
 				})
 		).values()
 	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })));
+	let itemsForAuthorOptions = $derived.by(() => {
+		let result = currentItems;
+		if (activeFilters.owners.length > 0) {
+			result = result.filter((pr) => activeFilters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
+		}
+		if (activeFilters.repos.length > 0) {
+			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
+		}
+		return result;
+	});
+	let itemsForOwnerOptions = $derived.by(() => {
+		let result = currentItems;
+		if (activeFilters.authors.length > 0) {
+			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
+		}
+		if (activeFilters.repos.length > 0) {
+			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
+		}
+		return result;
+	});
+	let itemsForRepoOptions = $derived.by(() => {
+		let result = currentItems;
+		if (activeFilters.authors.length > 0) {
+			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
+		}
+		if (activeFilters.owners.length > 0) {
+			result = result.filter((pr) => activeFilters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
+		}
+		return result;
+	});
+	let availableOwners = $derived(Array.from(
+		new Map<string, OwnerFilterOption>(
+			itemsForOwnerOptions
+				.map((pr) => {
+					const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+					const ownerType = pr.repoOwner?.type || 'unknown';
+					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
+				})
+				.filter(([login]) => Boolean(login))
+	).values()
+	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' })));
+	let availableAuthors = $derived(currentTab === 'toReview'
+		? Array.from(
+			new Map<string, AuthorFilterOption>(
+				itemsForAuthorOptions
+					.map((pr) => [pr.author?.login?.toLowerCase() || '', {
+						login: pr.author?.login || '',
+						name: pr.author?.name || pr.author?.login || '',
+					}] as const)
+					.filter(([login]) => Boolean(login))
+			).values()
+		).sort((left, right) =>
+			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
+			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+		)
+		: []);
+	let availableRepos = $derived(Array.from(
+		new Map<string, RepoFilterOption>(
+			itemsForRepoOptions
+				.filter((pr) => pr.repoFullName)
+				.map((pr) => {
+					const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
+					return [
+						pr.repoFullName,
+						{
+							fullName: pr.repoFullName,
+							owner,
+							ownerType: pr.repoOwner?.type || 'unknown',
+							name,
+						},
+					] as const;
+				})
+		).values()
+	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })));
 	let showSearchControls = $derived(!loading && !setupRequired && !errorMessage && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired && !errorMessage);
-	let hasMeaningfulFilters = $derived(availableOwners.length > 1 || availableRepos.length > 1);
+	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
+	let hasOwnerFilter = $derived(allAvailableOwners.length > 1);
+	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
+	let hasMeaningfulFilters = $derived(hasAuthorFilter || hasOwnerFilter || hasRepoFilter);
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-	// let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-	let filterCount = $derived(activeFilters.owners.length + activeFilters.repos.length);
+	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
+	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length);
 	let filterActive = $derived(filterCount > 0);
 	let preSearchItems = $derived.by(() => {
 		let result = currentItems;
+		if (activeFilters.authors.length > 0) {
+			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
+		}
 		if (activeFilters.repos.length > 0) {
 			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
 		}
@@ -431,10 +531,15 @@
 				<div class="border-b border-soft px-4 py-2.5 sm:px-4">
 					<SearchFilter
 						embedded={true}
+						fullpageMode={isFullpageMode}
+						hasAuthorFilter={hasAuthorFilter}
+						hasOwnerFilter={hasOwnerFilter}
+						hasRepoFilter={hasRepoFilter}
 						bind:query={searchQuery}
 						bind:activeFilters={activeFilters}
 						bind:isSearchOpen={isSearchOpen}
 						bind:isFilterOpen={isFilterOpen}
+						{availableAuthors}
 						{availableRepos}
 						{availableOwners}
 					/>
