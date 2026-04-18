@@ -8,11 +8,6 @@ const STORAGE_KEYS = {
 	SETTINGS: 'settings',
 } as const;
 
-export const DEFAULT_USER = {
-	avatar: 'icons/icon128.png',
-	greeting: 'PR Pulse',
-} as const;
-
 async function get<T>(key: string): Promise<T | undefined> {
 	const result = await storageLocalGet<T>([key]);
 	return result[key] as T | undefined;
