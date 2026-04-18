@@ -57,14 +57,12 @@ const baseManifest = {
 	action: {
 		default_popup: 'popup/popup.html',
 		default_icon: {
-			'16': 'icons/icon16.png',
 			'48': 'icons/icon48.png',
 			'128': 'icons/icon128.png',
 		},
 	},
 	options_page: 'settings/settings.html',
 	icons: {
-		'16': 'icons/icon16.png',
 		'48': 'icons/icon48.png',
 		'128': 'icons/icon128.png',
 	},

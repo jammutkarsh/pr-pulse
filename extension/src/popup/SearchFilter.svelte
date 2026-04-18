@@ -37,6 +37,9 @@
     interface Props {
         query?: string;
         activeFilters?: PopupFilters;
+        allAuthors?: AuthorFilterOption[];
+        allRepos?: RepoFilterOption[];
+        allOwners?: OwnerFilterOption[];
         availableAuthors?: AuthorFilterOption[];
         availableRepos?: RepoFilterOption[];
         availableOwners?: OwnerFilterOption[];
@@ -52,6 +55,9 @@
     let {
         query = $bindable(''),
         activeFilters = $bindable({ ...EMPTY_FILTERS }),
+        allAuthors = [] as AuthorFilterOption[],
+        allRepos = [] as RepoFilterOption[],
+        allOwners = [] as OwnerFilterOption[],
         availableAuthors = [] as AuthorFilterOption[],
         availableRepos = [] as RepoFilterOption[],
         availableOwners = [] as OwnerFilterOption[],
@@ -236,17 +242,17 @@
     }
 
     function getAuthorName(authorLogin: string) {
-        const author = availableAuthors.find((entry) => entry.login === authorLogin);
+        const author = allAuthors.find((entry) => entry.login === authorLogin);
         return author?.name && author.name !== authorLogin ? author.name : '';
     }
 
     function getOwnerDisplay(ownerLogin: string) {
-        const owner = availableOwners.find((entry) => entry.login === ownerLogin);
+        const owner = allOwners.find((entry) => entry.login === ownerLogin);
         return owner ? getOwnerTypeLabel(owner.type) : 'Owner';
     }
 
     function getRepoDisplay(repoFullName: string) {
-        const repo = availableRepos.find((entry) => entry.fullName === repoFullName);
+        const repo = allRepos.find((entry) => entry.fullName === repoFullName);
 
         if (repo) {
             return { name: repo.name, owner: repo.owner };
@@ -272,19 +278,22 @@
     let showAuthorFilter = $derived(hasAuthorFilter || activeFilters.authors.length > 0);
     let showOwnerFilter = $derived(hasOwnerFilter || activeFilters.owners.length > 0);
     let showRepoFilter = $derived(hasRepoFilter || activeFilters.repos.length > 0);
+    let availableAuthorLogins = $derived(new Set(availableAuthors.map((author) => author.login)));
+    let availableOwnerLogins = $derived(new Set(availableOwners.map((owner) => owner.login)));
+    let availableRepoNames = $derived(new Set(availableRepos.map((repo) => repo.fullName)));
     let visibleAuthors = $derived(
-        activeFilters.authors.length > 0 || availableAuthors.length > 1
-            ? sortSelectedFirst(availableAuthors, (author) => activeFilters.authors.includes(author.login))
+        activeFilters.authors.length > 0 || allAuthors.length > 1
+            ? sortSelectedFirst(allAuthors, (author) => activeFilters.authors.includes(author.login))
             : []
     );
     let visibleOwners = $derived(
-        activeFilters.owners.length > 0 || availableOwners.length > 1
-            ? sortSelectedFirst(availableOwners, (owner) => activeFilters.owners.includes(owner.login))
+        activeFilters.owners.length > 0 || allOwners.length > 1
+            ? sortSelectedFirst(allOwners, (owner) => activeFilters.owners.includes(owner.login))
             : []
     );
     let visibleRepos = $derived(
-        activeFilters.repos.length > 0 || availableRepos.length > 1
-            ? sortSelectedFirst(availableRepos, (repo) => activeFilters.repos.includes(repo.fullName))
+        activeFilters.repos.length > 0 || allRepos.length > 1
+            ? sortSelectedFirst(allRepos, (repo) => activeFilters.repos.includes(repo.fullName))
             : []
     );
     let filteredAuthors = $derived(
@@ -344,12 +353,12 @@
     });
 
     $effect(() => {
-        const availableAuthorLogins = new Set(availableAuthors.map((author) => author.login));
-        const availableOwnerLogins = new Set(availableOwners.map((owner) => owner.login));
-        const availableRepoNames = new Set(availableRepos.map((repo) => repo.fullName));
-        const authors = showAuthorFilter ? activeFilters.authors.filter((author) => availableAuthorLogins.has(author)) : [];
-        const owners = showOwnerFilter ? activeFilters.owners.filter((owner) => availableOwnerLogins.has(owner)) : [];
-        const repos = showRepoFilter ? activeFilters.repos.filter((repo) => availableRepoNames.has(repo)) : [];
+        const allAuthorLogins = new Set(allAuthors.map((author) => author.login));
+        const allOwnerLogins = new Set(allOwners.map((owner) => owner.login));
+        const allRepoNames = new Set(allRepos.map((repo) => repo.fullName));
+        const authors = showAuthorFilter ? activeFilters.authors.filter((author) => allAuthorLogins.has(author)) : [];
+        const owners = showOwnerFilter ? activeFilters.owners.filter((owner) => allOwnerLogins.has(owner)) : [];
+        const repos = showRepoFilter ? activeFilters.repos.filter((repo) => allRepoNames.has(repo)) : [];
 
         if (authors.length !== activeFilters.authors.length || owners.length !== activeFilters.owners.length || repos.length !== activeFilters.repos.length) {
             activeFilters = {
@@ -487,11 +496,14 @@
                                     {/if}
                                     <div class={getSectionListClass(filteredOwners.length)}>
                                         {#each filteredOwners as owner (owner.login)}
-                                            <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
+                                            {@const ownerSelected = activeFilters.owners.includes(owner.login)}
+                                            {@const ownerAvailable = availableOwnerLogins.has(owner.login)}
+                                            <label class={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition ${ownerSelected || ownerAvailable ? 'cursor-pointer text-white hover:bg-(--bg-muted)' : 'cursor-not-allowed text-soft opacity-60'}`}>
                                                 <input
                                                     type="checkbox"
                                                     class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
-                                                    checked={activeFilters.owners.includes(owner.login)}
+                                                    checked={ownerSelected}
+                                                    disabled={!ownerSelected && !ownerAvailable}
                                                     onchange={() => toggleOwner(owner.login)}
                                                 />
                                                 <span class="min-w-0 flex-1 truncate">{owner.login}</span>
@@ -536,11 +548,14 @@
                                     {/if}
                                     <div class={getSectionListClass(filteredAuthors.length)}>
                                         {#each filteredAuthors as author (author.login)}
-                                            <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
+                                            {@const authorSelected = activeFilters.authors.includes(author.login)}
+                                            {@const authorAvailable = availableAuthorLogins.has(author.login)}
+                                            <label class={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition ${authorSelected || authorAvailable ? 'cursor-pointer text-white hover:bg-(--bg-muted)' : 'cursor-not-allowed text-soft opacity-60'}`}>
                                                 <input
                                                     type="checkbox"
                                                     class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
-                                                    checked={activeFilters.authors.includes(author.login)}
+                                                    checked={authorSelected}
+                                                    disabled={!authorSelected && !authorAvailable}
                                                     onchange={() => toggleAuthor(author.login)}
                                                 />
                                                 <span class="min-w-0 flex-1 truncate">{author.login}</span>
@@ -585,11 +600,14 @@
                                     {/if}
                                     <div class={getSectionListClass(filteredRepos.length)}>
                                         {#each filteredRepos as repo (repo.fullName)}
-                                            <label class="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm text-white transition hover:bg-(--bg-muted)">
+                                            {@const repoSelected = activeFilters.repos.includes(repo.fullName)}
+                                            {@const repoAvailable = availableRepoNames.has(repo.fullName)}
+                                            <label class={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition ${repoSelected || repoAvailable ? 'cursor-pointer text-white hover:bg-(--bg-muted)' : 'cursor-not-allowed text-soft opacity-60'}`}>
                                                 <input
                                                     type="checkbox"
                                                     class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
-                                                    checked={activeFilters.repos.includes(repo.fullName)}
+                                                    checked={repoSelected}
+                                                    disabled={!repoSelected && !repoAvailable}
                                                     onchange={() => toggleRepo(repo.fullName)}
                                                 />
                                                 <span class="min-w-0 flex-1 truncate" title={repo.fullName}>{repo.name}</span>

@@ -494,11 +494,15 @@
 						toReview: nextFiltersByTab.toReview,
 					},
 				},
+			}).catch((error) => {
+				console.error('Failed to persist filter state:', error);
 			});
 			return;
 		}
 
-		void storageLocalRemove(['searchFilters']);
+		void storageLocalRemove(['searchFilters']).catch((error) => {
+			console.error('Failed to clear persisted filter state:', error);
+		});
 	});
 </script>
 
@@ -539,6 +543,9 @@
 						bind:activeFilters={activeFilters}
 						bind:isSearchOpen={isSearchOpen}
 						bind:isFilterOpen={isFilterOpen}
+						allAuthors={allAvailableAuthors}
+						allRepos={allAvailableRepos}
+						allOwners={allAvailableOwners}
 						{availableAuthors}
 						{availableRepos}
 						{availableOwners}

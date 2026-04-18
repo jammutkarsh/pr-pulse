@@ -25,7 +25,6 @@ type PullRequestDetails = {
 export class GitHubProvider extends BaseProvider {
 	#etagCache = new Map<string, { etag: string; data: unknown }>();
 	#repoOwnerCache = new Map<string, PullRequest['repoOwner']>();
-	#userNameCache = new Map<string, string>();
 
 	constructor(config: ProviderConfig = {}) {
 		super(config);
@@ -126,22 +125,6 @@ export class GitHubProvider extends BaseProvider {
 		};
 	}
 
-	async getUserName(login: string): Promise<string> {
-		if (!login) {
-			return '';
-		}
-
-		const cached = this.#userNameCache.get(login);
-		if (cached !== undefined) {
-			return cached;
-		}
-
-		const data = await this.#request<{ name?: string }>(`/users/${login}`);
-		const userName = data.name?.trim() || login;
-		this.#userNameCache.set(login, userName);
-		return userName;
-	}
-
 	async getRepoOwner(repoFullName: string): Promise<PullRequest['repoOwner']> {
 		if (!repoFullName) {
 			return { login: '', type: 'unknown' };
@@ -177,26 +160,23 @@ export class GitHubProvider extends BaseProvider {
 				const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
 				const repoFullName = repoMatch ? repoMatch[1] : '';
 				const authorLogin = issue.user?.login || '';
-				const authorNamePromise = this.getUserName(authorLogin).catch(() => authorLogin);
 
 				try {
 					const prDetails = await this.getPullRequestDetails(repoFullName, issue.number);
 					const sha = prDetails._raw?.head?.sha || '';
-					const [checks, reviews, authorName] = await Promise.all([
+					const [checks, reviews] = await Promise.all([
 						this.getCheckStatus(repoFullName, sha).catch((): PullRequestChecks => ({ status: 'unknown', details: [] })),
 						this.getReviewStatus(repoFullName, issue.number, prDetails.requestedReviewers).catch((): PullRequestReviews => ({ status: 'pending', reviewers: [] })),
-						authorNamePromise,
 					]);
 
 					return {
-						...this.#transformPullRequest(issue, prDetails, authorName),
+						...this.#transformPullRequest(issue, prDetails, authorLogin),
 						checks,
 						reviews,
 					};
 				} catch (error) {
 					console.warn(`Failed to get details for PR #${issue.number}:`, error);
-					const authorName = await authorNamePromise;
-					const fallbackPullRequest = this.#transformPullRequest(issue, null, authorName);
+					const fallbackPullRequest = this.#transformPullRequest(issue, null, authorLogin);
 					const repoOwner = await this.getRepoOwner(repoFullName).catch(() => fallbackPullRequest.repoOwner);
 					return {
 						...fallbackPullRequest,
