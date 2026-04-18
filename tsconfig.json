@@ -12,11 +12,10 @@
 		"types": ["chrome", "node"]
 	},
 	"include": [
-		"src/**/*.ts",
-		"src/**/*.d.ts",
-		"src/**/*.svelte",
+		"extension/**/*.ts",
+		"extension/**/*.d.ts",
+		"extension/**/*.svelte",
+		"extension/service-worker.ts",
 		"vite.config.ts",
-		"service-worker.ts",
-		"lib/**/*.ts"
 	]
 }

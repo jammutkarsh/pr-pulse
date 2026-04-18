@@ -29,10 +29,6 @@ export function getJiraUrl(ticketId: string, baseUrl: string): string {
 	return `${sanitizeJiraUrl(baseUrl)}/browse/${ticketId}`;
 }
 
-export function formatLinesChanged(additions: number, deletions: number): string {
-	return `+${additions} -${deletions}`;
-}
-
 export function getReviewStatusDisplay(status: string) {
 	switch (status) {
 		case 'approved':
@@ -59,10 +55,6 @@ export function getCheckStatusDisplay(status: string) {
 	}
 }
 
-export function truncate(text: string, maxLength = 50): string {
-	if (!text || text.length <= maxLength) return text;
-	return `${text.substring(0, maxLength - 3)}...`;
-}
 
 export async function copyToClipboard(text: string): Promise<void> {
 	try {
@@ -127,19 +119,6 @@ export function formatLocalDateTime(date: string | number | Date): string {
 		hour: 'numeric',
 		minute: '2-digit',
 	});
-}
-
-export function debounce<TArgs extends unknown[]>(func: (...args: TArgs) => void, wait: number) {
-	let timeout: number | undefined;
-	return function executedFunction(...args: TArgs) {
-		const later = () => {
-			clearTimeout(timeout);
-			func(...args);
-		};
-
-		clearTimeout(timeout);
-		timeout = window.setTimeout(later, wait);
-	};
 }
 
 export function isValidHttpUrl(url: string): boolean {

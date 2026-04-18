@@ -1,18 +1,31 @@
 {
   "name": "pr-pulse",
-  "version": "1.2.0",
-  "description": "Chrome extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
-  "main": "service-worker.js",
+  "version": "1.3.0",
+  "description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
+  "main": "extension/service-worker.ts",
   "directories": {
-    "lib": "lib"
+    "lib": "extension/lib"
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:watch": "vite build --watch",
     "check": "svelte-check --incremental",
     "lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
-    "package": "rm -rf dist && rm -f pr-pulse-v*.zip && npm run lint && npm run build && cd dist && zip -rq ../pr-pulse-v$npm_package_version.zip ."
+    "deadcode": "knip --cache --cache-location .cache/knip",
+    "clean:cache": "rm -rf .cache .svelte-check",
+    "clean": "rm -rf dist && rm -f pr-pulse-*.zip pr-pulse-*.xpi",
+    "manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
+    "manifest:firefox": "tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
+    "manifest": "npm run manifest:chrome && npm run manifest:firefox",
+    "build:watch": "vite build --watch --outDir dist/chrome",
+    "build:chrome": "vite build --outDir dist/chrome && npm run manifest:chrome",
+    "build:firefox": "vite build --outDir dist/firefox && npm run manifest:firefox",
+    "build": "npm run build:chrome && npm run build:firefox",
+    "zip:chrome": "cd dist/chrome && zip -rq ../../pr-pulse-v$npm_package_version-chrome.zip .",
+    "zip:firefox": "cd dist/firefox && zip -rq ../../pr-pulse-v$npm_package_version-firefox.xpi .",
+    "zip": "npm run zip:chrome && npm run zip:firefox",
+    "generate:chrome": "npm run clean && npm run lint && npm run build:chrome && npm run zip:chrome",
+    "generate:firefox": "npm run clean && npm run lint && npm run build:firefox && npm run zip:firefox",
+    "generate": "npm run clean && npm run lint && npm run build && npm run zip"
   },
   "repository": {
     "type": "git",
@@ -20,13 +33,15 @@
   },
   "keywords": [
     "Chrome Extension",
+    "Browser Extension",
+    "Firefox Extension",
     "GitHub",
     "Pull Requests",
     "Dashboard",
     "Developer Tools"
   ],
-  "author": "Utkarsh Jammut",
-  "license": "ISC",
+  "author": "Utkarsh Chourasia <utkarshchourasia.in>",
+  "license": "MIT",
   "type": "module",
   "bugs": {
     "url": "https://github.com/jammutkarsh/pr-pulse/issues"
@@ -35,7 +50,8 @@
   "dependencies": {
     "fuse.js": "^7.1.0",
     "lucide-svelte": "^0.577.0",
-    "svelte": "^5.54.1"
+    "svelte": "^5.54.1",
+    "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.3",
@@ -43,14 +59,14 @@
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/chrome": "^0.1.38",
-    "@types/node": "^24",
-    "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "@typescript-eslint/parser": "^8.57.2",
+    "@types/node": "^24.12.2",
+    "@types/webextension-polyfill": "^0.12.3",
     "eslint": "^10.0.3",
     "eslint-plugin-svelte": "^3.15.2",
     "globals": "^17.4.0",
+    "knip": "^6.4.1",
     "svelte-check": "^4.4.5",
-    "tailwindcss": "^4.2.2",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
     "vite": "^8.0.1"

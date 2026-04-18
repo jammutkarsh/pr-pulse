@@ -92,10 +92,11 @@ export class GitHubProvider extends BaseProvider {
 		};
 	}
 
-	#transformPullRequest(issue: GitHubSearchIssue, prDetails: PullRequestDetails | null = null): PullRequest {
+	#transformPullRequest(issue: GitHubSearchIssue, prDetails: PullRequestDetails | null = null, authorName?: string): PullRequest {
 		const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
 		const repoFullName = repoMatch ? repoMatch[1] : '';
 		const fallbackOwnerLogin = repoFullName.split('/')[0] || '';
+		const authorLogin = issue.user?.login || '';
 
 		return {
 			id: `github-${issue.id}`,
@@ -109,9 +110,9 @@ export class GitHubProvider extends BaseProvider {
 			},
 			branchName: prDetails?.branchName || '',
 			author: {
-				login: issue.user?.login || '',
+				login: authorLogin,
 				avatarUrl: issue.user?.avatar_url || '',
-				name: issue.user?.login || '',
+				name: authorName || authorLogin,
 			},
 			state: issue.state,
 			changes: prDetails?.changes || { additions: 0, deletions: 0, filesChanged: 0 },
@@ -158,6 +159,7 @@ export class GitHubProvider extends BaseProvider {
 			items.map(async (issue) => {
 				const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
 				const repoFullName = repoMatch ? repoMatch[1] : '';
+				const authorLogin = issue.user?.login || '';
 
 				try {
 					const prDetails = await this.getPullRequestDetails(repoFullName, issue.number);
@@ -168,13 +170,13 @@ export class GitHubProvider extends BaseProvider {
 					]);
 
 					return {
-						...this.#transformPullRequest(issue, prDetails),
+						...this.#transformPullRequest(issue, prDetails, authorLogin),
 						checks,
 						reviews,
 					};
 				} catch (error) {
 					console.warn(`Failed to get details for PR #${issue.number}:`, error);
-					const fallbackPullRequest = this.#transformPullRequest(issue);
+					const fallbackPullRequest = this.#transformPullRequest(issue, null, authorLogin);
 					const repoOwner = await this.getRepoOwner(repoFullName).catch(() => fallbackPullRequest.repoOwner);
 					return {
 						...fallbackPullRequest,

@@ -1,4 +1,16 @@
 import { providerManager } from './lib/provider-manager';
+import {
+	actionSetBadgeBackgroundColor,
+	actionSetBadgeText,
+	alarmsOnAlarmAddListener,
+	alarmsClear,
+	alarmsCreate,
+	alarmsGet,
+	runtimeGetURL,
+	runtimeOnInstalledAddListener,
+	runtimeOnMessageAddListener,
+	tabsCreate,
+} from './lib/extension-api';
 import { storage } from './lib/storage';
 import type { PullRequestData, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
 
@@ -63,8 +75,8 @@ async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 
 function updateBadge(count: number): void {
 	const text = count > 0 ? String(count) : '';
-	chrome.action.setBadgeText({ text });
-	chrome.action.setBadgeBackgroundColor({ color: '#238636' });
+	void actionSetBadgeText({ text });
+	void actionSetBadgeBackgroundColor({ color: '#238636' });
 }
 
 async function setupPollingAlarm(forceRecreate = false): Promise<void> {
@@ -72,13 +84,13 @@ async function setupPollingAlarm(forceRecreate = false): Promise<void> {
 
 	// Manual refresh mode — clear any existing alarm and stop
 	if (!settings.pollingIntervalMs) {
-		await chrome.alarms.clear(ALARM_NAME);
+		await alarmsClear(ALARM_NAME);
 		console.log('Manual refresh mode: polling alarm cleared');
 		return;
 	}
 
 	if (!forceRecreate) {
-		const existing = await chrome.alarms.get(ALARM_NAME);
+		const existing = await alarmsGet(ALARM_NAME);
 		if (existing) {
 			console.log('Polling alarm already exists, skipping recreation');
 			return;
@@ -86,19 +98,19 @@ async function setupPollingAlarm(forceRecreate = false): Promise<void> {
 	}
 
 	const intervalMinutes = settings.pollingIntervalMs / 60000;
-	await chrome.alarms.clear(ALARM_NAME);
-	chrome.alarms.create(ALARM_NAME, {
+	await alarmsClear(ALARM_NAME);
+	alarmsCreate(ALARM_NAME, {
 		delayInMinutes: Math.max(1, intervalMinutes),
 		periodInMinutes: Math.max(1, intervalMinutes),
 	});
 	console.log(`Polling alarm set for every ${intervalMinutes} minute(s)`);
 }
 
-chrome.runtime.onInstalled.addListener(async (details) => {
+runtimeOnInstalledAddListener(async (details) => {
 	console.log('Extension installed/updated:', details.reason);
 	if (details.reason === 'install') {
-		const onboardingUrl = chrome.runtime.getURL('onboarding/onboarding.html');
-		chrome.tabs.create({ url: onboardingUrl });
+		const onboardingUrl = runtimeGetURL('onboarding/onboarding.html');
+		await tabsCreate({ url: onboardingUrl });
 		return;
 	}
 
@@ -107,22 +119,21 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 	await setupPollingAlarm(true);
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
+alarmsOnAlarmAddListener(async (alarm) => {
 	if (alarm.name === ALARM_NAME) {
 		console.log('Polling alarm triggered');
 		await fetchAndCachePRs();
 	}
 });
 
-chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
-	handleMessage(message)
-		.then(sendResponse)
-		.catch((error) => {
-			console.error('Error handling runtime message:', error);
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			sendResponse({ success: false, error: errorMessage });
-		});
-	return true;
+runtimeOnMessageAddListener(async (message) => {
+	try {
+		return await handleMessage(message as RuntimeMessage);
+	} catch (error) {
+		console.error('Error handling runtime message:', error);
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		return { success: false, error: errorMessage };
+	}
 });
 
 const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) => Promise<unknown>> = {
@@ -161,8 +172,8 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		providerManager.setProvider(null);
 		cachedSettings = null;
 		cachedProviderConfig = undefined;
-		await chrome.alarms.clear(ALARM_NAME);
-		chrome.action.setBadgeText({ text: '' });
+		await alarmsClear(ALARM_NAME);
+		await actionSetBadgeText({ text: '' });
 		return { success: true };
 	},
 };

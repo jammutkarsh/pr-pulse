@@ -6,6 +6,7 @@
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
 	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
@@ -40,6 +41,19 @@
 
 	let isConnected = $derived(!!(provider && provider.user && !reconnecting));
 	let jiraDashboardUrl = $derived(jiraUrl && isValidHttpUrl(jiraUrl) ? `${jiraUrl}/jira/for-you` : '');
+	let normalizedCustomMinutes = $derived.by(() => {
+		const parsed = Number(customMinutes);
+		if (!Number.isFinite(parsed)) {
+			return null;
+		}
+
+		return Math.min(1440, Math.max(1, Math.floor(parsed)));
+	});
+	let hasPendingCustomInterval = $derived(
+		selectedPollingValue === -1 &&
+		normalizedCustomMinutes !== null &&
+		normalizedCustomMinutes * 60000 !== pollingIntervalMs
+	);
 
 	onMount(() => {
 		void init();
@@ -75,7 +89,7 @@
 
 	async function updatePinnedTab(value: Settings['pinnedTab']) {
 		await updateSetting('pinnedTab', value);
-		await chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATED', settings: { pinnedTab: value } });
+		await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { pinnedTab: value } });
 	}
 
 	async function updateDisplayMode(value: Settings['displayMode']) {
@@ -89,22 +103,36 @@
 		}
 
 		const value = Number.parseInt(target.value, 10);
-		if (!Number.isFinite(value) || value === -1) {
+		if (!Number.isFinite(value)) {
+			return;
+		}
+
+		if (value === -1) {
+			customMinutes = Math.max(1, Math.round(pollingIntervalMs / 60000));
 			return;
 		}
 
 		pollingIntervalMs = value;
 		await updateSetting('pollingIntervalMs', value);
-		await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: value } });
+		await runtimeSendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: value } });
 	}
 
 	async function applyCustomInterval() {
-		const mins = Math.min(1440, Math.max(1, Math.floor(customMinutes)));
+		if (normalizedCustomMinutes === null) {
+			return;
+		}
+
+		const mins = normalizedCustomMinutes;
 		customMinutes = mins;
 		const ms = mins * 60000;
+
+		if (ms === pollingIntervalMs) {
+			return;
+		}
+
 		pollingIntervalMs = ms;
 		await updateSetting('pollingIntervalMs', ms);
-		await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
+		await runtimeSendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
 	}
 
 	async function saveJiraUrl() {
@@ -141,7 +169,7 @@
 			};
 
 			await storage.setProvider(provider);
-			await chrome.runtime.sendMessage({ type: 'PROVIDER_CONFIGURED' });
+			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
 			tokenSuccess = `Connected as ${user.name || user.login}`;
 			reconnecting = false;
 			token = '';
@@ -155,7 +183,7 @@
 	}
 
 	function goBack() {
-		window.location.href = chrome.runtime.getURL('popup/popup.html?fullpage=1');
+		window.location.href = runtimeGetURL('popup/popup.html?fullpage=1');
 	}
 
 	async function resetAll() {
@@ -164,8 +192,8 @@
 		}
 
 		await storage.clearAll();
-		await chrome.runtime.sendMessage({ type: 'CLEAR_ALL' });
-		window.location.href = chrome.runtime.getURL('onboarding/onboarding.html');
+		await runtimeSendMessage({ type: 'CLEAR_ALL' });
+		window.location.href = runtimeGetURL('onboarding/onboarding.html');
 	}
 </script>
 
@@ -187,8 +215,6 @@
 		<div class="surface-card p-6">
 			<div class="max-w-xl space-y-2">
 				<div class="text-xs font-semibold uppercase tracking-[0.24em] text-(--accent)">Settings</div>
-				<h1 class="text-3xl font-semibold text-white">PR Pulse settings</h1>
-				<p class="text-sm leading-[1.2rem] text-soft">Manage the GitHub connection, refresh interval, Jira linking, and the default extension view.</p>
 			</div>
 		</div>
 
@@ -198,7 +224,7 @@
 					<UserRound class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">GitHub account</h2>
+					<h2 class="text-base font-semibold text-white">GitHub Account</h2>
 					<p class="text-sm text-soft">Manage the token used by the background sync and popup.</p>
 				</div>
 			</div>
@@ -244,13 +270,13 @@
 					<Pin class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Default view</h2>
+					<h2 class="text-base font-semibold text-white">Default View</h2>
 					<p class="text-sm text-soft">Choose the tab the popup opens to by default.</p>
 				</div>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
-				<RadioCard name="pinnedTab" value="myPRs" currentValue={currentSettings.pinnedTab || 'myPRs'} title="My PRs" description="Track the pull requests you created and keep an eye on CI and review status." iconComponent={GitPullRequest} onchange={updatePinnedTab} />
-				<RadioCard name="pinnedTab" value="toReview" currentValue={currentSettings.pinnedTab || 'myPRs'} title="To Review" description="Focus the popup on pull requests that need your attention as a reviewer." iconComponent={Inbox} onchange={updatePinnedTab} />
+				<RadioCard name="pinnedTab" value="myPRs" currentValue={currentSettings.pinnedTab || 'myPRs'} title="My PRs" description="Track the pull requests you created." iconComponent={GitPullRequest} onchange={updatePinnedTab} />
+				<RadioCard name="pinnedTab" value="toReview" currentValue={currentSettings.pinnedTab || 'myPRs'} title="To Review" description="Track the pull requests that need your attention as a reviewer." iconComponent={Inbox} onchange={updatePinnedTab} />
 			</div>
 		</SectionCard>
 
@@ -260,14 +286,14 @@
 					<Ticket class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Jira integration</h2>
-					<p class="text-sm text-soft">Store only the Jira origin and derive ticket links from branch names.</p>
+					<h2 class="text-base font-semibold text-white">Jira Integration</h2>
+					<p class="text-sm text-soft">Jira origin link to derive ticket links from branch names.</p>
 				</div>
 			</div>
 			<div class="space-y-3">
 				<input class="field-input" type="url" bind:value={jiraUrl} placeholder="https://company.atlassian.net/browse/PROJ-123" onblur={saveJiraUrl} />
 				{#if jiraDashboardUrl}
-					<p class="text-sm text-soft">Dashboard preview: <a class="text-(--accent) underline" href={jiraDashboardUrl} target="_blank" rel="noopener noreferrer">{jiraDashboardUrl}</a></p>
+					<p class="text-sm text-soft">Your Dashboard: <a class="text-(--accent) underline" href={jiraDashboardUrl} target="_blank" rel="noopener noreferrer">{jiraDashboardUrl}</a></p>
 				{:else}
 					<p class="text-sm text-soft">Enter any Jira URL and PR Pulse will normalize it to the base workspace URL.</p>
 				{/if}
@@ -281,7 +307,7 @@
 						<Clock3 class="h-5 w-5" />
 					</div>
 					<div>
-						<h2 class="text-base font-semibold text-white">Refresh interval</h2>
+						<h2 class="text-base font-semibold text-white">Refresh Interval</h2>
 						<p class="text-sm text-soft">Control how often the background worker refreshes cached PR data.</p>
 					</div>
 				</div>
@@ -301,7 +327,9 @@
 					{:else if selectedPollingValue === -1}
 						<div class="flex items-center gap-3">
 							<input class="field-input" type="number" min="1" max="1440" bind:value={customMinutes} placeholder="Minutes (1–1440)" />
-							<Button onclick={applyCustomInterval}>Apply</Button>
+							{#if hasPendingCustomInterval}
+								<Button onclick={applyCustomInterval}>Apply</Button>
+							{/if}
 						</div>
 						<p class="text-sm text-soft">Enter a value between 1 and 1440 minutes (1 day max).</p>
 					{/if}
@@ -314,13 +342,13 @@
 						<MonitorCog class="h-5 w-5" />
 					</div>
 					<div>
-						<h2 class="text-base font-semibold text-white">Display mode</h2>
-						<p class="text-sm text-soft">Choose whether PR Pulse prefers the popup or full page workflow.</p>
+						<h2 class="text-base font-semibold text-white">Display Mode</h2>
+						<p class="text-sm text-soft">Choose view mode when extension is clicked.</p>
 					</div>
 				</div>
 				<div class="grid gap-3">
 					<RadioCard name="displayMode" value="popup" currentValue={currentSettings.displayMode || 'popup'} title="Popup" description="Keep the toolbar interaction lightweight and compact." iconComponent={MonitorSmartphone} onchange={updateDisplayMode} />
-					<RadioCard name="displayMode" value="fullpage" currentValue={currentSettings.displayMode || 'popup'} title="Full page" description="Use a larger tab surface for denser layouts and future filters." iconComponent={Expand} onchange={updateDisplayMode} />
+					<RadioCard name="displayMode" value="fullpage" currentValue={currentSettings.displayMode || 'popup'} title="Full Page" description="Use a larger tab surface for denser layouts" iconComponent={Expand} onchange={updateDisplayMode} />
 				</div>
 			</SectionCard>
 		</div>
@@ -347,7 +375,7 @@
 					<Sparkles class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Visual guidance</h2>
+					<h2 class="text-base font-semibold text-white">Visual Guidance</h2>
 					<p class="text-sm text-soft">Hover over the sample card elements to recall what they do.</p>
 				</div>
 			</div>
@@ -360,7 +388,7 @@
 					<ShieldAlert class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold">Danger zone</h2>
+					<h2 class="text-base font-semibold">Danger Zone</h2>
 					<p class="text-sm text-[rgba(255,194,188,0.82)]">Clear cached data and reset the extension back to its first-run state.</p>
 				</div>
 			</div>

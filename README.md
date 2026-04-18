@@ -2,25 +2,25 @@
 
 <div align="center">
 
-[![Chrome Extension](icons/chrome-web-store.png)](https://short.utkarshchourasia.in/prpulse)
+[![Chrome Extension](assets/chrome-web-store.png)](https://short.utkarshchourasia.in/prpulse)
 
 </div>
 
-> PR Pulse is a Pull Request dashboard for GitHub, delivered as a Chrome extension.
+> PR Pulse is a Pull Request dashboard for GitHub, delivered as a Chrome/Firefox extension.
 > Say No to Navigation!
 
 PR Pulse exists for one reason: checking pull requests on GitHub should not require repeated clicks, tab switching, and page loads across multiple repositories. GitHub is strong at showing one pull request at a time. It is much weaker at giving you a fast, holistic view of everything that needs your attention.
 
 If you have not installed PR Pulse yet, you are probably still doing same routine many developers repeat all day: open GitHub, go to repository, find Pull Requests, open status, go back, switch repository, repeat. That navigation dance adds friction, personally it's very annoying to me when the page navigation breaks and doesn't load.
 
-PR Pulse collapses that workflow into one dashboard inside Chrome. Open extension once, view your active pull requests quickly, and jump into GitHub only when you actually need deeper context.
+PR Pulse collapses that workflow into one dashboard inside your Chrome/Firefox browser. Open extension once, view your active pull requests quickly, and jump into GitHub only when you actually need deeper context.
 
 ## Screenshots
 
 |||
 | :---: | :---: |
-| ![Demo 1](demo/Demo-01.png) | ![Demo 2](demo/Demo-02.png) |
-| ![Demo 3](demo/Demo-03.png) | ![Demo 4](demo/Demo-04.png) |
+| ![Demo 1](assets/Demo-01.png) | ![Demo 2](assets/Demo-02.png) |
+| ![Demo 3](assets/Demo-03.png) | ![Demo 4](assets/Demo-04.png) |
 
 <!-- ## Why PR Pulse
 
@@ -68,6 +68,8 @@ Direct link to Chrome Web Store listing:
 
 - [Install PR Pulse](https://short.utkarshchourasia.in/prpulse)
 
+Firefox support is generated as a dedicated package from the same codebase. A signed AMO listing can be added separately.
+
 ### From Source (Developer Mode) - Unreleased version with the latest features and fixes
 
 1. Clone and build the repository
@@ -76,14 +78,14 @@ Direct link to Chrome Web Store listing:
 git clone https://github.com/jammutkarsh/pr-pulse
 cd pr-pulse
 npm install
-npm run build
+npm run generate
 ```
 
-2. Open Chrome and go to [chrome://extensions](chrome://extensions)
-3. Enable **Developer mode**
-4. Click **Load unpacked**
-5. Select `pr-pulse/dist` folder
-6. Pin the extension to your toolbar for easy access
+2. Chrome / Chromium:
+	Run `npm run generate:chrome`, open [chrome://extensions](chrome://extensions), enable **Developer mode**, click **Load unpacked**, and select the `pr-pulse/dist/chrome` folder.
+3. Firefox:
+	Run `npm run generate:firefox`, open [about:debugging#/runtime/this-firefox](about:debugging#/runtime/this-firefox), click **Load Temporary Add-on**, and select `pr-pulse/dist/firefox/manifest.json`.
+4. Pin the extension to your toolbar for easy access
 
 <!-- ## Practical Value
 
@@ -95,19 +97,19 @@ It is built for developers who want a clearer operational view of their PRs with
 
 ```bash
 pr-pulse/
-├── manifest.json           # Extension manifest (MV3)
-├── service-worker.ts       # Background sync logic
-├── lib/                    # Shared libraries and providers
-├── src/popup/              # Popup application
-├── src/settings/           # Settings application
-├── src/onboarding/         # Onboarding flow
-├── src/lib/components/     # Shared Svelte components
-└── icons/                  # Extension icons and assets
+├── extension/              # Extension runtime code, assets, and build scripts
+│   ├── scripts/            # Build helpers including browser-specific manifest generation
+│   ├── service-worker.ts   # Background sync logic
+│   ├── lib/                # Shared libraries and providers
+│   ├── src/popup/          # Popup application
+│   ├── src/settings/       # Settings application
+│   ├── src/onboarding/     # Onboarding flow
+│   └── icons/              # Extension icons and assets
 ```
 
 ## Privacy
 
-- Your GitHub token is stored locally in Chrome extension storage
+- Your GitHub token is stored locally in Chrome/Firefox extension storage
 - No pull request data is sent to third-party servers by PR Pulse
 - GitHub API communication happens directly from extension to GitHub
 
