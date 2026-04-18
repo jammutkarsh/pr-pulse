@@ -2,6 +2,15 @@
 
 All notable changes to PR Pulse are documented in this file.
 
+## [1.3.0] – 2026-04-19
+
+### 2026-04-19
+
+- **Firefox support and multi-browser packaging**: Added browser-specific manifest generation, Chrome zip and Firefox XPI packaging, and updated install/build flows for both targets.
+- **Extension source reorganization**: Moved runtime code, icons, and build helpers under `extension/`, with corresponding Vite and TypeScript path updates.
+- **Unified browser API layer**: Introduced a `webextension-polyfill`-based extension API wrapper used across the service worker, popup, onboarding, and settings.
+- **Popup and settings refinements**: Expanded popup filtering with PR author support and searchable filter sections, while tightening related onboarding and settings interactions.
+
 ## [1.2.0] – 2026-04-13
 
 ### 2026-04-13
