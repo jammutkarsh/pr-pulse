@@ -2,6 +2,13 @@
 
 All notable changes to PR Pulse are documented in this file.
 
+## [1.3.2] – 2026-04-20
+
+### 2026-04-20
+
+- Fix: Replace runtime browser detection with build-time `__BROWSER_TARGET__` Vite define; each bundle now statically embeds the correct store link.
+- Fix: Firefox manifest — move `data_collection_permissions` into `gecko`, set `required: ['none']`, bump `strict_min_version` to `140.0`, correct icon key to `'64'`.
+
 ## [1.3.1] – 2026-04-20
 
 ### 2026-04-20

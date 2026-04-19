@@ -1,6 +1,6 @@
 {
   "name": "pr-pulse",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
   "main": "extension/service-worker.ts",
   "directories": {
@@ -16,9 +16,9 @@
     "manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
     "manifest:firefox": "tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
     "manifest": "npm run manifest:chrome && npm run manifest:firefox",
-    "build:watch": "vite build --watch --outDir dist/chrome",
-    "build:chrome": "vite build --outDir dist/chrome && npm run manifest:chrome",
-    "build:firefox": "vite build --outDir dist/firefox && npm run manifest:firefox",
+    "build:watch": "vite build --mode chrome --watch --outDir dist/chrome",
+    "build:chrome": "vite build --mode chrome --outDir dist/chrome && npm run manifest:chrome",
+    "build:firefox": "vite build --mode firefox --outDir dist/firefox && npm run manifest:firefox",
     "build": "npm run build:chrome && npm run build:firefox",
     "zip:chrome": "cd dist/chrome && zip -rq ../../pr-pulse-v$npm_package_version-chrome.zip .",
     "zip:firefox": "cd dist/firefox && zip -rq ../../pr-pulse-v$npm_package_version-firefox.xpi .",

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { runtimeGetURL } from '../../../lib/extension-api';
 	import {
 		Github,
 		Star,
@@ -12,38 +11,20 @@
 	const FIREFOX_ADDONS_URL = "https://short.utkarshchourasia.in/prpulse-firefox";
 	const TWITTER_PROFILE = "https://x.com/jammutkarsh";
 
-	type BrowserStoreTarget = 'chromium' | 'firefox';
 	type StoreLink = {
 		url: string;
 		label: string;
 		title: string;
 	};
 
-	const STORE_LINKS: Record<BrowserStoreTarget, StoreLink | null> = {
-		chromium: {
-			url: CHROME_WEB_STORE_URL,
-			label: 'Rate on Web Store',
-			title: 'Rate on Chrome Web Store',
-		},
-		firefox: FIREFOX_ADDONS_URL
-			? {
-					url: FIREFOX_ADDONS_URL,
-					label: 'Rate on Web Store',
-					title: 'Rate on Firefox Add-ons',
-				}
-			: null,
-	};
+	const currentStoreLink: StoreLink | null = __BROWSER_TARGET__ === 'firefox'
+		? { url: FIREFOX_ADDONS_URL, label: 'Rate on Add-ons', title: 'Rate on Firefox Add-ons' }
+		: { url: CHROME_WEB_STORE_URL, label: 'Rate on Web Store', title: 'Rate on Chrome Web Store' };
 
-	function detectBrowserStoreTarget(): BrowserStoreTarget {
-		const runtimeUrl = runtimeGetURL('');
-		return runtimeUrl.startsWith('moz-extension://') ? 'firefox' : 'chromium';
-	}
-
-	const currentStoreLink = STORE_LINKS[detectBrowserStoreTarget()];
-	const shareTargetUrl = currentStoreLink?.url || GITHUB_URL;
+	const shareTargetUrl = currentStoreLink.url;
 
 	const SHARE_TEXT =
-		"Check out PR Pulse — a Chrome extension that keeps you on top of your GitHub pull requests ⚡";
+		"Check out PR Pulse — a Pull Request dashboard browser extension ⚡";
 	const TWEET_URL = `https://x.com/intent/tweet?text=${encodeURIComponent(SHARE_TEXT)}&url=${encodeURIComponent(shareTargetUrl)}`;
 	const LINKEDIN_URL = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareTargetUrl)}`;
 </script>

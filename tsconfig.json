@@ -12,6 +12,7 @@
 		"types": ["chrome", "node"]
 	},
 	"include": [
+		"extension/global.d.ts",
 		"extension/**/*.ts",
 		"extension/**/*.d.ts",
 		"extension/**/*.svelte",

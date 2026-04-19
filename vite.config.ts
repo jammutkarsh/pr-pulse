@@ -47,8 +47,11 @@ function copyExtensionAssets() {
 	};
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
 	cacheDir: '.cache/vite',
+	define: {
+		__BROWSER_TARGET__: JSON.stringify(mode === 'firefox' ? 'firefox' : 'chrome'),
+	},
 	plugins: [svelte(), tailwindcss(), copyExtensionAssets()],
 	build: {
 		outDir: 'dist',
@@ -77,4 +80,4 @@ export default defineConfig({
 			},
 		},
 	},
-});
+}));

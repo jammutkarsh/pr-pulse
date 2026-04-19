@@ -29,6 +29,10 @@ type ExtensionManifest = {
 		gecko: {
 			id: string;
 			strict_min_version: string;
+			data_collection_permissions?: {
+				required: string[];
+				optional: string[];
+			};
 		};
 	};
 };
@@ -62,13 +66,13 @@ const baseManifest = {
 	action: {
 		default_popup: 'popup/popup.html',
 		default_icon: {
-			'48': 'icons/icon48.png',
+			'64': 'icons/icon48.png',
 			'128': 'icons/icon128.png',
 		},
 	},
 	options_page: 'settings/settings.html',
 	icons: {
-		'48': 'icons/icon48.png',
+		'64': 'icons/icon48.png',
 		'128': 'icons/icon128.png',
 	},
 } satisfies Omit<ExtensionManifest, 'background'>;
@@ -101,7 +105,11 @@ function createManifest(
 			browser_specific_settings: {
 				gecko: {
 					id: 'pr-pulse@utkarshchourasia.in',
-					strict_min_version: '121.0',
+					strict_min_version: '140.0',
+					data_collection_permissions: {
+						required: ['none'],
+						optional: [],
+					},
 				},
 			},
 		};
