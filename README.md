@@ -17,8 +17,8 @@ PR Pulse collapses that workflow into one dashboard inside your Chrome/Firefox b
 
 ## Screenshots
 
-|                               |
-| :---------------------------: | :---------------------------: |
+|||
+| :---: | :---: |
 | ![Demo 1](assets/demo-01.png) | ![Demo 2](assets/demo-02.png) |
 | ![Demo 3](assets/demo-03.png) | ![Demo 4](assets/demo-04.png) |
 
