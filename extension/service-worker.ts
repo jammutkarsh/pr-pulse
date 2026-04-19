@@ -9,6 +9,7 @@ import {
 	runtimeGetURL,
 	runtimeOnInstalledAddListener,
 	runtimeOnMessageAddListener,
+	runtimeOnStartupAddListener,
 	tabsCreate,
 } from './lib/extension-api';
 import { storage } from './lib/storage';
@@ -67,16 +68,23 @@ async function fetchAndCachePRs(): Promise<void> {
 	}
 }
 
+async function restoreBadgeFromStorage(): Promise<void> {
+	const data = await storage.getPullRequests();
+	await updateBadgeFromSettings(data);
+}
+
 async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 	const { settings } = await getRuntimeConfig();
 	const count = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
-	updateBadge(count);
+	await updateBadge(count);
 }
 
-function updateBadge(count: number): void {
+async function updateBadge(count: number): Promise<void> {
 	const text = count > 0 ? String(count) : '';
-	void actionSetBadgeText({ text });
-	void actionSetBadgeBackgroundColor({ color: '#238636' });
+	await Promise.all([
+		actionSetBadgeText({ text }),
+		actionSetBadgeBackgroundColor({ color: '#238636' }),
+	]);
 }
 
 async function setupPollingAlarm(forceRecreate = false): Promise<void> {
@@ -115,6 +123,13 @@ runtimeOnInstalledAddListener(async (details) => {
 	}
 
 	await initializeProvider(true);
+	await fetchAndCachePRs();
+	await setupPollingAlarm(true);
+});
+
+runtimeOnStartupAddListener(async () => {
+	await initializeProvider(true);
+	await restoreBadgeFromStorage();
 	await fetchAndCachePRs();
 	await setupPollingAlarm(true);
 });
@@ -187,7 +202,3 @@ async function handleMessage(message: RuntimeMessage): Promise<unknown> {
 	console.warn('Unknown message type:', message.type);
 	return { error: 'Unknown message type' };
 }
-
-void initializeProvider().then(() => {
-	void setupPollingAlarm();
-});

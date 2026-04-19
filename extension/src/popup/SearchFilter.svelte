@@ -23,17 +23,6 @@
         ageRange: '',
     };
 
-    /*
-    const AGE_OPTIONS = [
-        { value: '24h', label: '24H' },
-        { value: '7d', label: '7D' },
-        { value: '14d', label: '14D' },
-        { value: '1m', label: '1M' },
-        { value: '3m', label: '3M' },
-        { value: 'gt3m', label: '> 3M' },
-    ];
-    */
-
     interface Props {
         query?: string;
         activeFilters?: PopupFilters;
@@ -416,7 +405,7 @@
                         type="text"
                         bind:value={query}
                         placeholder="Search PRs, branches, repos, jira"
-                        class="h-9 w-full rounded-md border border-soft bg-(--bg-panel-strong) py-1.5 pl-9 pr-9 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                        class="field-input popup-search-input"
                     />
                     {#if hasQuery}
                         <button class="unstyled-button absolute right-2 top-1/2 -translate-y-1/2 text-soft hover:text-white" onclick={clearSearch} aria-label="Clear search">
@@ -446,7 +435,7 @@
                             <div class="flex min-w-max items-center gap-2 px-1">
                                 {#each selectedFilterChips as chip (chip.key)}
                                     <button
-                                        class="unstyled-button inline-flex items-center gap-2 rounded-full border border-soft bg-(--bg-muted) px-2.5 py-1 text-[11px] text-soft transition hover:border-(--accent) hover:text-white"
+                                        class="unstyled-button filter-chip-button gap-2 rounded-full border border-soft bg-(--bg-muted) px-2.5 py-1 text-[11px] text-soft transition hover:border-(--accent) hover:text-white"
                                         onclick={chip.onRemove}
                                         title={`Remove ${chip.label} filter`}
                                     >
@@ -490,7 +479,7 @@
                                                 type="text"
                                                 bind:value={ownerSearchQuery}
                                                 placeholder="Search owners"
-                                                class="h-8 w-full rounded-md border border-soft bg-(--bg-muted) px-3 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                                                class="field-input popup-filter-input"
                                             />
                                         </div>
                                     {/if}
@@ -542,7 +531,7 @@
                                                 type="text"
                                                 bind:value={authorSearchQuery}
                                                 placeholder="Search PR authors"
-                                                class="h-8 w-full rounded-md border border-soft bg-(--bg-muted) px-3 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                                                class="field-input popup-filter-input"
                                             />
                                         </div>
                                     {/if}
@@ -594,7 +583,7 @@
                                                 type="text"
                                                 bind:value={repoSearchQuery}
                                                 placeholder="Search repositories"
-                                                class="h-8 w-full rounded-md border border-soft bg-(--bg-muted) px-3 text-sm text-white placeholder-dim outline-none transition focus:border-(--accent) focus:ring-1 focus:ring-(--accent)"
+                                                class="field-input popup-filter-input"
                                             />
                                         </div>
                                     {/if}

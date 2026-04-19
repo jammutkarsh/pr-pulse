@@ -14,10 +14,15 @@ type ExtensionManifest = {
 		default_popup: string;
 		default_icon: Record<string, string>;
 	};
-	background: {
-		service_worker: string;
-		type: 'module';
-	};
+	background:
+		| {
+				service_worker: string;
+				type: 'module';
+		  }
+		| {
+				scripts: string[];
+				type: 'module';
+		  };
 	options_page: string;
 	icons: Record<string, string>;
 	browser_specific_settings?: {
@@ -86,17 +91,13 @@ function createManifest(
 	target: BrowserTarget,
 	base: Omit<ExtensionManifest, 'background'>
 ): ExtensionManifest {
-	const common: ExtensionManifest = {
-		...base,
-		background: {
-			service_worker: 'service-worker.js',
-			type: 'module',
-		},
-	};
-
 	if (target === 'firefox') {
 		return {
-			...common,
+			...base,
+			background: {
+				scripts: ['service-worker.js'],
+				type: 'module',
+			},
 			browser_specific_settings: {
 				gecko: {
 					id: 'pr-pulse@utkarshchourasia.in',
@@ -108,6 +109,10 @@ function createManifest(
 
 	// Optional but recommended for Chrome Web Store
 	return {
-		...common,
+		...base,
+		background: {
+			service_worker: 'service-worker.js',
+			type: 'module',
+		},
 	};
 }

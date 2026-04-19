@@ -9,6 +9,7 @@ const extensionBrowser = browser;
 export type StorageChangeMap = Record<string, browser.Storage.StorageChange>;
 export type StorageOnChangedListener = Parameters<typeof extensionBrowser.storage.onChanged.addListener>[0];
 export type RuntimeOnInstalledListener = Parameters<typeof extensionBrowser.runtime.onInstalled.addListener>[0];
+export type RuntimeOnStartupListener = Parameters<typeof extensionBrowser.runtime.onStartup.addListener>[0];
 export type RuntimeOnMessageListener = (message: unknown, sender: browser.Runtime.MessageSender) => void | Promise<unknown>;
 export type AlarmsOnAlarmListener = Parameters<typeof extensionBrowser.alarms.onAlarm.addListener>[0];
 export type Unsubscribe = () => void;
@@ -130,6 +131,10 @@ export function storageOnChangedRemoveListener(listener: StorageOnChangedListene
 
 export function runtimeOnInstalledAddListener(listener: RuntimeOnInstalledListener): void {
 	extensionBrowser.runtime.onInstalled.addListener(wrapListener('runtime.onInstalled', listener));
+}
+
+export function runtimeOnStartupAddListener(listener: RuntimeOnStartupListener): void {
+	extensionBrowser.runtime.onStartup.addListener(wrapListener('runtime.onStartup', listener));
 }
 
 export function runtimeOnMessageAddListener(listener: RuntimeOnMessageListener): void {
