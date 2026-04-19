@@ -2,6 +2,13 @@
 
 All notable changes to PR Pulse are documented in this file.
 
+## [1.3.1] – 2026-04-20
+
+### 2026-04-20
+
+- Fix: Firefox needs `background.scripts` to load background code.
+- Fix: Chrome MV3 needs badge updates awaited during startup, so worker does not suspend before toolbar state is written.
+
 ## [1.3.0] – 2026-04-19
 
 ### 2026-04-19
