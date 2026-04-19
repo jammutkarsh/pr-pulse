@@ -138,7 +138,7 @@
 	<div class="min-w-0 space-y-1.5">
 		<div class="relative min-w-0 pr-6">
 			<div class="flex min-w-0 items-start gap-1">
-				<button class="unstyled-button flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
+				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-1 overflow-hidden text-left text-white hyperlink-button line-clamp-2 hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
 					<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
 					{pr.title}
 				</button>
