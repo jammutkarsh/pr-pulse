@@ -9,7 +9,7 @@
 
 	const GITHUB_URL = "https://github.com/jammutkarsh/pr-pulse";
 	const CHROME_WEB_STORE_URL = "https://short.utkarshchourasia.in/prpulse";
-	const FIREFOX_ADDONS_URL = "";
+	const FIREFOX_ADDONS_URL = "https://short.utkarshchourasia.in/prpulse-firefox";
 	const TWITTER_PROFILE = "https://x.com/jammutkarsh";
 
 	type BrowserStoreTarget = 'chromium' | 'firefox';
