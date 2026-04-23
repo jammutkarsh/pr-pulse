@@ -3,6 +3,7 @@
 <div align="center">
 
 [![Chrome Extension](assets/chrome-web-store.png)](https://short.utkarshchourasia.in/prpulse)
+[![Firefox Extension](assets/firefox-add-ons.png)](https://short.utkarshchourasia.in/prpulse-firefox)
 
 </div>
 
@@ -64,11 +65,8 @@ That means better control, less noise, and a setup that matches how you actually
 
 ### Install
 
-Direct link to Chrome Web Store listing:
-
-- [Install PR Pulse](https://short.utkarshchourasia.in/prpulse)
-
-Firefox support is generated as a dedicated package from the same codebase. A signed AMO listing can be added separately.
+- Chrome: [PR Pulse on Chrome Web Store](https://short.utkarshchourasia.in/prpulse)
+- Firefox: [PR Pulse on Firefox Add-ons](https://short.utkarshchourasia.in/prpulse-firefox)
 
 ### From Source (Developer Mode) - Unreleased version with the latest features and fixes
 
