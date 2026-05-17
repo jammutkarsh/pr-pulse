@@ -14,7 +14,7 @@ export type RuntimeOnMessageListener = (message: unknown, sender: browser.Runtim
 export type AlarmsOnAlarmListener = Parameters<typeof extensionBrowser.alarms.onAlarm.addListener>[0];
 export type Unsubscribe = () => void;
 
-export function toPlainData<T>(value: T): T {
+function toPlainData<T>(value: T): T {
 	return normalizeCloneableValue(value, new WeakMap()) as T;
 }
 

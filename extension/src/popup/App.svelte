@@ -81,7 +81,7 @@
 		const owners = toStringArray(storedFilters.owners);
 		const repos = toStringArray(storedFilters.repos);
 		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
-		const drafts = value?.drafts === 'only' || value?.drafts === 'include' || value?.drafts === 'exclude' ? value.drafts : 'exclude';
+		const drafts = storedFilters.drafts === 'only' || storedFilters.drafts === 'include' ? storedFilters.drafts : 'exclude';
 
 		return {
 			...DEFAULT_FILTERS,
@@ -585,7 +585,6 @@
 							{#each filteredItems as pr (pr.id)}
 								<PrCard
 									{pr}
-									{currentTab}
 									{isFullpageMode}
 									{settings}
 									{copiedItemId}

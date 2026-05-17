@@ -5,7 +5,7 @@ import type { ProviderConfig, PullRequestData, ProviderType, User, PullRequest }
 
 type ProviderClass = new (config?: ProviderConfig) => BaseProvider;
 
-export class ProviderManager {
+class ProviderManager {
 	#registry = new Map<ProviderType, ProviderClass>();
 	provider: BaseProvider | null = null;
 

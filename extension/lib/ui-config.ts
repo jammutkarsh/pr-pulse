@@ -1,6 +1,6 @@
 import type { Settings, UiConfig } from './types';
 
-export const DEFAULT_UI_CONFIG: UiConfig = {
+const DEFAULT_UI_CONFIG: UiConfig = {
 	pageMaxWidthRem: 56,
 	popupWidthRem: 28,
 	popupHeightRem: 37.5,
@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	ui: DEFAULT_UI_CONFIG,
 };
 
-export function normalizeUiConfig(uiConfig?: Partial<UiConfig>): UiConfig {
+function normalizeUiConfig(uiConfig?: Partial<UiConfig>): UiConfig {
 	return {
 		...DEFAULT_UI_CONFIG,
 		...(uiConfig ?? {}),
