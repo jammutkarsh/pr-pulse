@@ -151,11 +151,19 @@
 			authors?: string[];
 			owners?: string[];
 			repos?: string[];
+			drafts?: 'only' | 'include' | 'exclude';
 		}
 	): PullRequest[] {
 		let result = items;
 
-		// 1. Filter by Author
+		// 1. Filter by Drafts
+		if (filters.drafts === 'exclude') {
+			result = result.filter((pr) => !pr.isDraft);
+		} else if (filters.drafts === 'only') {
+			result = result.filter((pr) => pr.isDraft);
+		}
+
+		// 2. Filter by Author
 		if (filters.authors && filters.authors.length > 0) {
 			result = result.filter((pr) => {
 				const authorLogin = pr.author?.login || '';
@@ -163,14 +171,14 @@
 			});
 		}
 
-		// 2. Filter by Repository
+		// 3. Filter by Repository
 		if (filters.repos && filters.repos.length > 0) {
 			result = result.filter((pr) => {
 				return filters.repos!.includes(pr.repoFullName);
 			});
 		}
 
-		// 3. Filter by Owner
+		// 4. Filter by Owner
 		if (filters.owners && filters.owners.length > 0) {
 			result = result.filter((pr) => {
 				const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
@@ -443,12 +451,12 @@
 	let lastUpdatedText = $derived(prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync');
 	let fullpageShellClasses = $derived(isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full');
 	let cardListClasses = $derived(isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin');
-	let allAvailableOwners = $derived(getOwnersFromItems(currentItems));
-	let allAvailableAuthors = $derived(getAuthorsFromItems(currentItems, currentTab === 'toReview'));
-	let allAvailableRepos = $derived(getReposFromItems(currentItems));
-	let itemsForAuthorOptions = $derived(filterPullRequests(currentItems, { owners: activeFilters.owners, repos: activeFilters.repos }));
-	let itemsForOwnerOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, repos: activeFilters.repos }));
-	let itemsForRepoOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, owners: activeFilters.owners }));
+	let allAvailableOwners = $derived(getOwnersFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts })));
+	let allAvailableAuthors = $derived(getAuthorsFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts }), currentTab === 'toReview'));
+	let allAvailableRepos = $derived(getReposFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts })));
+	let itemsForAuthorOptions = $derived(filterPullRequests(currentItems, { owners: activeFilters.owners, repos: activeFilters.repos, drafts: activeFilters.drafts }));
+	let itemsForOwnerOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, repos: activeFilters.repos, drafts: activeFilters.drafts }));
+	let itemsForRepoOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, owners: activeFilters.owners, drafts: activeFilters.drafts }));
 	let availableOwners = $derived(getOwnersFromItems(itemsForOwnerOptions));
 	let availableAuthors = $derived(getAuthorsFromItems(itemsForAuthorOptions, currentTab === 'toReview'));
 	let availableRepos = $derived(getReposFromItems(itemsForRepoOptions));
@@ -463,19 +471,12 @@
 	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
 	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
 	let filterActive = $derived(filterCount > 0);
-	let preSearchItems = $derived.by(() => {
-		let result = currentItems;
-		if (activeFilters.drafts === 'exclude') {
-			result = result.filter((pr) => !pr.isDraft);
-		} else if (activeFilters.drafts === 'only') {
-			result = result.filter((pr) => pr.isDraft);
-		}
-		return filterPullRequests(result, {
-			authors: activeFilters.authors,
-			owners: activeFilters.owners,
-			repos: activeFilters.repos,
-		});
-	});
+	let preSearchItems = $derived(filterPullRequests(currentItems, {
+		authors: activeFilters.authors,
+		owners: activeFilters.owners,
+		repos: activeFilters.repos,
+		drafts: activeFilters.drafts,
+	}));
 	let fuseIndex = $derived.by(() => {
 		const searchInput: SearchablePullRequest[] = preSearchItems.map((pr) => ({
 			...pr,

@@ -140,15 +140,15 @@
 	<div class="min-w-0 space-y-1.5">
 		<div class="relative min-w-0 pr-6">
 			<div class="flex min-w-0 items-start gap-1.5">
-				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-2.5 text-left text-white hyperlink-button hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
-					<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt={pr.author?.name || pr.author?.login} title={pr.author?.name || pr.author?.login} class="mt-0.5 h-5 w-5 object-cover shrink-0" />
-					<span class={`line-clamp-2 min-w-0 wrap-break-word ${pr.isDraft ? 'text-soft/90' : ''}`}>
+				<button class="unstyled-button pr-title-link group flex min-w-0 flex-1 items-start gap-2.5 text-left text-white" onclick={() => onOpenUrl(pr.url)}>
+					<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt={pr.author?.name || pr.author?.login} title={pr.author?.name || pr.author?.login} class="mt-0.5 h-5 w-5 rounded-full object-cover shrink-0" />
+					<span class={`line-clamp-2 min-w-0 wrap-break-word group-hover:underline group-hover:text-(--accent) group-hover:decoration-(--accent) decoration-[0.14em] ${pr.isDraft ? 'text-soft/90' : ''}`}>
 						{pr.title}
 					</span>
-					{#if pr.isDraft}
-						<span class="mt-0.5 inline-flex shrink-0 items-center rounded border border-soft/20 bg-soft/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-soft leading-none">Draft</span>
-					{/if}
 				</button>
+				{#if pr.isDraft}
+					<span class="mt-0.5 inline-flex shrink-0 items-center rounded border border-soft/20 bg-soft/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-soft leading-none">Draft</span>
+				{/if}
 			</div>
 			<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" onclick={() => onCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
 				{#if copiedItemId === `pr-${pr.id}`}
