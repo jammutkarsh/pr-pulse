@@ -277,41 +277,52 @@
 		}
 	}
 
-	async function init() {
-		filterPersistenceReady = false;
+	async function initDisplayMode(bootstrapSettings: Settings): Promise<boolean> {
 		isFullpageMode = new URLSearchParams(window.location.search).has('fullpage');
-		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getPopupBootstrapData();
-		settings = bootstrapData.settings;
 
-		if (settings.displayMode === 'fullpage' && !isFullpageMode) {
+		if (bootstrapSettings.displayMode === 'fullpage' && !isFullpageMode) {
 			await tabsCreate({ url: runtimeGetURL('popup/popup.html?fullpage=1') });
 			window.close();
-			return;
+			return true;
 		}
 
+		return false;
+	}
+
+	async function initDataAndFilters(bootstrapData: PopupBootstrapData) {
 		provider = bootstrapData.provider;
 		setupRequired = !(provider && provider.user && provider.token);
 		currentTab = settings.pinnedTab || 'myPRs';
 
-		if (!setupRequired) {
-			prData = bootstrapData.pullRequests;
-			const allPrs = [...(prData.myPRs || []), ...(prData.reviewRequests || [])];
-			viewedPrIds = new Set(allPrs.map((pr) => pr.id));
-
-			if (settings.persistFilters) {
-				const initialFilters = (await storageLocalGet<StoredFilterState | undefined>(['searchFilters'])).searchFilters;
-
-				filtersByTab = normalizeStoredFilterState(initialFilters, currentTab);
-				activeFilters = cloneFilters(filtersByTab[currentTab]);
-			} else {
-				await storageLocalRemove(['searchFilters']);
-			}
-		} else {
+		if (setupRequired) {
 			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
 			filtersByTab = createDefaultFiltersByTab();
 			activeFilters = createDefaultFilters();
+			return;
 		}
 
+		prData = bootstrapData.pullRequests;
+		const allPrs = [...(prData.myPRs || []), ...(prData.reviewRequests || [])];
+		viewedPrIds = new Set(allPrs.map((pr) => pr.id));
+
+		if (settings.persistFilters) {
+			const initialFilters = (await storageLocalGet<StoredFilterState | undefined>(['searchFilters'])).searchFilters;
+			filtersByTab = normalizeStoredFilterState(initialFilters, currentTab);
+			activeFilters = cloneFilters(filtersByTab[currentTab]);
+		} else {
+			await storageLocalRemove(['searchFilters']);
+		}
+	}
+
+	async function init() {
+		filterPersistenceReady = false;
+		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getPopupBootstrapData();
+		settings = bootstrapData.settings;
+
+		const redirected = await initDisplayMode(settings);
+		if (redirected) return;
+
+		await initDataAndFilters(bootstrapData);
 		filterPersistenceReady = true;
 		loading = false;
 		storageOnChangedAddListener(onStorageChanged);

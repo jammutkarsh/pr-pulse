@@ -9,15 +9,20 @@
     "vite.config.ts"
   ],
   "ignorePatterns": [
-    "node_modules/**", 
-    "dist/**", 
-    "build/**", 
+    "node_modules/**",
+    "dist/**",
+    "build/**",
     "**/*.d.ts",
     ".cache/**"
   ],
   "ignoreExportsUsedInFile": true,
   "duplicates": {
-    "minOccurrences": 3
+    "minOccurrences": 2
+  },
+  "health": {
+    "maxCyclomatic": 30,
+    "maxCognitive": 20,
+    "maxCrap": 150
   },
   "rules": {}
 }

@@ -18,10 +18,12 @@ export class BaseProvider {
 		throw new Error('getUser() not implemented');
 	}
 
+	// fallow-ignore-next-line unused-class-member
 	async getMyPullRequests(): Promise<PullRequest[]> {
 		throw new Error('getMyPullRequests() not implemented');
 	}
 
+	// fallow-ignore-next-line unused-class-member
 	async getReviewRequests(): Promise<PullRequest[]> {
 		throw new Error('getReviewRequests() not implemented');
 	}

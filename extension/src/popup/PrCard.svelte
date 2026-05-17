@@ -142,7 +142,7 @@
 			<div class="flex min-w-0 items-start gap-1.5">
 				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-2.5 text-left text-white hyperlink-button hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
 					<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt={pr.author?.name || pr.author?.login} title={pr.author?.name || pr.author?.login} class="mt-0.5 h-5 w-5 object-cover shrink-0" />
-					<span class={`line-clamp-2 min-w-0 break-words ${pr.isDraft ? 'text-soft/90' : ''}`}>
+					<span class={`line-clamp-2 min-w-0 wrap-break-word ${pr.isDraft ? 'text-soft/90' : ''}`}>
 						{pr.title}
 					</span>
 					{#if pr.isDraft}
