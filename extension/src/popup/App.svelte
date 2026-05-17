@@ -67,6 +67,120 @@
 		};
 	}
 
+	function getOwnersFromItems(items: PullRequest[]): OwnerFilterOption[] {
+		// 1. Extract owner configurations from items
+		const mappedOwners = items.map((pr) => {
+			const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+			const ownerType = pr.repoOwner?.type || 'unknown';
+			return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
+		});
+
+		// 2. Filter out items with empty or invalid owner login
+		const validOwners = mappedOwners.filter(([login]) => Boolean(login));
+
+		// 3. De-duplicate owners using a Map
+		const uniqueOwnersMap = new Map<string, OwnerFilterOption>(validOwners);
+		const uniqueOwnersList = Array.from(uniqueOwnersMap.values());
+
+		// 4. Sort the result alphabetically by login name
+		uniqueOwnersList.sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }));
+
+		return uniqueOwnersList;
+	}
+
+	function getAuthorsFromItems(items: PullRequest[], isToReview: boolean): AuthorFilterOption[] {
+		if (!isToReview) {
+			return [];
+		}
+
+		// 1. Map items to author tuples
+		const mappedAuthors = items.map((pr) => {
+			const login = pr.author?.login || '';
+			const name = pr.author?.name || login;
+			return [login.toLowerCase(), { login, name }] as const;
+		});
+
+		// 2. Filter out empty/invalid author logins
+		const validAuthors = mappedAuthors.filter(([login]) => Boolean(login));
+
+		// 3. De-duplicate authors using a Map
+		const uniqueAuthorsMap = new Map<string, AuthorFilterOption>(validAuthors);
+		const uniqueAuthorsList = Array.from(uniqueAuthorsMap.values());
+
+		// 4. Sort alphabetically by login, then name
+		uniqueAuthorsList.sort((left, right) =>
+			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
+			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+		);
+
+		return uniqueAuthorsList;
+	}
+
+	function getReposFromItems(items: PullRequest[]): RepoFilterOption[] {
+		// 1. Filter out PRs that don't have a repoFullName
+		const prsWithRepos = items.filter((pr) => pr.repoFullName);
+
+		// 2. Map PRs to repo tuple entries
+		const mappedRepos = prsWithRepos.map((pr) => {
+			const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
+			const repoOption: RepoFilterOption = {
+				fullName: pr.repoFullName,
+				owner,
+				ownerType: pr.repoOwner?.type || 'unknown',
+				name,
+			};
+			return [pr.repoFullName, repoOption] as const;
+		});
+
+		// 3. De-duplicate repos using a Map
+		const uniqueReposMap = new Map<string, RepoFilterOption>(mappedRepos);
+		const uniqueReposList = Array.from(uniqueReposMap.values());
+
+		// 4. Sort alphabetically by name, then owner
+		uniqueReposList.sort((left, right) =>
+			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
+			left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })
+		);
+
+		return uniqueReposList;
+	}
+
+	function filterPullRequests(
+		items: PullRequest[],
+		filters: {
+			authors?: string[];
+			owners?: string[];
+			repos?: string[];
+		}
+	): PullRequest[] {
+		let result = items;
+
+		// 1. Filter by Author
+		if (filters.authors && filters.authors.length > 0) {
+			result = result.filter((pr) => {
+				const authorLogin = pr.author?.login || '';
+				return filters.authors!.includes(authorLogin);
+			});
+		}
+
+		// 2. Filter by Repository
+		if (filters.repos && filters.repos.length > 0) {
+			result = result.filter((pr) => {
+				return filters.repos!.includes(pr.repoFullName);
+			});
+		}
+
+		// 3. Filter by Owner
+		if (filters.owners && filters.owners.length > 0) {
+			result = result.filter((pr) => {
+				const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+				return filters.owners!.includes(ownerLogin);
+			});
+		}
+
+		return result;
+	}
+
 	function toStringArray(value: unknown): string[] {
 		if (!Array.isArray(value)) {
 			return [];
@@ -318,124 +432,15 @@
 	let lastUpdatedText = $derived(prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync');
 	let fullpageShellClasses = $derived(isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full');
 	let cardListClasses = $derived(isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin');
-	let allAvailableOwners = $derived(Array.from(
-		new Map<string, OwnerFilterOption>(
-			currentItems
-				.map((pr) => {
-					const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-					const ownerType = pr.repoOwner?.type || 'unknown';
-					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
-				})
-				.filter(([login]) => Boolean(login))
-	).values()
-	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' })));
-	let allAvailableAuthors = $derived(currentTab === 'toReview'
-		? Array.from(
-			new Map<string, AuthorFilterOption>(
-				currentItems
-					.map((pr) => [pr.author?.login?.toLowerCase() || '', {
-						login: pr.author?.login || '',
-						name: pr.author?.name || pr.author?.login || '',
-					}] as const)
-					.filter(([login]) => Boolean(login))
-			).values()
-		).sort((left, right) =>
-			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
-			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
-		)
-		: []);
-	let allAvailableRepos = $derived(Array.from(
-		new Map<string, RepoFilterOption>(
-			currentItems
-				.filter((pr) => pr.repoFullName)
-				.map((pr) => {
-					const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
-					return [
-						pr.repoFullName,
-						{
-							fullName: pr.repoFullName,
-							owner,
-							ownerType: pr.repoOwner?.type || 'unknown',
-							name,
-						},
-					] as const;
-				})
-		).values()
-	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })));
-	let itemsForAuthorOptions = $derived.by(() => {
-		let result = currentItems;
-		if (activeFilters.owners.length > 0) {
-			result = result.filter((pr) => activeFilters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
-		}
-		if (activeFilters.repos.length > 0) {
-			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
-		}
-		return result;
-	});
-	let itemsForOwnerOptions = $derived.by(() => {
-		let result = currentItems;
-		if (activeFilters.authors.length > 0) {
-			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
-		}
-		if (activeFilters.repos.length > 0) {
-			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
-		}
-		return result;
-	});
-	let itemsForRepoOptions = $derived.by(() => {
-		let result = currentItems;
-		if (activeFilters.authors.length > 0) {
-			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
-		}
-		if (activeFilters.owners.length > 0) {
-			result = result.filter((pr) => activeFilters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
-		}
-		return result;
-	});
-	let availableOwners = $derived(Array.from(
-		new Map<string, OwnerFilterOption>(
-			itemsForOwnerOptions
-				.map((pr) => {
-					const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-					const ownerType = pr.repoOwner?.type || 'unknown';
-					return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
-				})
-				.filter(([login]) => Boolean(login))
-	).values()
-	).sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' })));
-	let availableAuthors = $derived(currentTab === 'toReview'
-		? Array.from(
-			new Map<string, AuthorFilterOption>(
-				itemsForAuthorOptions
-					.map((pr) => [pr.author?.login?.toLowerCase() || '', {
-						login: pr.author?.login || '',
-						name: pr.author?.name || pr.author?.login || '',
-					}] as const)
-					.filter(([login]) => Boolean(login))
-			).values()
-		).sort((left, right) =>
-			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
-			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
-		)
-		: []);
-	let availableRepos = $derived(Array.from(
-		new Map<string, RepoFilterOption>(
-			itemsForRepoOptions
-				.filter((pr) => pr.repoFullName)
-				.map((pr) => {
-					const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
-					return [
-						pr.repoFullName,
-						{
-							fullName: pr.repoFullName,
-							owner,
-							ownerType: pr.repoOwner?.type || 'unknown',
-							name,
-						},
-					] as const;
-				})
-		).values()
-	).sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) || left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })));
+	let allAvailableOwners = $derived(getOwnersFromItems(currentItems));
+	let allAvailableAuthors = $derived(getAuthorsFromItems(currentItems, currentTab === 'toReview'));
+	let allAvailableRepos = $derived(getReposFromItems(currentItems));
+	let itemsForAuthorOptions = $derived(filterPullRequests(currentItems, { owners: activeFilters.owners, repos: activeFilters.repos }));
+	let itemsForOwnerOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, repos: activeFilters.repos }));
+	let itemsForRepoOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, owners: activeFilters.owners }));
+	let availableOwners = $derived(getOwnersFromItems(itemsForOwnerOptions));
+	let availableAuthors = $derived(getAuthorsFromItems(itemsForAuthorOptions, currentTab === 'toReview'));
+	let availableRepos = $derived(getReposFromItems(itemsForRepoOptions));
 	let showSearchControls = $derived(!loading && !setupRequired && !errorMessage && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired && !errorMessage);
 	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
@@ -454,16 +459,11 @@
 		} else if (activeFilters.drafts === 'only') {
 			result = result.filter((pr) => pr.isDraft);
 		}
-		if (activeFilters.authors.length > 0) {
-			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
-		}
-		if (activeFilters.repos.length > 0) {
-			result = result.filter((pr) => activeFilters.repos.includes(pr.repoFullName));
-		}
-		if (activeFilters.owners.length > 0) {
-			result = result.filter((pr) => activeFilters.owners.includes(pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || ''));
-		}
-		return result;
+		return filterPullRequests(result, {
+			authors: activeFilters.authors,
+			owners: activeFilters.owners,
+			repos: activeFilters.repos,
+		});
 	});
 	let fuseIndex = $derived.by(() => {
 		const searchInput: SearchablePullRequest[] = preSearchItems.map((pr) => ({
