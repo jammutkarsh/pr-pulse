@@ -46,6 +46,7 @@
 			owners: [],
 			repos: [],
 			ageRange: '',
+			includeDrafts: false,
 		};
 	}
 
@@ -62,6 +63,7 @@
 			owners: [...filters.owners],
 			repos: [...filters.repos],
 			ageRange: filters.ageRange,
+			includeDrafts: filters.includeDrafts,
 		};
 	}
 
@@ -79,6 +81,7 @@
 		const owners = toStringArray(storedFilters.owners);
 		const repos = toStringArray(storedFilters.repos);
 		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
+		const includeDrafts = typeof storedFilters.includeDrafts === 'boolean' ? storedFilters.includeDrafts : false;
 
 		return {
 			...DEFAULT_FILTERS,
@@ -86,6 +89,7 @@
 			repos,
 			owners,
 			ageRange,
+			includeDrafts,
 		};
 	}
 
@@ -441,10 +445,13 @@
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
 	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length);
+	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.includeDrafts ? 1 : 0));
 	let filterActive = $derived(filterCount > 0);
 	let preSearchItems = $derived.by(() => {
 		let result = currentItems;
+		if (!activeFilters.includeDrafts) {
+			result = result.filter((pr) => !pr.isDraft);
+		}
 		if (activeFilters.authors.length > 0) {
 			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));
 		}

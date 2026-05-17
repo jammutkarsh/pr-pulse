@@ -5,6 +5,7 @@
 		FileDiff,
 		FolderGit2,
 		GitBranch,
+		GitPullRequestDraft,
 		Ticket,
 		Clock,
 	} from 'lucide-svelte';
@@ -137,9 +138,13 @@
 <SectionCard className="p-3.5">
 	<div class="min-w-0 space-y-1.5">
 		<div class="relative min-w-0 pr-6">
-			<div class="flex min-w-0 items-start gap-1">
-				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-1 overflow-hidden text-left text-white hyperlink-button line-clamp-2 hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
-					<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
+			<div class="flex min-w-0 items-start gap-1.5">
+				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-1.5 overflow-hidden text-left text-white hyperlink-button line-clamp-2 hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
+					{#if pr.isDraft}
+						<GitPullRequestDraft class="mt-0.5 h-4 w-4 shrink-0 text-soft" />
+					{:else}
+						<span class={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
+					{/if}
 					{pr.title}
 				</button>
 			</div>

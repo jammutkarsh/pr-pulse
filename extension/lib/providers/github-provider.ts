@@ -12,6 +12,7 @@ type GitHubSearchIssue = {
 	state: string;
 	created_at: string;
 	updated_at: string;
+	draft?: boolean;
 };
 
 type PullRequestDetails = {
@@ -120,6 +121,7 @@ export class GitHubProvider extends BaseProvider {
 			reviews: { status: 'pending', reviewers: [] },
 			createdAt: issue.created_at,
 			updatedAt: issue.updated_at,
+			isDraft: !!issue.draft,
 			_prNumber: issue.number,
 			_repoFullName: repoFullName,
 		};

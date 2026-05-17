@@ -21,6 +21,7 @@
         owners: [],
         repos: [],
         ageRange: '',
+        includeDrafts: false,
     };
 
     interface Props {
@@ -300,7 +301,7 @@
     let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
     // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
     // let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length);
+    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.includeDrafts ? 1 : 0));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
     let filterPanelMaxHeight = $derived(fullpageMode ? 'min(40rem, calc(100vh - 13rem))' : '22rem');
@@ -323,6 +324,12 @@
             value: getRepoDisplay(repoFullName).owner,
             onRemove: () => toggleRepo(repoFullName),
         })),
+        ...(activeFilters.includeDrafts ? [{
+            key: 'drafts',
+            label: 'Include Drafts',
+            value: '',
+            onRemove: () => { activeFilters = { ...activeFilters, includeDrafts: false }; },
+        }] : []),
         /*
         ...(activeFilters.ageRange
             ? [
@@ -455,6 +462,15 @@
                 {/if}
 
                 <div class="space-y-2">
+                    <label class="flex items-center justify-between rounded-lg border border-soft px-3 py-2 cursor-pointer hover:bg-(--bg-muted) transition">
+                        <span class="text-sm font-medium text-white">Include Draft PRs</span>
+                        <input
+                            type="checkbox"
+                            class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
+                            bind:checked={activeFilters.includeDrafts}
+                        />
+                    </label>
+
                     {#if showOwnerFilter}
                         <div class="overflow-hidden rounded-lg border border-soft">
                             <button
