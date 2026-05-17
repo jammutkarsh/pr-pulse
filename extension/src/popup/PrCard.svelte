@@ -135,17 +135,22 @@
 		: 'unstyled-button status-inline min-w-0 transition-opacity hover:opacity-80');
 </script>
 
-<SectionCard className="p-3.5">
+<SectionCard className={`p-3.5 transition-opacity ${pr.isDraft ? 'opacity-70' : ''}`}>
 	<div class="min-w-0 space-y-1.5">
 		<div class="relative min-w-0 pr-6">
 			<div class="flex min-w-0 items-start gap-1.5">
-				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-1.5 overflow-hidden text-left text-white hyperlink-button line-clamp-2 hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
+				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-1.5 text-left text-white hyperlink-button hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
 					{#if pr.isDraft}
 						<GitPullRequestDraft class="mt-0.5 h-4 w-4 shrink-0 text-soft" />
 					{:else}
 						<span class={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
 					{/if}
-					{pr.title}
+					<span class={`line-clamp-2 min-w-0 break-words ${pr.isDraft ? 'text-soft/90' : ''}`}>
+						{pr.title}
+					</span>
+					{#if pr.isDraft}
+						<span class="mt-0.5 inline-flex shrink-0 items-center rounded border border-soft/20 bg-soft/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-soft leading-none">Draft</span>
+					{/if}
 				</button>
 			</div>
 			<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" onclick={() => onCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">

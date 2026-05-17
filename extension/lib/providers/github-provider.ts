@@ -20,7 +20,8 @@ type PullRequestDetails = {
 	changes: PullRequest['changes'];
 	repoOwner: PullRequest['repoOwner'];
 	requestedReviewers: string[];
-	_raw: { head?: { sha?: string } } & Record<string, unknown>;
+	isDraft: boolean;
+	_raw: { head?: { sha?: string }; draft?: boolean } & Record<string, unknown>;
 };
 
 export class GitHubProvider extends BaseProvider {
@@ -121,7 +122,7 @@ export class GitHubProvider extends BaseProvider {
 			reviews: { status: 'pending', reviewers: [] },
 			createdAt: issue.created_at,
 			updatedAt: issue.updated_at,
-			isDraft: !!issue.draft,
+			isDraft: prDetails ? prDetails.isDraft : !!issue.draft,
 			_prNumber: issue.number,
 			_repoFullName: repoFullName,
 		};
@@ -212,6 +213,7 @@ export class GitHubProvider extends BaseProvider {
 			deletions?: number;
 			changed_files?: number;
 			requested_reviewers?: Array<{ login: string }>;
+			draft?: boolean;
 		}>(`/repos/${repoFullName}/pulls/${prNumber}`);
 
 		const repoOwnerLogin = data.base?.repo?.owner?.login || repoFullName.split('/')[0] || '';
@@ -232,6 +234,7 @@ export class GitHubProvider extends BaseProvider {
 			},
 			repoOwner: repoOwner,
 			requestedReviewers: (data.requested_reviewers || []).map((reviewer) => reviewer.login),
+			isDraft: !!data.draft,
 			_raw: data,
 		};
 	}

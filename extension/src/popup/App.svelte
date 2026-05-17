@@ -46,7 +46,7 @@
 			owners: [],
 			repos: [],
 			ageRange: '',
-			includeDrafts: false,
+			drafts: 'exclude',
 		};
 	}
 
@@ -63,7 +63,7 @@
 			owners: [...filters.owners],
 			repos: [...filters.repos],
 			ageRange: filters.ageRange,
-			includeDrafts: filters.includeDrafts,
+			drafts: filters.drafts,
 		};
 	}
 
@@ -81,7 +81,7 @@
 		const owners = toStringArray(storedFilters.owners);
 		const repos = toStringArray(storedFilters.repos);
 		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
-		const includeDrafts = typeof storedFilters.includeDrafts === 'boolean' ? storedFilters.includeDrafts : false;
+		const drafts = value?.drafts === 'only' || value?.drafts === 'include' || value?.drafts === 'exclude' ? value.drafts : 'exclude';
 
 		return {
 			...DEFAULT_FILTERS,
@@ -89,7 +89,7 @@
 			repos,
 			owners,
 			ageRange,
-			includeDrafts,
+			drafts,
 		};
 	}
 
@@ -441,16 +441,18 @@
 	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
 	let hasOwnerFilter = $derived(allAvailableOwners.length > 1);
 	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
-	let hasMeaningfulFilters = $derived(hasAuthorFilter || hasOwnerFilter || hasRepoFilter);
+	let hasMeaningfulFilters = true; // Always true because Draft filter is always available
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
 	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.includeDrafts ? 1 : 0));
+	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
 	let filterActive = $derived(filterCount > 0);
 	let preSearchItems = $derived.by(() => {
 		let result = currentItems;
-		if (!activeFilters.includeDrafts) {
+		if (activeFilters.drafts === 'exclude') {
 			result = result.filter((pr) => !pr.isDraft);
+		} else if (activeFilters.drafts === 'only') {
+			result = result.filter((pr) => pr.isDraft);
 		}
 		if (activeFilters.authors.length > 0) {
 			result = result.filter((pr) => activeFilters.authors.includes(pr.author?.login || ''));

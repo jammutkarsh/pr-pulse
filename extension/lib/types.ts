@@ -108,7 +108,7 @@ export interface PopupFilters {
 	owners: string[];
 	repos: string[];
 	ageRange: string;
-	includeDrafts: boolean;
+	drafts: 'only' | 'include' | 'exclude';
 }
 
 export interface PopupAuthorFilterOption {
