@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "extension/service-worker.ts",
+    "extension/src/popup/main.ts",
+    "extension/src/onboarding/main.ts",
+    "extension/src/settings/main.ts",
+    "extension/scripts/generate-manifest.ts",
+    "vite.config.ts"
+  ],
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "**/*.d.ts",
+    ".cache/**"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "duplicates": {
+    "minOccurrences": 2
+  },
+  "health": {
+    "maxCyclomatic": 30,
+    "maxCognitive": 20,
+    "maxCrap": 150
+  },
+  "rules": {}
+}

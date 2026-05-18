@@ -10,12 +10,4 @@ export class ProviderError extends Error {
 		this.code = code;
 		this.details = details;
 	}
-
-	get retryable(): boolean {
-		return this.details.retryable === true;
-	}
-
-	get statusCode(): number | undefined {
-		return this.details.statusCode;
-	}
 }

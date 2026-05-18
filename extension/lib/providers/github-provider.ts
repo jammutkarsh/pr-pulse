@@ -12,6 +12,7 @@ type GitHubSearchIssue = {
 	state: string;
 	created_at: string;
 	updated_at: string;
+	draft?: boolean;
 };
 
 type PullRequestDetails = {
@@ -19,7 +20,8 @@ type PullRequestDetails = {
 	changes: PullRequest['changes'];
 	repoOwner: PullRequest['repoOwner'];
 	requestedReviewers: string[];
-	_raw: { head?: { sha?: string } } & Record<string, unknown>;
+	isDraft: boolean;
+	_raw: { head?: { sha?: string }; draft?: boolean } & Record<string, unknown>;
 };
 
 export class GitHubProvider extends BaseProvider {
@@ -31,6 +33,32 @@ export class GitHubProvider extends BaseProvider {
 		this.name = 'github';
 		this.displayName = 'GitHub';
 		this.baseUrl = config.baseUrl || 'https://api.github.com';
+	}
+
+	#resolveOwnerType(rawType: string | undefined): PullRequestRepoOwner['type'] {
+		const normalized = (rawType || '').toLowerCase();
+		if (normalized === 'organization') return 'org';
+		if (normalized === 'user') return 'user';
+		return 'unknown';
+	}
+
+	async #throwApiError(response: Response): Promise<never> {
+		const error = await response.json().catch(() => ({} as { message?: string }));
+		const statusCode = response.status;
+		const retryable = statusCode === 429 || statusCode >= 500;
+		throw new ProviderError(error.message || `GitHub API error: ${statusCode}`, 'API_ERROR', {
+			statusCode,
+			retryable,
+			provider: 'github',
+		});
+	}
+
+	#cacheAndReturn<T>(url: string, response: Response, data: T): T {
+		const etag = response.headers.get('etag');
+		if (etag) {
+			this.#etagCache.set(url, { etag, data });
+		}
+		return data;
 	}
 
 	async #request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -45,33 +73,19 @@ export class GitHubProvider extends BaseProvider {
 			headers['If-None-Match'] = cached.etag;
 		}
 
-		const response = await fetch(url, {
-			...options,
-			headers,
-		});
+		const response = await fetch(url, { ...options, headers });
 
 		if (response.status === 304 && cached) {
 			return cached.data as T;
 		}
 
 		if (!response.ok) {
-			const error = await response.json().catch(() => ({} as { message?: string }));
-			const statusCode = response.status;
-			const retryable = statusCode === 429 || statusCode >= 500;
-			throw new ProviderError(error.message || `GitHub API error: ${statusCode}`, 'API_ERROR', {
-				statusCode,
-				retryable,
-				provider: 'github',
-			});
+			return this.#throwApiError(response);
 		}
 
 		try {
 			const data = await response.json() as T;
-			const etag = response.headers.get('etag');
-			if (etag) {
-				this.#etagCache.set(url, { etag, data });
-			}
-			return data;
+			return this.#cacheAndReturn(url, response, data);
 		} catch (error) {
 			throw new ProviderError(`Failed to parse GitHub API response: ${(error as Error).message}`, 'PARSE_ERROR', {
 				provider: 'github',
@@ -92,11 +106,23 @@ export class GitHubProvider extends BaseProvider {
 		};
 	}
 
+	#extractRepoFullName(repositoryUrl: string | undefined): string {
+		const match = repositoryUrl?.match(/repos\/(.+)$/);
+		return match ? match[1] : '';
+	}
+
+	#buildAuthor(issue: GitHubSearchIssue, authorName?: string): PullRequest['author'] {
+		const login = issue.user?.login || '';
+		return {
+			login,
+			avatarUrl: issue.user?.avatar_url || '',
+			name: authorName || login,
+		};
+	}
+
 	#transformPullRequest(issue: GitHubSearchIssue, prDetails: PullRequestDetails | null = null, authorName?: string): PullRequest {
-		const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
-		const repoFullName = repoMatch ? repoMatch[1] : '';
+		const repoFullName = this.#extractRepoFullName(issue.repository_url);
 		const fallbackOwnerLogin = repoFullName.split('/')[0] || '';
-		const authorLogin = issue.user?.login || '';
 
 		return {
 			id: `github-${issue.id}`,
@@ -104,22 +130,16 @@ export class GitHubProvider extends BaseProvider {
 			title: issue.title,
 			url: issue.html_url,
 			repoFullName,
-			repoOwner: prDetails?.repoOwner || {
-				login: fallbackOwnerLogin,
-				type: 'unknown',
-			},
+			repoOwner: prDetails?.repoOwner || { login: fallbackOwnerLogin, type: 'unknown' },
 			branchName: prDetails?.branchName || '',
-			author: {
-				login: authorLogin,
-				avatarUrl: issue.user?.avatar_url || '',
-				name: authorName || authorLogin,
-			},
+			author: this.#buildAuthor(issue, authorName),
 			state: issue.state,
 			changes: prDetails?.changes || { additions: 0, deletions: 0, filesChanged: 0 },
 			checks: { status: 'unknown', details: [] },
 			reviews: { status: 'pending', reviewers: [] },
 			createdAt: issue.created_at,
 			updatedAt: issue.updated_at,
+			isDraft: prDetails ? prDetails.isDraft : !!issue.draft,
 			_prNumber: issue.number,
 			_repoFullName: repoFullName,
 		};
@@ -144,7 +164,7 @@ export class GitHubProvider extends BaseProvider {
 
 		const repoOwner: PullRequestRepoOwner = {
 			login: data.owner?.login || repoFullName.split('/')[0] || '',
-			type: (data.owner?.type || '').toLowerCase() === 'organization' ? 'org' : (data.owner?.type || '').toLowerCase() === 'user' ? 'user' : 'unknown',
+			type: this.#resolveOwnerType(data.owner?.type),
 		};
 
 		this.#repoOwnerCache.set(repoFullName, repoOwner);
@@ -187,10 +207,12 @@ export class GitHubProvider extends BaseProvider {
 		);
 	}
 
+	// fallow-ignore-next-line unused-class-member
 	getMyPullRequests(): Promise<PullRequest[]> {
 		return this.#fetchPRsWithQuery('author:@me+type:pr+state:open');
 	}
 
+	// fallow-ignore-next-line unused-class-member
 	getReviewRequests(): Promise<PullRequest[]> {
 		return this.#fetchPRsWithQuery('review-requested:@me+type:pr+state:open');
 	}
@@ -210,13 +232,13 @@ export class GitHubProvider extends BaseProvider {
 			deletions?: number;
 			changed_files?: number;
 			requested_reviewers?: Array<{ login: string }>;
+			draft?: boolean;
 		}>(`/repos/${repoFullName}/pulls/${prNumber}`);
 
 		const repoOwnerLogin = data.base?.repo?.owner?.login || repoFullName.split('/')[0] || '';
-		const repoOwnerType = (data.base?.repo?.owner?.type || '').toLowerCase();
 		const repoOwner: PullRequestRepoOwner = {
 			login: repoOwnerLogin,
-			type: repoOwnerType === 'organization' ? 'org' : repoOwnerType === 'user' ? 'user' : 'unknown',
+			type: this.#resolveOwnerType(data.base?.repo?.owner?.type),
 		};
 
 		this.#repoOwnerCache.set(repoFullName, repoOwner);
@@ -230,8 +252,25 @@ export class GitHubProvider extends BaseProvider {
 			},
 			repoOwner: repoOwner,
 			requestedReviewers: (data.requested_reviewers || []).map((reviewer) => reviewer.login),
+			isDraft: !!data.draft,
 			_raw: data,
 		};
+	}
+
+	#resolveCheckVerdict(details: PullRequestCheckDetail[]): PullRequestChecks['status'] {
+		const failureConclusions = ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required'];
+		if (details.some((detail) => failureConclusions.includes(detail.conclusion || ''))) {
+			return 'failure';
+		}
+
+		const allComplete = details.every((detail) => detail.status === 'completed');
+		if (!allComplete) {
+			return 'pending';
+		}
+
+		const successConclusions = ['success', 'skipped', 'neutral'];
+		const allSuccess = details.every((detail) => successConclusions.includes(detail.conclusion || ''));
+		return allSuccess ? 'success' : 'pending';
 	}
 
 	async getCheckStatus(repoFullName: string, sha: string): Promise<PullRequestChecks> {
@@ -250,19 +289,20 @@ export class GitHubProvider extends BaseProvider {
 			return { status: 'unknown', details: [] };
 		}
 
-		const failureConclusions = ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required'];
-		if (details.some((detail) => failureConclusions.includes(detail.conclusion || ''))) {
-			return { status: 'failure', details };
-		}
+		return { status: this.#resolveCheckVerdict(details), details };
+	}
 
-		const allComplete = details.every((detail) => detail.status === 'completed');
-		if (allComplete) {
-			const successConclusions = ['success', 'skipped', 'neutral'];
-			const allSuccess = details.every((detail) => successConclusions.includes(detail.conclusion || ''));
-			return { status: allSuccess ? 'success' : 'pending', details };
-		}
+	#resolveReviewVerdict(
+		reviewers: Array<{ login: string; avatarUrl: string; state: string }>,
+		hasPendingReviewers: boolean,
+	): PullRequestReviews['status'] {
+		const hasChangesRequested = reviewers.some((r) => r.state === 'CHANGES_REQUESTED');
+		if (hasChangesRequested) return 'changes_requested';
+		if (hasPendingReviewers) return 'pending';
+		if (reviewers.length === 0) return 'pending';
 
-		return { status: 'pending', details };
+		const allApproved = reviewers.every((r) => r.state === 'APPROVED');
+		return allApproved ? 'approved' : 'pending';
 	}
 
 	async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
@@ -287,16 +327,7 @@ export class GitHubProvider extends BaseProvider {
 		}
 
 		const reviewers = Array.from(reviewerMap.values());
-		let status: PullRequestReviews['status'] = 'pending';
-
-		if (requestedReviewers.length > 0) {
-			status = reviewers.some((reviewer) => reviewer.state === 'CHANGES_REQUESTED') ? 'changes_requested' : 'pending';
-		} else if (reviewers.length > 0) {
-			const hasChangesRequested = reviewers.some((reviewer) => reviewer.state === 'CHANGES_REQUESTED');
-			const allApproved = reviewers.every((reviewer) => reviewer.state === 'APPROVED');
-			status = hasChangesRequested ? 'changes_requested' : allApproved ? 'approved' : 'pending';
-		}
-
+		const status = this.#resolveReviewVerdict(reviewers, requestedReviewers.length > 0);
 		return { status, reviewers, pendingReviewers: requestedReviewers };
 	}
 }

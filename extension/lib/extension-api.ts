@@ -14,8 +14,23 @@ export type RuntimeOnMessageListener = (message: unknown, sender: browser.Runtim
 export type AlarmsOnAlarmListener = Parameters<typeof extensionBrowser.alarms.onAlarm.addListener>[0];
 export type Unsubscribe = () => void;
 
-export function toPlainData<T>(value: T): T {
+function toPlainData<T>(value: T): T {
 	return normalizeCloneableValue(value, new WeakMap()) as T;
+}
+
+function normalizeObject(value: object, seen: WeakMap<object, unknown>): CloneableValue {
+	if (seen.has(value)) {
+		return seen.get(value) as CloneableValue;
+	}
+
+	const plainObject: Record<string, CloneableValue> = {};
+	seen.set(value, plainObject);
+
+	for (const [key, entry] of Object.entries(value)) {
+		plainObject[key] = normalizeCloneableValue(entry, seen);
+	}
+
+	return plainObject;
 }
 
 function normalizeCloneableValue(value: unknown, seen: WeakMap<object, unknown>): CloneableValue {
@@ -35,18 +50,7 @@ function normalizeCloneableValue(value: unknown, seen: WeakMap<object, unknown>)
 		return JSON.parse(JSON.stringify(value)) as CloneableValue;
 	}
 
-	if (seen.has(value)) {
-		return seen.get(value) as CloneableValue;
-	}
-
-	const plainObject: Record<string, CloneableValue> = {};
-	seen.set(value, plainObject);
-
-	for (const [key, entry] of Object.entries(value)) {
-		plainObject[key] = normalizeCloneableValue(entry, seen);
-	}
-
-	return plainObject;
+	return normalizeObject(value, seen);
 }
 
 export function runtimeSendMessage<TResponse = unknown>(message: RuntimeMessage): Promise<TResponse> {

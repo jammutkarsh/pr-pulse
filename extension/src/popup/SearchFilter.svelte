@@ -21,6 +21,7 @@
         owners: [],
         repos: [],
         ageRange: '',
+        drafts: 'exclude',
     };
 
     interface Props {
@@ -294,13 +295,13 @@
     let filteredRepos = $derived(
         visibleRepos.filter((repo) => matchesFilterQuery(repo.fullName, repoSearchQuery, `${repo.name} ${repo.owner}`))
     );
-    let hasMeaningfulFilters = $derived(showAuthorFilter || showOwnerFilter || showRepoFilter);
+    let hasMeaningfulFilters = true; // Always true because Draft filter is always available
     let showAuthorSearch = $derived(shouldShowSectionSearch(visibleAuthors.length));
     let showOwnerSearch = $derived(shouldShowSectionSearch(visibleOwners.length));
     let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
     // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
     // let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length);
+    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
     let filterPanelMaxHeight = $derived(fullpageMode ? 'min(40rem, calc(100vh - 13rem))' : '22rem');
@@ -323,6 +324,12 @@
             value: getRepoDisplay(repoFullName).owner,
             onRemove: () => toggleRepo(repoFullName),
         })),
+        ...(activeFilters.drafts !== 'exclude' ? [{
+            key: 'drafts',
+            label: 'Draft PRs',
+            value: activeFilters.drafts === 'only' ? 'Only' : 'Included',
+            onRemove: () => { activeFilters = { ...activeFilters, drafts: 'exclude' }; },
+        }] : []),
         /*
         ...(activeFilters.ageRange
             ? [
@@ -455,6 +462,24 @@
                 {/if}
 
                 <div class="space-y-2">
+                    <div class="rounded-lg border border-soft px-3 py-2">
+                        <span class="block text-sm font-medium text-white mb-2">Draft PRs</span>
+                        <div class="flex flex-col gap-1">
+                            <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                <input type="radio" name="draft_filter" value="exclude" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
+                                <span class="min-w-0 flex-1 text-soft">Don't show drafts</span>
+                            </label>
+                            <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                <input type="radio" name="draft_filter" value="include" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
+                                <span class="min-w-0 flex-1 text-soft">Include drafts</span>
+                            </label>
+                            <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                <input type="radio" name="draft_filter" value="only" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
+                                <span class="min-w-0 flex-1 text-soft">Only show drafts</span>
+                            </label>
+                        </div>
+                    </div>
+
                     {#if showOwnerFilter}
                         <div class="overflow-hidden rounded-lg border border-soft">
                             <button

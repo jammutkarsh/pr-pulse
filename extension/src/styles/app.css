@@ -745,3 +745,65 @@ a {
 	font-size: 0.75rem;
 	user-select: none;
 }
+
+/* PR Card Status Coloring & Glows */
+.pr-card-status {
+	position: relative;
+	overflow: hidden;
+	transition: border-color 0.2s ease, background-color 0.2s ease !important;
+}
+
+.pr-card-status::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 4px;
+	border-top-left-radius: 999px;
+	border-bottom-left-radius: 999px;
+}
+
+.pr-card-success {
+	background: linear-gradient(135deg, rgba(137, 209, 133, 0.05) 0%, #2d2d30 50%) !important;
+	border-color: rgba(137, 209, 133, 0.18) !important;
+}
+.pr-card-success::before {
+	background: var(--success);
+}
+.pr-card-success:hover {
+	border-color: rgba(137, 209, 133, 0.3) !important;
+}
+
+.pr-card-warning {
+	background: linear-gradient(135deg, rgba(215, 186, 125, 0.05) 0%, #2d2d30 50%) !important;
+	border-color: rgba(215, 186, 125, 0.18) !important;
+}
+.pr-card-warning::before {
+	background: var(--warning);
+}
+.pr-card-warning:hover {
+	border-color: rgba(215, 186, 125, 0.3) !important;
+}
+
+.pr-card-danger {
+	background: linear-gradient(135deg, rgba(241, 76, 76, 0.05) 0%, #2d2d30 50%) !important;
+	border-color: rgba(241, 76, 76, 0.18) !important;
+}
+.pr-card-danger::before {
+	background: var(--danger);
+}
+.pr-card-danger:hover {
+	border-color: rgba(241, 76, 76, 0.3) !important;
+}
+
+.pr-card-draft {
+	background: linear-gradient(135deg, rgba(157, 161, 166, 0.02) 0%, #252526 50%) !important;
+	border-color: rgba(157, 161, 166, 0.1) !important;
+}
+.pr-card-draft::before {
+	background: var(--text-dim);
+}
+.pr-card-draft:hover {
+	border-color: rgba(157, 161, 166, 0.2) !important;
+}

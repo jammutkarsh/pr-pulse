@@ -1,6 +1,6 @@
 {
   "name": "pr-pulse",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
   "main": "extension/service-worker.ts",
   "directories": {
@@ -10,7 +10,6 @@
     "dev": "vite",
     "check": "svelte-check --incremental",
     "lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
-    "deadcode": "knip --cache --cache-location .cache/knip",
     "clean:cache": "rm -rf .cache .svelte-check",
     "clean": "rm -rf dist && rm -f pr-pulse-*.zip pr-pulse-*.xpi",
     "manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
@@ -64,8 +63,8 @@
     "eslint": "^10.0.3",
     "eslint-plugin-svelte": "^3.15.2",
     "globals": "^17.4.0",
-    "knip": "^6.4.1",
     "svelte-check": "^4.4.5",
+    "tailwindcss": "^4.3.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",

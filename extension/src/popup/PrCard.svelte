@@ -25,7 +25,6 @@
 
 	interface Props {
 		pr: PullRequest;
-		currentTab?: Settings['pinnedTab'];
 		isFullpageMode?: boolean;
 		settings?: PullRequestCardSettings;
 		copiedItemId?: string | null;
@@ -35,29 +34,12 @@
 
 	let {
 		pr,
-		currentTab = 'myPRs',
 		isFullpageMode = false,
 		settings = { jiraBaseUrl: '' },
 		copiedItemId = null,
 		onOpenUrl = () => {},
 		onCopy = () => {}
 	}: Props = $props();
-
-	function getStatusDotClass(pr: PullRequest) {
-		const checksStatus = pr.checks?.status;
-		const checksOk = !checksStatus || checksStatus === 'success' || checksStatus === 'unknown';
-		const reviewOk = pr.reviews?.status === 'approved';
-
-		if (checksOk && reviewOk) {
-			return 'bg-(--success)';
-		}
-
-		if (!checksOk && !reviewOk) {
-			return 'bg-(--danger)';
-		}
-
-		return 'bg-(--warning)';
-	}
 
 	function getCheckToneClass(className: string) {
 		switch (className) {
@@ -121,6 +103,26 @@
 		return { ticket: jiraTicket, url: jiraUrl };
 	}
 
+	function getCardStatusClass(pr: PullRequest) {
+		if (pr.isDraft) {
+			return 'pr-card-draft';
+		}
+
+		const checksStatus = pr.checks?.status;
+		const checksOk = !checksStatus || checksStatus === 'success' || checksStatus === 'unknown';
+		const reviewOk = pr.reviews?.status === 'approved';
+
+		if (checksOk && reviewOk) {
+			return 'pr-card-success';
+		}
+
+		if (!checksOk && !reviewOk) {
+			return 'pr-card-danger';
+		}
+
+		return 'pr-card-warning';
+	}
+
 	let reviewDisplay = $derived(getReviewStatusDisplay(pr.reviews?.status));
 	let checkDisplay = $derived(getCheckStatusDisplay(pr.checks?.status));
 	let jiraLink = $derived(getJiraLink(pr));
@@ -134,14 +136,19 @@
 		: 'unstyled-button status-inline min-w-0 transition-opacity hover:opacity-80');
 </script>
 
-<SectionCard className="p-3.5">
+<SectionCard className={`p-3.5 transition-opacity pr-card-status ${getCardStatusClass(pr)} ${pr.isDraft ? 'opacity-80' : ''}`}>
 	<div class="min-w-0 space-y-1.5">
 		<div class="relative min-w-0 pr-6">
-			<div class="flex min-w-0 items-start gap-1">
-				<button class="unstyled-button pr-title-link flex min-w-0 flex-1 items-start gap-1 overflow-hidden text-left text-white hyperlink-button line-clamp-2 hover:text-(--accent)" onclick={() => onOpenUrl(pr.url)}>
-					<span class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${getStatusDotClass(pr)}`}></span>
-					{pr.title}
+			<div class="flex min-w-0 items-start gap-1.5">
+				<button class="unstyled-button pr-title-link group flex min-w-0 flex-1 items-start gap-2.5 text-left text-white" onclick={() => onOpenUrl(pr.url)}>
+					<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt={pr.author?.name || pr.author?.login} title={pr.author?.name || pr.author?.login} class="mt-0.5 h-5 w-5 rounded-full object-cover shrink-0" />
+					<span class={`line-clamp-2 min-w-0 wrap-break-word group-hover:underline group-hover:text-(--accent) group-hover:decoration-(--accent) decoration-[0.14em] ${pr.isDraft ? 'text-soft/90' : ''}`}>
+						{pr.title}
+					</span>
 				</button>
+				{#if pr.isDraft}
+					<span class="mt-0.5 inline-flex shrink-0 items-center rounded border border-soft/20 bg-soft/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-soft leading-none">Draft</span>
+				{/if}
 			</div>
 			<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" onclick={() => onCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
 				{#if copiedItemId === `pr-${pr.id}`}
@@ -153,9 +160,6 @@
 		</div>
 
 		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
-			{#if currentTab !== 'myPRs'}
-				<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt="" class="h-5 w-5 rounded-full border border-soft object-cover" />
-			{/if}
 			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
 				<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
 				<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>

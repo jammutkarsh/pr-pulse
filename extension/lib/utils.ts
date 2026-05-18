@@ -96,7 +96,7 @@ export function formatPrAge(date: string | number | Date): string {
 	if (diffDays === 0) return 'today';
 	if (diffDays === 1) return '1 day ago';
 	if (diffDays < 7) return `${diffDays} days ago`;
-	
+
 	const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 	if (now.getFullYear() !== then.getFullYear()) {
 		options.year = 'numeric';

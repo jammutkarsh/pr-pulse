@@ -61,6 +61,7 @@ export interface PullRequest {
 	reviews: PullRequestReviews;
 	createdAt: string;
 	updatedAt: string;
+	isDraft: boolean;
 	_prNumber?: number;
 	_repoFullName?: string;
 }
@@ -107,6 +108,7 @@ export interface PopupFilters {
 	owners: string[];
 	repos: string[];
 	ageRange: string;
+	drafts: 'only' | 'include' | 'exclude';
 }
 
 export interface PopupAuthorFilterOption {
