@@ -1,5 +1,5 @@
 import type { PullRequestData, Settings, StoredProviderConfig } from './types';
-import { storageLocalClear, storageLocalGet, storageLocalRemove, storageLocalSet } from './extension-api';
+import { storageLocalClear, storageLocalGet, storageLocalSet } from './extension-api';
 import { normalizeSettings } from './ui-config';
 
 const STORAGE_KEYS = {
@@ -22,20 +22,12 @@ async function set<T>(key: string, value: T): Promise<void> {
 	return storageLocalSet({ [key]: value });
 }
 
-async function remove(key: string): Promise<void> {
-	return storageLocalRemove([key]);
-}
-
 async function getProvider(): Promise<StoredProviderConfig | undefined> {
 	return get<StoredProviderConfig>(STORAGE_KEYS.PROVIDER);
 }
 
 async function setProvider(provider: StoredProviderConfig): Promise<void> {
 	return set(STORAGE_KEYS.PROVIDER, provider);
-}
-
-async function clearProvider(): Promise<void> {
-	return remove(STORAGE_KEYS.PROVIDER);
 }
 
 async function getPullRequests(): Promise<PullRequestData> {
@@ -104,10 +96,6 @@ async function isAuthenticated(): Promise<boolean> {
 	return !!(provider && provider.token && provider.user);
 }
 
-async function isOnboardingComplete(): Promise<boolean> {
-	return isAuthenticated();
-}
-
 async function clearAll(): Promise<void> {
 	return storageLocalClear();
 }
@@ -115,7 +103,6 @@ async function clearAll(): Promise<void> {
 export const storage = {
 	getProvider,
 	setProvider,
-	clearProvider,
 	getPullRequests,
 	setPullRequests,
 	getSettings,
@@ -124,6 +111,5 @@ export const storage = {
 	setSettings,
 	updateSetting,
 	isAuthenticated,
-	isOnboardingComplete,
 	clearAll,
 };

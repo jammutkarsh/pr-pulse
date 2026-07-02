@@ -79,8 +79,8 @@ npm install
 npm run generate
 ```
 
-2. Chrome / Chromium: Run `npm run generate:chrome`, open [chrome://extensions](chrome://extensions), enable **Developer mode**, click **Load unpacked**, and select the `pr-pulse/dist/chrome` folder.
-3. Firefox: Run `npm run generate:firefox`, open [about:debugging#/runtime/this-firefox](about:debugging#/runtime/this-firefox), click **Load Temporary Add-on**, and select `pr-pulse/dist/firefox/manifest.json`.
+2. Chrome / Chromium: Run `npm run generate:chrome`, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the `pr-pulse/dist/chrome` folder.
+3. Firefox: Run `npm run generate:firefox`, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and select `pr-pulse/dist/firefox/manifest.json`.
 4. Pin the extension to your toolbar for easy access
 
 <!-- ## Practical Value

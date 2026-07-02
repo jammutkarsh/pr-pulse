@@ -1,3 +1,5 @@
+import type { PullRequest } from './types';
+
 export function extractJiraTicket(branchName: string): string | null {
 	if (!branchName) return null;
 	const match = branchName.match(/([A-Z]+-\d+)/i);
@@ -29,12 +31,16 @@ export function getJiraUrl(ticketId: string, baseUrl: string): string {
 	return `${sanitizeJiraUrl(baseUrl)}/browse/${ticketId}`;
 }
 
-export function getReviewStatusDisplay(status: string) {
+export function getReviewStatusDisplay(status: string, openThreadCount?: number) {
 	switch (status) {
 		case 'approved':
 			return { label: 'Approved', icon: '✓', className: 'status-approved' };
-		case 'changes_requested':
-			return { label: 'Changes Requested', icon: '✗', className: 'status-changes' };
+		case 'changes_requested': {
+			const label = openThreadCount && openThreadCount > 0
+				? `Changes Requested (${openThreadCount})`
+				: 'Changes Requested';
+			return { label, icon: '✗', className: 'status-changes' };
+		}
 		case 'pending':
 		default:
 			return { label: 'Review Pending', icon: '⏳', className: 'status-pending' };
@@ -57,18 +63,7 @@ export function getCheckStatusDisplay(status: string) {
 
 
 export async function copyToClipboard(text: string): Promise<void> {
-	try {
-		await navigator.clipboard.writeText(text);
-	} catch {
-		const textArea = document.createElement('textarea');
-		textArea.value = text;
-		textArea.style.position = 'fixed';
-		textArea.style.left = '-9999px';
-		document.body.appendChild(textArea);
-		textArea.select();
-		document.execCommand('copy');
-		document.body.removeChild(textArea);
-	}
+	await navigator.clipboard.writeText(text);
 }
 
 export function formatRelativeTime(date: string | number | Date): string {
@@ -136,6 +131,51 @@ export function isValidTokenFormat(token: string): boolean {
 	const classicPattern = /^ghp_[a-zA-Z0-9]{36}$/;
 	const fineGrainedPattern = /^github_pat_[a-zA-Z0-9_]{22,}$/;
 	return classicPattern.test(token) || fineGrainedPattern.test(token);
+}
+
+export function filterPullRequests(
+	items: PullRequest[],
+	filters: {
+		authors?: string[];
+		owners?: string[];
+		repos?: string[];
+		drafts?: 'only' | 'include' | 'exclude';
+		showReviewed?: boolean;
+	}
+): PullRequest[] {
+	let result = items;
+
+	if (filters.drafts === 'exclude') {
+		result = result.filter((pr) => !pr.isDraft);
+	} else if (filters.drafts === 'only') {
+		result = result.filter((pr) => pr.isDraft);
+	}
+
+	if (filters.authors && filters.authors.length > 0) {
+		result = result.filter((pr) => {
+			const authorLogin = pr.author?.login || '';
+			return filters.authors!.includes(authorLogin);
+		});
+	}
+
+	if (filters.repos && filters.repos.length > 0) {
+		result = result.filter((pr) => {
+			return filters.repos!.includes(pr.repoFullName);
+		});
+	}
+
+	if (filters.owners && filters.owners.length > 0) {
+		result = result.filter((pr) => {
+			const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+			return filters.owners!.includes(ownerLogin);
+		});
+	}
+
+	if (filters.showReviewed === false) {
+		result = result.filter((pr) => pr.reviews.status !== 'approved');
+	}
+
+	return result;
 }
 
 export function safeParseInt(value: unknown, defaultValue = 0): number {

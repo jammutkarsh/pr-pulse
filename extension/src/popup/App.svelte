@@ -23,6 +23,7 @@
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
 		copyToClipboard,
+		filterPullRequests,
 		formatRelativeTime,
 		isValidHttpUrl,
 	} from '../../lib/utils';
@@ -47,6 +48,7 @@
 			repos: [],
 			ageRange: '',
 			drafts: 'exclude',
+			showReviewed: false,
 		};
 	}
 
@@ -64,6 +66,7 @@
 			repos: [...filters.repos],
 			ageRange: filters.ageRange,
 			drafts: filters.drafts,
+			showReviewed: filters.showReviewed,
 		};
 	}
 
@@ -145,50 +148,6 @@
 		return uniqueReposList;
 	}
 
-	function filterPullRequests(
-		items: PullRequest[],
-		filters: {
-			authors?: string[];
-			owners?: string[];
-			repos?: string[];
-			drafts?: 'only' | 'include' | 'exclude';
-		}
-	): PullRequest[] {
-		let result = items;
-
-		// 1. Filter by Drafts
-		if (filters.drafts === 'exclude') {
-			result = result.filter((pr) => !pr.isDraft);
-		} else if (filters.drafts === 'only') {
-			result = result.filter((pr) => pr.isDraft);
-		}
-
-		// 2. Filter by Author
-		if (filters.authors && filters.authors.length > 0) {
-			result = result.filter((pr) => {
-				const authorLogin = pr.author?.login || '';
-				return filters.authors!.includes(authorLogin);
-			});
-		}
-
-		// 3. Filter by Repository
-		if (filters.repos && filters.repos.length > 0) {
-			result = result.filter((pr) => {
-				return filters.repos!.includes(pr.repoFullName);
-			});
-		}
-
-		// 4. Filter by Owner
-		if (filters.owners && filters.owners.length > 0) {
-			result = result.filter((pr) => {
-				const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-				return filters.owners!.includes(ownerLogin);
-			});
-		}
-
-		return result;
-	}
-
 	function toStringArray(value: unknown): string[] {
 		if (!Array.isArray(value)) {
 			return [];
@@ -204,6 +163,7 @@
 		const repos = toStringArray(storedFilters.repos);
 		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
 		const drafts = storedFilters.drafts === 'only' || storedFilters.drafts === 'include' ? storedFilters.drafts : 'exclude';
+		const showReviewed = typeof storedFilters.showReviewed === 'boolean' ? storedFilters.showReviewed : false;
 
 		return {
 			...DEFAULT_FILTERS,
@@ -212,6 +172,7 @@
 			owners,
 			ageRange,
 			drafts,
+			showReviewed,
 		};
 	}
 
@@ -469,13 +430,14 @@
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
 	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
+	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed && currentTab === 'toReview' ? 1 : 0));
 	let filterActive = $derived(filterCount > 0);
 	let preSearchItems = $derived(filterPullRequests(currentItems, {
 		authors: activeFilters.authors,
 		owners: activeFilters.owners,
 		repos: activeFilters.repos,
 		drafts: activeFilters.drafts,
+		showReviewed: currentTab === 'toReview' ? activeFilters.showReviewed : undefined,
 	}));
 	let fuseIndex = $derived.by(() => {
 		const searchInput: SearchablePullRequest[] = preSearchItems.map((pr) => ({
@@ -526,6 +488,37 @@
 			console.error('Failed to clear persisted filter state:', error);
 		});
 	});
+
+	// Sync filtered count to badge when badgeCountMode is 'filters'
+	// Always use the pinned (default) tab's data — never the current popup tab
+	let pinnedTabItems = $derived(settings.pinnedTab === 'myPRs' ? (prData.myPRs || []) : (prData.reviewRequests || []));
+	let pinnedTabFilters = $derived(currentTab === settings.pinnedTab ? activeFilters : filtersByTab[settings.pinnedTab]);
+	let pinnedTabFilterActive = $derived(
+		pinnedTabFilters.authors.length +
+		pinnedTabFilters.owners.length +
+		pinnedTabFilters.repos.length +
+		(pinnedTabFilters.drafts !== 'exclude' ? 1 : 0) +
+		(pinnedTabFilters.showReviewed && settings.pinnedTab === 'toReview' ? 1 : 0) > 0
+	);
+	let pinnedTabFilteredItems = $derived(filterPullRequests(pinnedTabItems, {
+		authors: pinnedTabFilters.authors,
+		owners: pinnedTabFilters.owners,
+		repos: pinnedTabFilters.repos,
+		drafts: pinnedTabFilters.drafts,
+		showReviewed: settings.pinnedTab === 'toReview' ? pinnedTabFilters.showReviewed : undefined,
+	}));
+	let totalCount = $derived(settings.pinnedTab === 'myPRs' ? myPrCount : reviewCount);
+
+	$effect(() => {
+		if (settings.badgeCountMode !== 'filters') {
+			return;
+		}
+
+		const targetCount = pinnedTabFilterActive ? pinnedTabFilteredItems.length : totalCount;
+		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
+			console.error('Failed to update badge count:', error);
+		});
+	});
 </script>
 
 
@@ -561,6 +554,7 @@
 						hasAuthorFilter={hasAuthorFilter}
 						hasOwnerFilter={hasOwnerFilter}
 						hasRepoFilter={hasRepoFilter}
+						isToReviewTab={currentTab === 'toReview'}
 						bind:query={searchQuery}
 						bind:activeFilters={activeFilters}
 						bind:isSearchOpen={isSearchOpen}

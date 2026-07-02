@@ -2,6 +2,7 @@
 	import {
 		Check,
 		Copy,
+		ExternalLink,
 		FileDiff,
 		FolderGit2,
 		GitBranch,
@@ -123,7 +124,7 @@
 		return 'pr-card-warning';
 	}
 
-	let reviewDisplay = $derived(getReviewStatusDisplay(pr.reviews?.status));
+	let reviewDisplay = $derived(getReviewStatusDisplay(pr.reviews?.status, pr.reviews?.openThreadCount));
 	let checkDisplay = $derived(getCheckStatusDisplay(pr.checks?.status));
 	let jiraLink = $derived(getJiraLink(pr));
 	let branchUrl = $derived(getBranchUrl(pr));
@@ -132,8 +133,15 @@
 		? 'flex flex-wrap gap-x-5 gap-y-1.5 text-xs'
 		: 'flex min-w-0 items-center gap-2.5 text-xs');
 	let checkStatusClasses = $derived(isFullpageMode
-		? 'unstyled-button status-inline transition-opacity hover:opacity-80'
-		: 'unstyled-button status-inline min-w-0 transition-opacity hover:opacity-80');
+		? 'unstyled-button status-inline group'
+		: 'unstyled-button status-inline min-w-0 group');
+	let reviewUrl = $derived(
+		pr.reviews?.status === 'changes_requested'
+			? (pr.reviews?.changesRequestedReviewId
+				? `${pr.url}#pullrequestreview-${pr.reviews.changesRequestedReviewId}`
+				: `${pr.url}/files`)
+			: pr.url
+	);
 </script>
 
 <SectionCard className={`p-3.5 transition-opacity pr-card-status ${getCardStatusClass(pr)} ${pr.isDraft ? 'opacity-80' : ''}`}>
@@ -211,11 +219,16 @@
 				>
 					<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
 					<span class="status-inline-label">{checkDisplay.label}</span>
+					<ExternalLink class="status-link-icon h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
 				</button>
-				<span class={`status-inline min-w-0 ${getReviewToneClass(reviewDisplay.className)}`}>
+				<button
+				class={`unstyled-button status-inline min-w-0 group ${getReviewToneClass(reviewDisplay.className)}`}
+					onclick={() => onOpenUrl(reviewUrl)}
+				>
 					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
-				</span>
+					<ExternalLink class="status-link-icon h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+				</button>
 				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none text-dim" title={createdAtText}>
 					<Clock class="h-3 w-3" />
 					<span>{formatPrAge(pr.createdAt)}</span>

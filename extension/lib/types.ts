@@ -1,4 +1,4 @@
-export type ProviderType = 'github' | 'gitlab' | 'bitbucket';
+export type ProviderType = 'github';
 
 export interface User {
 	login: string;
@@ -44,6 +44,8 @@ export interface PullRequestReviews {
 	status: 'approved' | 'changes_requested' | 'pending';
 	reviewers: PullRequestReviewer[];
 	pendingReviewers?: string[];
+	openThreadCount?: number;
+	changesRequestedReviewId?: number;
 }
 
 export interface PullRequest {
@@ -94,6 +96,7 @@ export interface Settings {
 	visibleColumns: string[];
 	pollingIntervalMs: number;
 	persistFilters: boolean;
+	badgeCountMode: 'total' | 'filters';
 	ui: UiConfig;
 }
 
@@ -109,6 +112,7 @@ export interface PopupFilters {
 	repos: string[];
 	ageRange: string;
 	drafts: 'only' | 'include' | 'exclude';
+	showReviewed: boolean;
 }
 
 export interface PopupAuthorFilterOption {
@@ -134,6 +138,7 @@ export type RuntimeMessage =
 	| { type: 'GET_PRS' }
 	| { type: 'UPDATE_SETTINGS'; settings: Partial<Settings> }
 	| { type: 'SETTINGS_UPDATED'; settings: Partial<Settings> }
+	| { type: 'UPDATE_BADGE_COUNT'; count: number }
 	| { type: 'CLEAR_ALL' };
 
 export interface ProviderErrorDetails {

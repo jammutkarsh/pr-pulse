@@ -22,6 +22,7 @@
         repos: [],
         ageRange: '',
         drafts: 'exclude',
+        showReviewed: false,
     };
 
     interface Props {
@@ -36,6 +37,7 @@
         hasAuthorFilter?: boolean;
         hasOwnerFilter?: boolean;
         hasRepoFilter?: boolean;
+        isToReviewTab?: boolean;
         isSearchOpen?: boolean;
         isFilterOpen?: boolean;
         embedded?: boolean;
@@ -54,6 +56,7 @@
         hasAuthorFilter = false,
         hasOwnerFilter = false,
         hasRepoFilter = false,
+        isToReviewTab = false,
         isSearchOpen = $bindable(false),
         isFilterOpen = $bindable(false),
         embedded = false,
@@ -64,7 +67,6 @@
         authors: false,
         owners: false,
         repos: false,
-        // age: false,
     });
 
     let searchInput = $state<HTMLInputElement | null>(null);
@@ -176,15 +178,6 @@
 
         activeFilters = { ...activeFilters, owners };
     }
-
-    /*
-    function selectAgeRange(value: string) {
-        activeFilters = {
-            ...activeFilters,
-            ageRange: activeFilters.ageRange === value ? '' : value,
-        };
-    }
-    */
 
     function clearSearch() {
         query = '';
@@ -299,9 +292,7 @@
     let showAuthorSearch = $derived(shouldShowSectionSearch(visibleAuthors.length));
     let showOwnerSearch = $derived(shouldShowSectionSearch(visibleOwners.length));
     let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
-    // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-    // let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
+    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed && isToReviewTab ? 1 : 0));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
     let filterPanelMaxHeight = $derived(fullpageMode ? 'min(40rem, calc(100vh - 13rem))' : '22rem');
@@ -330,18 +321,12 @@
             value: activeFilters.drafts === 'only' ? 'Only' : 'Included',
             onRemove: () => { activeFilters = { ...activeFilters, drafts: 'exclude' }; },
         }] : []),
-        /*
-        ...(activeFilters.ageRange
-            ? [
-                    {
-                        key: `age:${activeFilters.ageRange}`,
-                        label: 'Age',
-                        value: AGE_OPTIONS.find((option) => option.value === activeFilters.ageRange)?.label || activeFilters.ageRange,
-                        onRemove: () => selectAgeRange(activeFilters.ageRange),
-                    },
-                ]
-            : []),
-        */
+        ...(activeFilters.showReviewed && isToReviewTab ? [{
+            key: 'reviewed',
+            label: 'Reviewed PRs',
+            value: 'Shown',
+            onRemove: () => { activeFilters = { ...activeFilters, showReviewed: false }; },
+        }] : []),
     ]);
 
     $effect(() => {
@@ -479,6 +464,22 @@
                             </label>
                         </div>
                     </div>
+
+                    {#if isToReviewTab}
+                        <div class="rounded-lg border border-soft px-3 py-2">
+                            <span class="block text-sm font-medium text-white mb-2">Review Status</span>
+                            <div class="flex flex-col gap-1">
+                                <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                    <input type="radio" name="review_filter" value="pending" checked={!activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: false }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
+                                    <span class="min-w-0 flex-1 text-soft">Only pending review</span>
+                                </label>
+                                <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                    <input type="radio" name="review_filter" value="all" checked={activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: true }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
+                                    <span class="min-w-0 flex-1 text-soft">Show reviewed PRs</span>
+                                </label>
+                            </div>
+                        </div>
+                    {/if}
 
                     {#if showOwnerFilter}
                         <div class="overflow-hidden rounded-lg border border-soft">
@@ -633,39 +634,6 @@
                             {/if}
                         </div>
                     {/if}
-
-                    <!--
-                    <div class="overflow-hidden rounded-lg border border-soft">
-                        <button
-                            class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
-                            on:click={() => toggleSection('age')}
-                        >
-                            <span class="flex items-center gap-2">
-                                    {#if expandedSections.age}
-                                        <ChevronDown class="h-4 w-4 text-soft" />
-                                    {:else}
-                                        <ChevronRight class="h-4 w-4 text-soft" />
-                                    {/if}
-                                    <span>Age</span>
-                                </span>
-                            </button>
-
-                        {#if expandedSections.age}
-                            <div class="border-t border-soft px-3 py-2">
-                                <div class="grid grid-cols-3 gap-2">
-                                    {#each AGE_OPTIONS as option (option.value)}
-                                        <button
-                                            class={`unstyled-button rounded-md border px-2 py-1.5 text-center text-xs font-medium transition ${activeFilters.ageRange === option.value ? 'border-(--accent) bg-(--accent)/10 text-(--accent)' : 'border-soft text-soft hover:bg-(--bg-muted) hover:text-white'}`}
-                                            on:click={() => selectAgeRange(option.value)}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-                    -->
 
                 </div>
             </div>

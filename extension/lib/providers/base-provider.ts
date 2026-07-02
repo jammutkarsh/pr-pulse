@@ -1,6 +1,6 @@
 import type { ProviderConfig, PullRequest, PullRequestChecks, PullRequestReviews, User } from '../types';
 
-export class BaseProvider {
+export abstract class BaseProvider {
 	name = 'base';
 	displayName = 'Base Provider';
 	baseUrl = '';
@@ -10,39 +10,12 @@ export class BaseProvider {
 		this.token = config.token || '';
 	}
 
-	async authenticate(): Promise<User> {
-		throw new Error('authenticate() not implemented');
-	}
-
-	async getUser(): Promise<User> {
-		throw new Error('getUser() not implemented');
-	}
-
-	// fallow-ignore-next-line unused-class-member
-	async getMyPullRequests(): Promise<PullRequest[]> {
-		throw new Error('getMyPullRequests() not implemented');
-	}
-
-	// fallow-ignore-next-line unused-class-member
-	async getReviewRequests(): Promise<PullRequest[]> {
-		throw new Error('getReviewRequests() not implemented');
-	}
-
-	async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<unknown> {
-		void repoFullName;
-		void prNumber;
-		throw new Error('getPullRequestDetails() not implemented');
-	}
-
-	async getCheckStatus(repoFullName: string, commitSha: string): Promise<PullRequestChecks> {
-		void repoFullName;
-		void commitSha;
-		throw new Error('getCheckStatus() not implemented');
-	}
-
-	async getReviewStatus(repoFullName: string, prNumber: number): Promise<PullRequestReviews> {
-		void repoFullName;
-		void prNumber;
-		throw new Error('getReviewStatus() not implemented');
-	}
+	abstract authenticate(): Promise<User>;
+	abstract getUser(): Promise<User>;
+	abstract getMyPullRequests(): Promise<PullRequest[]>;
+	abstract getReviewRequests(): Promise<PullRequest[]>;
+	abstract getReviewedPRs(): Promise<PullRequest[]>;
+	abstract getPullRequestDetails(repoFullName: string, prNumber: number): Promise<unknown>;
+	abstract getCheckStatus(repoFullName: string, commitSha: string): Promise<PullRequestChecks>;
+	abstract getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers?: string[]): Promise<PullRequestReviews>;
 }
