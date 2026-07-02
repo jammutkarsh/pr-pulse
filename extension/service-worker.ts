@@ -75,8 +75,15 @@ async function restoreBadgeFromStorage(): Promise<void> {
 
 async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 	const { settings } = await getRuntimeConfig();
-	const count = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
-	await updateBadge(count);
+	const totalCount = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
+
+	if (settings.badgeCountMode === 'filters') {
+		// In filters mode, the popup controls the badge.
+		// Still update to total as a fallback, unless a filtered count was recently sent.
+		return;
+	}
+
+	await updateBadge(totalCount);
 }
 
 async function updateBadge(count: number): Promise<void> {
@@ -176,10 +183,16 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 	SETTINGS_UPDATED: async (message) => {
 		if ('settings' in message) {
 			cachedSettings = cachedSettings ? { ...cachedSettings, ...message.settings } : await storage.getSettings();
-			if (message.settings.pinnedTab) {
+			if (message.settings.pinnedTab || message.settings.badgeCountMode) {
 				const data = await storage.getPullRequests();
 				await updateBadgeFromSettings(data);
 			}
+		}
+		return { success: true };
+	},
+	UPDATE_BADGE_COUNT: async (message) => {
+		if ('count' in message) {
+			await updateBadge(message.count);
 		}
 		return { success: true };
 	},

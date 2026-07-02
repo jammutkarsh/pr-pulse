@@ -370,6 +370,22 @@
 		</SectionCard>
 
 		<SectionCard>
+			<div class="mb-4 flex items-center gap-3">
+				<div class="rounded-2xl bg-white/6 p-3 text-white">
+					<GitPullRequest class="h-5 w-5" />
+				</div>
+				<div>
+					<h2 class="text-base font-semibold text-white">Badge Count</h2>
+					<p class="text-sm text-soft">Choose what the icon badge number represents.</p>
+				</div>
+			</div>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<RadioCard name="badgeCountMode" value="total" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Total PRs" description="Show the total number of pull requests in the pinned tab." iconComponent={GitPullRequest} onchange={async () => { await updateSetting('badgeCountMode', 'total'); await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { badgeCountMode: 'total' } }); }} />
+				<RadioCard name="badgeCountMode" value="filters" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Filtered PRs" description="Show the count matching your active filters and search." iconComponent={ListFilter} onchange={async () => { await updateSetting('badgeCountMode', 'filters'); await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { badgeCountMode: 'filters' } }); }} />
+			</div>
+		</SectionCard>
+
+		<SectionCard>
 			<div class="mb-0 flex items-center gap-3">
 				<div class="rounded-2xl bg-white/6 p-3 text-white">
 					<Sparkles class="h-5 w-5" />

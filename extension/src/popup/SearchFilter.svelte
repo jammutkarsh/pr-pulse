@@ -22,6 +22,7 @@
         repos: [],
         ageRange: '',
         drafts: 'exclude',
+        showReviewed: false,
     };
 
     interface Props {
@@ -36,6 +37,7 @@
         hasAuthorFilter?: boolean;
         hasOwnerFilter?: boolean;
         hasRepoFilter?: boolean;
+        isToReviewTab?: boolean;
         isSearchOpen?: boolean;
         isFilterOpen?: boolean;
         embedded?: boolean;
@@ -54,6 +56,7 @@
         hasAuthorFilter = false,
         hasOwnerFilter = false,
         hasRepoFilter = false,
+        isToReviewTab = false,
         isSearchOpen = $bindable(false),
         isFilterOpen = $bindable(false),
         embedded = false,
@@ -301,7 +304,7 @@
     let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
     // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
     // let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
+    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed ? 1 : 0));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
     let filterPanelMaxHeight = $derived(fullpageMode ? 'min(40rem, calc(100vh - 13rem))' : '22rem');
@@ -329,6 +332,12 @@
             label: 'Draft PRs',
             value: activeFilters.drafts === 'only' ? 'Only' : 'Included',
             onRemove: () => { activeFilters = { ...activeFilters, drafts: 'exclude' }; },
+        }] : []),
+        ...(activeFilters.showReviewed ? [{
+            key: 'reviewed',
+            label: 'Reviewed PRs',
+            value: 'Shown',
+            onRemove: () => { activeFilters = { ...activeFilters, showReviewed: false }; },
         }] : []),
         /*
         ...(activeFilters.ageRange
@@ -479,6 +488,22 @@
                             </label>
                         </div>
                     </div>
+
+                    {#if isToReviewTab}
+                        <div class="rounded-lg border border-soft px-3 py-2">
+                            <span class="block text-sm font-medium text-white mb-2">Review Status</span>
+                            <div class="flex flex-col gap-1">
+                                <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                    <input type="radio" name="review_filter" value="pending" checked={!activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: false }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
+                                    <span class="min-w-0 flex-1 text-soft">Only pending review</span>
+                                </label>
+                                <label class="flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition cursor-pointer hover:bg-(--bg-muted)">
+                                    <input type="radio" name="review_filter" value="all" checked={activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: true }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
+                                    <span class="min-w-0 flex-1 text-soft">Show reviewed PRs</span>
+                                </label>
+                            </div>
+                        </div>
+                    {/if}
 
                     {#if showOwnerFilter}
                         <div class="overflow-hidden rounded-lg border border-soft">

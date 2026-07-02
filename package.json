@@ -65,9 +65,13 @@
     "globals": "^17.4.0",
     "svelte-check": "^4.4.5",
     "tailwindcss": "^4.3.0",
-    "tsx": "^4.20.6",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
     "vite": "^8.0.1"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true,
+    "esbuild@0.27.7": true
   }
 }

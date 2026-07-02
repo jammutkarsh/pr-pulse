@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	visibleColumns: ['title', 'author', 'checks', 'reviewStatus', 'repo', 'changes', 'jira'],
 	pollingIntervalMs: 600000,
 	persistFilters: true,
+	badgeCountMode: 'total',
 	ui: DEFAULT_UI_CONFIG,
 };
 

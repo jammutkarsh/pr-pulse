@@ -29,12 +29,16 @@ export function getJiraUrl(ticketId: string, baseUrl: string): string {
 	return `${sanitizeJiraUrl(baseUrl)}/browse/${ticketId}`;
 }
 
-export function getReviewStatusDisplay(status: string) {
+export function getReviewStatusDisplay(status: string, unresolvedCount?: number) {
 	switch (status) {
 		case 'approved':
 			return { label: 'Approved', icon: '✓', className: 'status-approved' };
-		case 'changes_requested':
-			return { label: 'Changes Requested', icon: '✗', className: 'status-changes' };
+		case 'changes_requested': {
+			const label = unresolvedCount && unresolvedCount > 0
+				? `Changes Requested (${unresolvedCount})`
+				: 'Changes Requested';
+			return { label, icon: '✗', className: 'status-changes' };
+		}
 		case 'pending':
 		default:
 			return { label: 'Review Pending', icon: '⏳', className: 'status-pending' };

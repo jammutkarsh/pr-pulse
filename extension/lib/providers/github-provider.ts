@@ -217,6 +217,11 @@ export class GitHubProvider extends BaseProvider {
 		return this.#fetchPRsWithQuery('review-requested:@me+type:pr+state:open');
 	}
 
+	// fallow-ignore-next-line unused-class-member
+	getReviewedPRs(): Promise<PullRequest[]> {
+		return this.#fetchPRsWithQuery('reviewed-by:@me+-author:@me+type:pr+state:open');
+	}
+
 	async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<PullRequestDetails> {
 		const data = await this.#request<{
 			head?: { ref?: string; sha?: string };
@@ -306,7 +311,7 @@ export class GitHubProvider extends BaseProvider {
 	}
 
 	async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
-		const data = await this.#request<Array<{ state: string; user: { login: string; avatar_url: string } }>>(`/repos/${repoFullName}/pulls/${prNumber}/reviews`);
+		const data = await this.#request<Array<{ id: number; state: string; user: { login: string; avatar_url: string } }>>(`/repos/${repoFullName}/pulls/${prNumber}/reviews`);
 		const reRequestedSet = new Set(requestedReviewers);
 		const reviewerMap = new Map<string, { login: string; avatarUrl: string; state: string }>();
 
@@ -328,6 +333,29 @@ export class GitHubProvider extends BaseProvider {
 
 		const reviewers = Array.from(reviewerMap.values());
 		const status = this.#resolveReviewVerdict(reviewers, requestedReviewers.length > 0);
-		return { status, reviewers, pendingReviewers: requestedReviewers };
+
+		// Capture the most recent changes-requested review ID for deep-linking
+		let changesRequestedReviewId: number | undefined;
+		let unresolvedThreadCount: number | undefined;
+		if (status === 'changes_requested') {
+			const changesRequestedReviews = data.filter((r) => r.state === 'CHANGES_REQUESTED');
+			if (changesRequestedReviews.length > 0) {
+				changesRequestedReviewId = changesRequestedReviews[changesRequestedReviews.length - 1].id;
+				console.log(`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`);
+			} else {
+				console.warn(`PR #${prNumber}: status=changes_requested but no CHANGES_REQUESTED reviews in data. Review states:`, data.map(r => `${r.id}:${r.state}`));
+			}
+
+			try {
+				const comments = await this.#request<Array<{ in_reply_to_id?: number }>>(
+					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`
+				);
+				unresolvedThreadCount = comments.filter((c) => !c.in_reply_to_id).length;
+			} catch (error) {
+				console.warn(`Failed to count unresolved threads for PR #${prNumber}:`, error);
+			}
+		}
+
+		return { status, reviewers, pendingReviewers: requestedReviewers, unresolvedThreadCount, changesRequestedReviewId };
 	}
 }

@@ -69,15 +69,30 @@ class ProviderManager {
 		return this.#ensureProvider().getReviewRequests();
 	}
 
+	getReviewedPRs(): Promise<PullRequest[]> {
+		return this.#ensureProvider().getReviewedPRs();
+	}
+
 	async fetchAllPullRequests(): Promise<PullRequestData> {
-		const [myPRs, reviewRequests] = await Promise.all([
+		const [myPRs, reviewRequests, reviewedPRs] = await Promise.all([
 			this.getMyPullRequests(),
 			this.getReviewRequests(),
+			this.getReviewedPRs(),
 		]);
+
+		// ponytail: merge reviewed PRs into reviewRequests, dedupe by id — fetchAllPullRequests does 3 parallel queries
+		const seen = new Set(reviewRequests.map((pr) => pr.id));
+		const mergedReviewRequests = [...reviewRequests];
+		for (const pr of reviewedPRs) {
+			if (!seen.has(pr.id)) {
+				seen.add(pr.id);
+				mergedReviewRequests.push(pr);
+			}
+		}
 
 		return {
 			myPRs,
-			reviewRequests,
+			reviewRequests: mergedReviewRequests,
 			lastFetched: null,
 		};
 	}

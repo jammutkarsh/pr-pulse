@@ -47,6 +47,7 @@
 			repos: [],
 			ageRange: '',
 			drafts: 'exclude',
+			showReviewed: false,
 		};
 	}
 
@@ -64,6 +65,7 @@
 			repos: [...filters.repos],
 			ageRange: filters.ageRange,
 			drafts: filters.drafts,
+			showReviewed: filters.showReviewed,
 		};
 	}
 
@@ -152,6 +154,7 @@
 			owners?: string[];
 			repos?: string[];
 			drafts?: 'only' | 'include' | 'exclude';
+			showReviewed?: boolean;
 		}
 	): PullRequest[] {
 		let result = items;
@@ -186,6 +189,11 @@
 			});
 		}
 
+		// 5. Filter by review status (hide already-reviewed when showReviewed is false)
+		if (filters.showReviewed === false) {
+			result = result.filter((pr) => pr.reviews.status === 'pending');
+		}
+
 		return result;
 	}
 
@@ -204,6 +212,7 @@
 		const repos = toStringArray(storedFilters.repos);
 		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
 		const drafts = storedFilters.drafts === 'only' || storedFilters.drafts === 'include' ? storedFilters.drafts : 'exclude';
+		const showReviewed = typeof storedFilters.showReviewed === 'boolean' ? storedFilters.showReviewed : false;
 
 		return {
 			...DEFAULT_FILTERS,
@@ -212,6 +221,7 @@
 			owners,
 			ageRange,
 			drafts,
+			showReviewed,
 		};
 	}
 
@@ -469,13 +479,14 @@
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
 	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0));
+	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed ? 1 : 0));
 	let filterActive = $derived(filterCount > 0);
 	let preSearchItems = $derived(filterPullRequests(currentItems, {
 		authors: activeFilters.authors,
 		owners: activeFilters.owners,
 		repos: activeFilters.repos,
 		drafts: activeFilters.drafts,
+		showReviewed: currentTab === 'toReview' ? activeFilters.showReviewed : undefined,
 	}));
 	let fuseIndex = $derived.by(() => {
 		const searchInput: SearchablePullRequest[] = preSearchItems.map((pr) => ({
@@ -526,6 +537,37 @@
 			console.error('Failed to clear persisted filter state:', error);
 		});
 	});
+
+	// Sync filtered count to badge when badgeCountMode is 'filters'
+	let totalCount = $derived(currentTab === 'myPRs' ? myPrCount : reviewCount);
+
+	$effect(() => {
+		if (settings.badgeCountMode !== 'filters') {
+			return;
+		}
+
+		const targetCount = searchActive || filterActive ? filteredItems.length : totalCount;
+		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
+			console.error('Failed to update badge count:', error);
+		});
+	});
+
+	// Revert badge to total count when popup closes
+	$effect(() => {
+		function revertBadge() {
+			if (settings.badgeCountMode === 'filters') {
+				void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: totalCount }).catch(() => {});
+			}
+		}
+
+		window.addEventListener('pagehide', revertBadge);
+		window.addEventListener('beforeunload', revertBadge);
+
+		return () => {
+			window.removeEventListener('pagehide', revertBadge);
+			window.removeEventListener('beforeunload', revertBadge);
+		};
+	});
 </script>
 
 
@@ -561,6 +603,7 @@
 						hasAuthorFilter={hasAuthorFilter}
 						hasOwnerFilter={hasOwnerFilter}
 						hasRepoFilter={hasRepoFilter}
+						isToReviewTab={currentTab === 'toReview'}
 						bind:query={searchQuery}
 						bind:activeFilters={activeFilters}
 						bind:isSearchOpen={isSearchOpen}

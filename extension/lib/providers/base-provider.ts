@@ -28,6 +28,11 @@ export class BaseProvider {
 		throw new Error('getReviewRequests() not implemented');
 	}
 
+	// fallow-ignore-next-line unused-class-member
+	async getReviewedPRs(): Promise<PullRequest[]> {
+		throw new Error('getReviewedPRs() not implemented');
+	}
+
 	async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<unknown> {
 		void repoFullName;
 		void prNumber;
