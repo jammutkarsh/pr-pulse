@@ -77,11 +77,6 @@ async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 	const { settings } = await getRuntimeConfig();
 	const totalCount = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
 
-	if (settings.badgeCountMode === 'filters') {
-		// In filters mode, the popup controls the badge during its session.
-		// Update to total as a fallback for when the popup is not open.
-	}
-
 	await updateBadge(totalCount);
 }
 
