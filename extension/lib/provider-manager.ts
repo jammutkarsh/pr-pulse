@@ -1,7 +1,7 @@
 import { ProviderError } from './errors';
 import { GitHubProvider } from './providers/github-provider';
 import type { BaseProvider } from './providers/base-provider';
-import type { ProviderConfig, PullRequestData, ProviderType, User, PullRequest } from './types';
+import type { ProviderConfig, PullRequestData, ProviderType } from './types';
 
 type ProviderClass = new (config?: ProviderConfig) => BaseProvider;
 
@@ -37,10 +37,6 @@ class ProviderManager {
 		this.provider = provider;
 	}
 
-	getProvider(): BaseProvider | null {
-		return this.provider;
-	}
-
 	hasProvider(): boolean {
 		return this.provider !== null;
 	}
@@ -53,34 +49,17 @@ class ProviderManager {
 		return this.provider;
 	}
 
-	authenticate(): Promise<User> {
-		return this.#ensureProvider().authenticate();
-	}
-
-	getUser(): Promise<User> {
-		return this.#ensureProvider().getUser();
-	}
-
-	getMyPullRequests(): Promise<PullRequest[]> {
-		return this.#ensureProvider().getMyPullRequests();
-	}
-
-	getReviewRequests(): Promise<PullRequest[]> {
-		return this.#ensureProvider().getReviewRequests();
-	}
-
-	getReviewedPRs(): Promise<PullRequest[]> {
-		return this.#ensureProvider().getReviewedPRs();
-	}
-
 	async fetchAllPullRequests(): Promise<PullRequestData> {
+		const provider = this.#ensureProvider();
+
+		// ponytail: 3 parallel queries — the 3rd (reviewed-by) adds one extra GitHub search call per refresh.
+		// Gate behind a flag if rate limits ever matter.
 		const [myPRs, reviewRequests, reviewedPRs] = await Promise.all([
-			this.getMyPullRequests(),
-			this.getReviewRequests(),
-			this.getReviewedPRs(),
+			provider.getMyPullRequests(),
+			provider.getReviewRequests(),
+			provider.getReviewedPRs(),
 		]);
 
-		// ponytail: merge reviewed PRs into reviewRequests, dedupe by id — fetchAllPullRequests does 3 parallel queries
 		const seen = new Set(reviewRequests.map((pr) => pr.id));
 		const mergedReviewRequests = [...reviewRequests];
 		for (const pr of reviewedPRs) {

@@ -67,7 +67,6 @@
         authors: false,
         owners: false,
         repos: false,
-        // age: false,
     });
 
     let searchInput = $state<HTMLInputElement | null>(null);
@@ -179,15 +178,6 @@
 
         activeFilters = { ...activeFilters, owners };
     }
-
-    /*
-    function selectAgeRange(value: string) {
-        activeFilters = {
-            ...activeFilters,
-            ageRange: activeFilters.ageRange === value ? '' : value,
-        };
-    }
-    */
 
     function clearSearch() {
         query = '';
@@ -302,8 +292,6 @@
     let showAuthorSearch = $derived(shouldShowSectionSearch(visibleAuthors.length));
     let showOwnerSearch = $derived(shouldShowSectionSearch(visibleOwners.length));
     let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
-    // Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-    // let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
     let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed && isToReviewTab ? 1 : 0));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
@@ -339,18 +327,6 @@
             value: 'Shown',
             onRemove: () => { activeFilters = { ...activeFilters, showReviewed: false }; },
         }] : []),
-        /*
-        ...(activeFilters.ageRange
-            ? [
-                    {
-                        key: `age:${activeFilters.ageRange}`,
-                        label: 'Age',
-                        value: AGE_OPTIONS.find((option) => option.value === activeFilters.ageRange)?.label || activeFilters.ageRange,
-                        onRemove: () => selectAgeRange(activeFilters.ageRange),
-                    },
-                ]
-            : []),
-        */
     ]);
 
     $effect(() => {
@@ -658,39 +634,6 @@
                             {/if}
                         </div>
                     {/if}
-
-                    <!--
-                    <div class="overflow-hidden rounded-lg border border-soft">
-                        <button
-                            class="unstyled-button flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-white transition hover:bg-(--bg-muted)"
-                            on:click={() => toggleSection('age')}
-                        >
-                            <span class="flex items-center gap-2">
-                                    {#if expandedSections.age}
-                                        <ChevronDown class="h-4 w-4 text-soft" />
-                                    {:else}
-                                        <ChevronRight class="h-4 w-4 text-soft" />
-                                    {/if}
-                                    <span>Age</span>
-                                </span>
-                            </button>
-
-                        {#if expandedSections.age}
-                            <div class="border-t border-soft px-3 py-2">
-                                <div class="grid grid-cols-3 gap-2">
-                                    {#each AGE_OPTIONS as option (option.value)}
-                                        <button
-                                            class={`unstyled-button rounded-md border px-2 py-1.5 text-center text-xs font-medium transition ${activeFilters.ageRange === option.value ? 'border-(--accent) bg-(--accent)/10 text-(--accent)' : 'border-soft text-soft hover:bg-(--bg-muted) hover:text-white'}`}
-                                            on:click={() => selectAgeRange(option.value)}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-                    -->
 
                 </div>
             </div>

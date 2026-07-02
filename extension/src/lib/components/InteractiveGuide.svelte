@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import {
 		Copy,
 		FileDiff,
@@ -8,9 +8,9 @@
 	} from "lucide-svelte";
 	import SectionCard from "./SectionCard.svelte";
 
-	let activeTooltip = $state(null);
+	let activeTooltip = $state<string | null>(null);
 
-	const tooltips = {
+	const tooltips: Record<string, string> = {
 		title: "Opens Pull Request on GitHub",
 		copyPR: "Copies PR link",
 		repo: "Opens repository on GitHub",
@@ -19,7 +19,7 @@
 		branch: "Opens branch on GitHub",
 		copyBranch: "Copies branch name",
 		statusChecks: "Opens PR checks tab on GitHub",
-		statusReview: "Shows review status",
+		statusReview: "Opens review on GitHub",
 	};
 
 	// Context-aware color legend based on which element is hovered
@@ -49,7 +49,7 @@
 	let activeLegend = $derived(legendSets[activeTooltip] || legendSets.default);
 
 	// When hovering a legend pill, override card colors and text
-	let legendHoverTone = $state(null); // 'success' | 'warning' | 'danger' | null
+	let legendHoverTone = $state<string | null>(null);
 
 	const checkLabels = { success: 'All checks passed', warning: 'Checks pending', danger: 'Checks failed' };
 	const reviewLabels = { success: 'Approved', warning: 'Review pending', danger: 'Changes requested' };
@@ -65,7 +65,7 @@
 	let mouseX = $state(0);
 	let mouseY = $state(0);
 
-	function handleMousemove(e) {
+	function handleMousemove(e: MouseEvent) {
 		mouseX = e.clientX;
 		mouseY = e.clientY;
 	}
@@ -77,7 +77,7 @@
 	<!-- Tooltip Overlay -->
 	{#if activeTooltip}
 		<div
-			class="pointer-events-none fixed z-50 max-w-50 -translate-x-1/2 -translate-y-[120%] rounded-lg border border-soft bg-(--bg-panel-strong) px-3 py-2 text-center text-xs text-white shadow-xl transition-opacity animate-in fade-in duration-200"
+			class="pointer-events-none fixed z-50 max-w-50 -translate-x-1/2 translate-y-[-120%] rounded-lg border border-soft bg-(--bg-panel-strong) px-3 py-2 text-center text-xs text-white shadow-xl transition-opacity animate-in fade-in duration-200"
 			style="left: {mouseX}px; top: {mouseY}px;"
 		>
 			{tooltips[activeTooltip]}

@@ -568,24 +568,8 @@
 		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
 			console.error('Failed to update badge count:', error);
 		});
-	});
-
-	// Revert badge to total count when popup closes
-	$effect(() => {
-		function revertBadge() {
-			if (settings.badgeCountMode === 'filters') {
-				const revertCount = pinnedTabFilterActive ? pinnedTabFilteredItems.length : totalCount;
-				void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: revertCount }).catch(() => {});
-			}
-		}
-
-		window.addEventListener('pagehide', revertBadge);
-		window.addEventListener('beforeunload', revertBadge);
-
-		return () => {
-			window.removeEventListener('pagehide', revertBadge);
-			window.removeEventListener('beforeunload', revertBadge);
-		};
+		// ponytail: persist so service worker can restore filtered count on browser start before popup opens
+		void storage.setBadgeCount(targetCount).catch(() => {});
 	});
 </script>
 

@@ -77,7 +77,13 @@ async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 	const { settings } = await getRuntimeConfig();
 	const totalCount = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
 
-	await updateBadge(totalCount);
+	if (settings.badgeCountMode === 'filters') {
+		const persisted = await storage.getBadgeCount();
+		const count = persisted ?? totalCount;
+		await updateBadge(count);
+	} else {
+		await updateBadge(totalCount);
+	}
 }
 
 async function updateBadge(count: number): Promise<void> {

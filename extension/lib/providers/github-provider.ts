@@ -93,11 +93,11 @@ export class GitHubProvider extends BaseProvider {
 		}
 	}
 
-	authenticate(): Promise<User> {
+	override authenticate(): Promise<User> {
 		return this.getUser();
 	}
 
-	async getUser(): Promise<User> {
+	override async getUser(): Promise<User> {
 		const data = await this.#request<{ login: string; avatar_url: string; name?: string }>('/user');
 		return {
 			login: data.login,
@@ -207,22 +207,19 @@ export class GitHubProvider extends BaseProvider {
 		);
 	}
 
-	// fallow-ignore-next-line unused-class-member
-	getMyPullRequests(): Promise<PullRequest[]> {
+	override getMyPullRequests(): Promise<PullRequest[]> {
 		return this.#fetchPRsWithQuery('author:@me+type:pr+state:open');
 	}
 
-	// fallow-ignore-next-line unused-class-member
-	getReviewRequests(): Promise<PullRequest[]> {
+	override getReviewRequests(): Promise<PullRequest[]> {
 		return this.#fetchPRsWithQuery('review-requested:@me+type:pr+state:open');
 	}
 
-	// fallow-ignore-next-line unused-class-member
-	getReviewedPRs(): Promise<PullRequest[]> {
+	override getReviewedPRs(): Promise<PullRequest[]> {
 		return this.#fetchPRsWithQuery('reviewed-by:@me+-author:@me+type:pr+state:open');
 	}
 
-	async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<PullRequestDetails> {
+	override async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<PullRequestDetails> {
 		const data = await this.#request<{
 			head?: { ref?: string; sha?: string };
 			base?: {
@@ -278,7 +275,7 @@ export class GitHubProvider extends BaseProvider {
 		return allSuccess ? 'success' : 'pending';
 	}
 
-	async getCheckStatus(repoFullName: string, sha: string): Promise<PullRequestChecks> {
+	override async getCheckStatus(repoFullName: string, sha: string): Promise<PullRequestChecks> {
 		if (!sha) {
 			return { status: 'unknown', details: [] };
 		}
@@ -310,7 +307,7 @@ export class GitHubProvider extends BaseProvider {
 		return allApproved ? 'approved' : 'pending';
 	}
 
-	async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
+	override async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
 		const data = await this.#request<Array<{ id: number; state: string; user: { login: string; avatar_url: string } }>>(`/repos/${repoFullName}/pulls/${prNumber}/reviews`);
 		const reRequestedSet = new Set(requestedReviewers);
 		const reviewerMap = new Map<string, { login: string; avatarUrl: string; state: string }>();
@@ -341,7 +338,7 @@ export class GitHubProvider extends BaseProvider {
 			const changesRequestedReviews = data.filter((r) => r.state === 'CHANGES_REQUESTED');
 			if (changesRequestedReviews.length > 0) {
 				changesRequestedReviewId = changesRequestedReviews[changesRequestedReviews.length - 1].id;
-				console.log(`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`);
+				console.debug(`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`);
 			} else {
 				console.warn(`PR #${prNumber}: status=changes_requested but no CHANGES_REQUESTED reviews in data. Review states:`, data.map(r => `${r.id}:${r.state}`));
 			}
