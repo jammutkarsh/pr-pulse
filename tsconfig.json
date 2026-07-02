@@ -10,7 +10,11 @@
 		"strict": false,
 		"skipLibCheck": true,
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"types": ["chrome", "node"]
+		"types": ["chrome", "node"],
+		"paths": {
+			"@lib/*": ["./extension/lib/*"],
+			"@ui/*": ["./extension/src/ui/*"]
+		}
 	},
 	"include": [
 		"extension/global.d.ts",
@@ -19,6 +23,7 @@
 		"extension/**/*.svelte",
 		"extension/service-worker.ts",
 		"vite.config.ts",
-		"scripts/**/*.ts"
+		"scripts/**/*.ts",
+		"tests/**/*.ts"
 	]
 }

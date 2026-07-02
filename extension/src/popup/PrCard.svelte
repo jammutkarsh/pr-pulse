@@ -9,18 +9,23 @@
 		Ticket,
 		Clock,
 	} from 'lucide-svelte';
-	import SectionCard from '../lib/components/SectionCard.svelte';
+	import SectionCard from '@ui/components/SectionCard.svelte';
 	import {
-		extractJiraTicket,
 		getCheckStatusDisplay,
-		getJiraUrl,
 		getReviewStatusDisplay,
-		isValidHttpUrl,
 		safeParseInt,
 		formatLocalDateTime,
 		formatPrAge,
-	} from '../../lib/utils';
-	import type { PullRequest, Settings } from '../../lib/types';
+	} from '@lib/utils';
+	import {
+		getCheckToneClass,
+		getReviewToneClass,
+		getDotToneClass,
+		getBranchUrl,
+		getJiraLink,
+		getCardStatusClass,
+	} from '@ui/pr-card-helpers';
+	import type { PullRequest, Settings } from '@lib/types';
 
 	type PullRequestCardSettings = Pick<Settings, 'jiraBaseUrl'>;
 
@@ -42,97 +47,10 @@
 		onCopy = () => {}
 	}: Props = $props();
 
-	function getCheckToneClass(className: string) {
-		switch (className) {
-			case 'checks-success':
-				return 'status-inline-success';
-			case 'checks-failure':
-				return 'status-inline-danger';
-			case 'checks-pending':
-				return 'status-inline-warning';
-			default:
-				return 'status-inline-neutral';
-		}
-	}
-
-	function getReviewToneClass(className: string) {
-		switch (className) {
-			case 'status-approved':
-				return 'status-inline-success';
-			case 'status-changes':
-				return 'status-inline-danger';
-			default:
-				return 'status-inline-warning';
-		}
-	}
-
-	function getDotToneClass(className: string) {
-		switch (className) {
-			case 'checks-success':
-			case 'status-approved':
-				return 'status-dot-success';
-			case 'checks-failure':
-			case 'status-changes':
-				return 'status-dot-danger';
-			case 'checks-pending':
-			case 'status-pending':
-				return 'status-dot-warning';
-			default:
-				return 'status-dot-neutral';
-		}
-	}
-
-	function getBranchUrl(pr: PullRequest) {
-		if (!pr?.repoFullName || !pr?.branchName) {
-			return null;
-		}
-
-		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName).replaceAll('%2F', '/')}`;
-	}
-
-	function getJiraLink(pr: PullRequest) {
-		const jiraTicket = extractJiraTicket(pr.branchName);
-		if (!jiraTicket || !settings.jiraBaseUrl) {
-			return null;
-		}
-
-		const jiraUrl = getJiraUrl(jiraTicket, settings.jiraBaseUrl);
-		if (!isValidHttpUrl(jiraUrl)) {
-			return null;
-		}
-
-		return { ticket: jiraTicket, url: jiraUrl };
-	}
-
-	function getCardStatusClass(pr: PullRequest) {
-		if (pr.isDraft) {
-			return 'pr-card-draft';
-		}
-
-		const checksStatus = pr.checks?.status;
-		const reviewsStatus = pr.reviews?.status;
-
-		if (checksStatus === 'failure' || reviewsStatus === 'changes_requested') {
-			return 'pr-card-danger';
-		}
-
-		if (checksStatus === 'pending' || reviewsStatus === 'pending') {
-			return 'pr-card-warning';
-		}
-
-		const checksOk = !checksStatus || checksStatus === 'success' || checksStatus === 'unknown';
-		const reviewOk = reviewsStatus === 'approved';
-
-		if (checksOk && reviewOk) {
-			return 'pr-card-success';
-		}
-
-		return 'pr-card-warning';
-	}
 
 	let reviewDisplay = $derived(getReviewStatusDisplay(pr.reviews?.status, pr.reviews?.openThreadCount));
 	let checkDisplay = $derived(getCheckStatusDisplay(pr.checks?.status));
-	let jiraLink = $derived(getJiraLink(pr));
+	let jiraLink = $derived(getJiraLink(pr, settings.jiraBaseUrl));
 	let branchUrl = $derived(getBranchUrl(pr));
 	let createdAtText = $derived(formatLocalDateTime(pr.createdAt));
 	let statusRowClasses = $derived(isFullpageMode

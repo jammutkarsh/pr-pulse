@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Inbox, UserRound } from 'lucide-svelte';
-	import Button from '../lib/components/Button.svelte';
-	import type { Settings } from '../../lib/types';
+	import Button from '@ui/components/Button.svelte';
+	import type { Settings } from '@lib/types';
 
 	interface Props {
 		setupRequired?: boolean;

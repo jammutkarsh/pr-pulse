@@ -2,8 +2,8 @@
     import { tick } from 'svelte';
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, Trash2, X } from 'lucide-svelte';
-    import type { PullRequestRepoOwner, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
-    import Button from '../lib/components/Button.svelte';
+    import type { PullRequestRepoOwner, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '@lib/types';
+    import Button from '@ui/components/Button.svelte';
 
     type AuthorFilterOption = PopupAuthorFilterOption;
     type RepoFilterOption = PopupRepoFilterOption;

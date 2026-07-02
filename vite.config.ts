@@ -52,6 +52,12 @@ function copyExtensionAssets() {
 
 export default defineConfig(({ mode }) => ({
 	cacheDir: '.cache/vite',
+	resolve: {
+		alias: {
+			'@lib': resolve(import.meta.dirname, 'extension/lib'),
+			'@ui': resolve(import.meta.dirname, 'extension/src/ui'),
+		},
+	},
 	define: {
 		__BROWSER_TARGET__: JSON.stringify(mode === 'firefox' ? 'firefox' : 'chrome'),
 	},

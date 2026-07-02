@@ -36,7 +36,12 @@
 		"preview:website": "npm run preview -w website",
 		"check:website": "npm run check -w website",
 		"lint:website": "npm run lint -w website",
-		"deploy:website": "npm run deploy -w website"
+		"deploy:website": "npm run deploy -w website",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:unit": "vitest run --project unit",
+		"test:e2e": "npm run build:chrome && playwright test",
+		"test:all": "npm run test && npm run test:e2e"
 	},
 	"repository": {
 		"type": "git",
@@ -88,7 +93,9 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.62.1",
 		"vite": "^8.0.1",
-		"wrangler": "^4.110.0"
+		"wrangler": "^4.110.0",
+		"vitest": "^3.2.0",
+		"@playwright/test": "^1.52.0"
 	},
 	"allowScripts": {
 		"fsevents@2.3.3": true,

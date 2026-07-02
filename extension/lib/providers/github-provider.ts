@@ -1,13 +1,5 @@
-import { ProviderError } from '../errors';
-import type {
-	PullRequest,
-	PullRequestCheckDetail,
-	PullRequestChecks,
-	PullRequestRepoOwner,
-	PullRequestReviews,
-	ProviderConfig,
-	User,
-} from '../types';
+import { ProviderError } from '@lib/errors';
+import type { PullRequest, PullRequestCheckDetail, PullRequestChecks, PullRequestRepoOwner, PullRequestReviews, ProviderConfig, User } from '@lib/types';
 import { BaseProvider } from './base-provider';
 
 type GitHubSearchIssue = {

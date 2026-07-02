@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Expand, GitPullRequest, Inbox, ListFilter, RefreshCw, Search, Settings2 } from 'lucide-svelte';
-	import Button from '../lib/components/Button.svelte';
-	import DelayedTooltip from '../lib/components/DelayedTooltip.svelte';
-	import type { Settings, StoredProviderConfig } from '../../lib/types';
+	import Button from '@ui/components/Button.svelte';
+	import DelayedTooltip from '@ui/components/DelayedTooltip.svelte';
+	import type { Settings, StoredProviderConfig } from '@lib/types';
 
 	const ACTIVE_CONTROL_CLASSES = '!text-(--accent) [filter:drop-shadow(0_0_1px_rgba(55,148,255,0.7))_drop-shadow(0_0_10px_rgba(55,148,255,0.35))] hover:!text-(--accent)';
 	type VoidCallback = () => void;
