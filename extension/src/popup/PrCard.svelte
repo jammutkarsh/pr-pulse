@@ -124,7 +124,7 @@
 		return 'pr-card-warning';
 	}
 
-	let reviewDisplay = $derived(getReviewStatusDisplay(pr.reviews?.status, pr.reviews?.unresolvedThreadCount));
+	let reviewDisplay = $derived(getReviewStatusDisplay(pr.reviews?.status, pr.reviews?.openThreadCount));
 	let checkDisplay = $derived(getCheckStatusDisplay(pr.checks?.status));
 	let jiraLink = $derived(getJiraLink(pr));
 	let branchUrl = $derived(getBranchUrl(pr));

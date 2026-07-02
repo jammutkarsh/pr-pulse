@@ -44,7 +44,7 @@ export interface PullRequestReviews {
 	status: 'approved' | 'changes_requested' | 'pending';
 	reviewers: PullRequestReviewer[];
 	pendingReviewers?: string[];
-	unresolvedThreadCount?: number;
+	openThreadCount?: number;
 	changesRequestedReviewId?: number;
 }
 

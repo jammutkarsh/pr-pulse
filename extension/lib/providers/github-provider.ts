@@ -336,7 +336,7 @@ export class GitHubProvider extends BaseProvider {
 
 		// Capture the most recent changes-requested review ID for deep-linking
 		let changesRequestedReviewId: number | undefined;
-		let unresolvedThreadCount: number | undefined;
+		let openThreadCount: number | undefined;
 		if (status === 'changes_requested') {
 			const changesRequestedReviews = data.filter((r) => r.state === 'CHANGES_REQUESTED');
 			if (changesRequestedReviews.length > 0) {
@@ -347,15 +347,16 @@ export class GitHubProvider extends BaseProvider {
 			}
 
 			try {
+				// ponytail: REST API doesn't expose resolved/unresolved, so we count top-level review comments as a proxy for open threads
 				const comments = await this.#request<Array<{ in_reply_to_id?: number }>>(
 					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`
 				);
-				unresolvedThreadCount = comments.filter((c) => !c.in_reply_to_id).length;
+				openThreadCount = comments.filter((c) => !c.in_reply_to_id).length;
 			} catch (error) {
-				console.warn(`Failed to count unresolved threads for PR #${prNumber}:`, error);
+				console.warn(`Failed to count open threads for PR #${prNumber}:`, error);
 			}
 		}
 
-		return { status, reviewers, pendingReviewers: requestedReviewers, unresolvedThreadCount, changesRequestedReviewId };
+		return { status, reviewers, pendingReviewers: requestedReviewers, openThreadCount, changesRequestedReviewId };
 	}
 }

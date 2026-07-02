@@ -29,13 +29,13 @@ export function getJiraUrl(ticketId: string, baseUrl: string): string {
 	return `${sanitizeJiraUrl(baseUrl)}/browse/${ticketId}`;
 }
 
-export function getReviewStatusDisplay(status: string, unresolvedCount?: number) {
+export function getReviewStatusDisplay(status: string, openThreadCount?: number) {
 	switch (status) {
 		case 'approved':
 			return { label: 'Approved', icon: '✓', className: 'status-approved' };
 		case 'changes_requested': {
-			const label = unresolvedCount && unresolvedCount > 0
-				? `Changes Requested (${unresolvedCount})`
+			const label = openThreadCount && openThreadCount > 0
+				? `Changes Requested (${openThreadCount})`
 				: 'Changes Requested';
 			return { label, icon: '✗', className: 'status-changes' };
 		}
