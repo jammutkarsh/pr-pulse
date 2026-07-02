@@ -189,9 +189,10 @@
 			});
 		}
 
-		// 5. Filter by review status (hide already-reviewed when showReviewed is false)
+		// 5. Filter by review status (hide approved PRs when showReviewed is false —
+		//    changes_requested PRs still need attention, so keep them visible)
 		if (filters.showReviewed === false) {
-			result = result.filter((pr) => pr.reviews.status === 'pending');
+			result = result.filter((pr) => pr.reviews.status !== 'approved');
 		}
 
 		return result;
@@ -539,14 +540,31 @@
 	});
 
 	// Sync filtered count to badge when badgeCountMode is 'filters'
-	let totalCount = $derived(currentTab === 'myPRs' ? myPrCount : reviewCount);
+	// Always use the pinned (default) tab's data — never the current popup tab
+	let pinnedTabItems = $derived(settings.pinnedTab === 'myPRs' ? (prData.myPRs || []) : (prData.reviewRequests || []));
+	let pinnedTabFilters = $derived(currentTab === settings.pinnedTab ? activeFilters : filtersByTab[settings.pinnedTab]);
+	let pinnedTabFilterActive = $derived(
+		pinnedTabFilters.authors.length +
+		pinnedTabFilters.owners.length +
+		pinnedTabFilters.repos.length +
+		(pinnedTabFilters.drafts !== 'exclude' ? 1 : 0) +
+		(pinnedTabFilters.showReviewed && settings.pinnedTab === 'toReview' ? 1 : 0) > 0
+	);
+	let pinnedTabFilteredItems = $derived(filterPullRequests(pinnedTabItems, {
+		authors: pinnedTabFilters.authors,
+		owners: pinnedTabFilters.owners,
+		repos: pinnedTabFilters.repos,
+		drafts: pinnedTabFilters.drafts,
+		showReviewed: settings.pinnedTab === 'toReview' ? pinnedTabFilters.showReviewed : undefined,
+	}));
+	let totalCount = $derived(settings.pinnedTab === 'myPRs' ? myPrCount : reviewCount);
 
 	$effect(() => {
 		if (settings.badgeCountMode !== 'filters') {
 			return;
 		}
 
-		const targetCount = searchActive || filterActive ? filteredItems.length : totalCount;
+		const targetCount = pinnedTabFilterActive ? pinnedTabFilteredItems.length : totalCount;
 		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
 			console.error('Failed to update badge count:', error);
 		});
@@ -556,7 +574,8 @@
 	$effect(() => {
 		function revertBadge() {
 			if (settings.badgeCountMode === 'filters') {
-				void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: totalCount }).catch(() => {});
+				const revertCount = pinnedTabFilterActive ? pinnedTabFilteredItems.length : totalCount;
+				void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: revertCount }).catch(() => {});
 			}
 		}
 
