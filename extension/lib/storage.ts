@@ -6,7 +6,6 @@ const STORAGE_KEYS = {
 	PROVIDER: 'provider',
 	PULL_REQUESTS: 'pullRequests',
 	SETTINGS: 'settings',
-	BADGE_COUNT: 'badgeCount',
 } as const;
 
 async function get<T>(key: string): Promise<T | undefined> {
@@ -101,14 +100,6 @@ async function clearAll(): Promise<void> {
 	return storageLocalClear();
 }
 
-async function getBadgeCount(): Promise<number | undefined> {
-	return get<number>(STORAGE_KEYS.BADGE_COUNT);
-}
-
-async function setBadgeCount(count: number): Promise<void> {
-	return set(STORAGE_KEYS.BADGE_COUNT, count);
-}
-
 export const storage = {
 	getProvider,
 	setProvider,
@@ -121,6 +112,4 @@ export const storage = {
 	updateSetting,
 	isAuthenticated,
 	clearAll,
-	getBadgeCount,
-	setBadgeCount,
 };

@@ -23,6 +23,7 @@
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
 		copyToClipboard,
+		filterPullRequests,
 		formatRelativeTime,
 		isValidHttpUrl,
 	} from '../../lib/utils';
@@ -145,57 +146,6 @@
 		);
 
 		return uniqueReposList;
-	}
-
-	function filterPullRequests(
-		items: PullRequest[],
-		filters: {
-			authors?: string[];
-			owners?: string[];
-			repos?: string[];
-			drafts?: 'only' | 'include' | 'exclude';
-			showReviewed?: boolean;
-		}
-	): PullRequest[] {
-		let result = items;
-
-		// 1. Filter by Drafts
-		if (filters.drafts === 'exclude') {
-			result = result.filter((pr) => !pr.isDraft);
-		} else if (filters.drafts === 'only') {
-			result = result.filter((pr) => pr.isDraft);
-		}
-
-		// 2. Filter by Author
-		if (filters.authors && filters.authors.length > 0) {
-			result = result.filter((pr) => {
-				const authorLogin = pr.author?.login || '';
-				return filters.authors!.includes(authorLogin);
-			});
-		}
-
-		// 3. Filter by Repository
-		if (filters.repos && filters.repos.length > 0) {
-			result = result.filter((pr) => {
-				return filters.repos!.includes(pr.repoFullName);
-			});
-		}
-
-		// 4. Filter by Owner
-		if (filters.owners && filters.owners.length > 0) {
-			result = result.filter((pr) => {
-				const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-				return filters.owners!.includes(ownerLogin);
-			});
-		}
-
-		// 5. Filter by review status (hide approved PRs when showReviewed is false —
-		//    changes_requested PRs still need attention, so keep them visible)
-		if (filters.showReviewed === false) {
-			result = result.filter((pr) => pr.reviews.status !== 'approved');
-		}
-
-		return result;
 	}
 
 	function toStringArray(value: unknown): string[] {
@@ -568,8 +518,6 @@
 		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
 			console.error('Failed to update badge count:', error);
 		});
-		// ponytail: persist so service worker can restore filtered count on browser start before popup opens
-		void storage.setBadgeCount(targetCount).catch(() => {});
 	});
 </script>
 

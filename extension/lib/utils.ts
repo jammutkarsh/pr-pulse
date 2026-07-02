@@ -1,3 +1,5 @@
+import type { PullRequest } from './types';
+
 export function extractJiraTicket(branchName: string): string | null {
 	if (!branchName) return null;
 	const match = branchName.match(/([A-Z]+-\d+)/i);
@@ -129,6 +131,51 @@ export function isValidTokenFormat(token: string): boolean {
 	const classicPattern = /^ghp_[a-zA-Z0-9]{36}$/;
 	const fineGrainedPattern = /^github_pat_[a-zA-Z0-9_]{22,}$/;
 	return classicPattern.test(token) || fineGrainedPattern.test(token);
+}
+
+export function filterPullRequests(
+	items: PullRequest[],
+	filters: {
+		authors?: string[];
+		owners?: string[];
+		repos?: string[];
+		drafts?: 'only' | 'include' | 'exclude';
+		showReviewed?: boolean;
+	}
+): PullRequest[] {
+	let result = items;
+
+	if (filters.drafts === 'exclude') {
+		result = result.filter((pr) => !pr.isDraft);
+	} else if (filters.drafts === 'only') {
+		result = result.filter((pr) => pr.isDraft);
+	}
+
+	if (filters.authors && filters.authors.length > 0) {
+		result = result.filter((pr) => {
+			const authorLogin = pr.author?.login || '';
+			return filters.authors!.includes(authorLogin);
+		});
+	}
+
+	if (filters.repos && filters.repos.length > 0) {
+		result = result.filter((pr) => {
+			return filters.repos!.includes(pr.repoFullName);
+		});
+	}
+
+	if (filters.owners && filters.owners.length > 0) {
+		result = result.filter((pr) => {
+			const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
+			return filters.owners!.includes(ownerLogin);
+		});
+	}
+
+	if (filters.showReviewed === false) {
+		result = result.filter((pr) => pr.reviews.status !== 'approved');
+	}
+
+	return result;
 }
 
 export function safeParseInt(value: unknown, defaultValue = 0): number {

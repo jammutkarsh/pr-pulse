@@ -10,10 +10,12 @@ import {
 	runtimeOnInstalledAddListener,
 	runtimeOnMessageAddListener,
 	runtimeOnStartupAddListener,
+	storageLocalGet,
 	tabsCreate,
 } from './lib/extension-api';
 import { storage } from './lib/storage';
-import type { PullRequestData, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
+import { filterPullRequests } from './lib/utils';
+import type { PullRequestData, PopupFilters, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
 
 const ALARM_NAME = 'pr-poll';
 let cachedSettings: Settings | null = null;
@@ -78,12 +80,25 @@ async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 	const totalCount = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
 
 	if (settings.badgeCountMode === 'filters') {
-		const persisted = await storage.getBadgeCount();
-		const count = persisted ?? totalCount;
-		await updateBadge(count);
-	} else {
-		await updateBadge(totalCount);
+		const persisted = await storageLocalGet<{ tabs?: Record<string, PopupFilters> }>(['searchFilters']);
+		const tabs = persisted.searchFilters?.tabs;
+		const filters = tabs?.[settings.pinnedTab];
+
+		if (filters) {
+			const items = settings.pinnedTab === 'myPRs' ? data.myPRs : data.reviewRequests;
+			const filtered = filterPullRequests(items, {
+				authors: filters.authors,
+				owners: filters.owners,
+				repos: filters.repos,
+				drafts: filters.drafts,
+				showReviewed: settings.pinnedTab === 'toReview' ? filters.showReviewed : undefined,
+			});
+			await updateBadge(filtered.length);
+			return;
+		}
 	}
+
+	await updateBadge(totalCount);
 }
 
 async function updateBadge(count: number): Promise<void> {
