@@ -4,11 +4,10 @@ All notable changes to PR Pulse are documented in this file.
 
 ## [1.4.0] – 2026-07-02
 
-- **Reviewed PRs in To Review tab**: Added a "Review Status" filter toggle so users can choose to show PRs they've already reviewed alongside pending ones. A new `getReviewedPRs()` GitHub search query fetches reviewed-but-unmerged PRs, merged into the review requests list with dedup. (Resolves [#3](https://github.com/jammutkarsh/pr-pulse/issues/3))
-- **Unresolved comment count for changes-requested PRs**: When a review status is "Changes Requested," the label now shows the number of unresolved review threads (e.g., "Changes Requested (3)"). Count is fetched via the PR comments API. (Resolves [#20](https://github.com/jammutkarsh/pr-pulse/issues/20))
-- **Badge count mode**: New setting to choose whether the extension icon badge shows total PRs or the count matching active filters. Added to both the settings page and the service worker message handlers.
-- **PR card UX improvements**: Review status row is now clickable (deep-links to the relevant review when changes are requested); both check and review status rows show an external-link icon on hover.
-- **Dependency updates**: Bumped tsx, vite, rolldown, esbuild, and postcss to latest.
+- **Reviewed PRs in To Review tab**: Added a "Review Status" filter toggle to show PRs you've already reviewed alongside pending ones. By default, only approved PRs are hidden — PRs with requested changes remain visible since they still need action. (Resolves [#3](https://github.com/jammutkarsh/pr-pulse/issues/3))
+- **Unresolved comment counts**: When a review has requested changes, the status label now shows the number of open review threads (e.g., "Changes Requested (3)"). (Resolves [#20](https://github.com/jammutkarsh/pr-pulse/issues/20))
+- **Badge count mode**: New setting to choose what the icon badge shows — total PRs in your default view, or only those matching your active filters. The badge always sticks to your pinned tab and is not affected by temporary tab switches in the popup.
+- **Clickable review status**: The review status row on each PR card is now a link — clicking deep-links to the relevant review when changes are requested. Check and review status rows also show an external-link icon on hover.
 
 ## [1.3.2] – 2026-04-20
 
