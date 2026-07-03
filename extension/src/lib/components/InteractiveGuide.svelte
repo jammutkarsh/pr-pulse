@@ -112,7 +112,7 @@
 				</div>
 
 				<div
-					class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft"
+					class="meta-row"
 				>
 					<button
 						class="unstyled-button action-chip"
@@ -124,7 +124,7 @@
 								"_blank",
 							)}
 					>
-						<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
+						<FolderGit2 class="metadata-repo-icon" />
 						<span class="hyperlink-text metadata-repo"
 							>jammutkarsh/pr-pulse</span
 						>
@@ -135,7 +135,7 @@
 						onmouseenter={() => (activeTooltip = "diff")}
 						onmouseleave={() => (activeTooltip = null)}
 					>
-						<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
+						<FileDiff class="metadata-diff-icon" />
 						<span class="metadata-diff">
 							<span class="metadata-diff-add">+42</span>
 							<span class="metadata-diff-del">-12</span>
@@ -144,14 +144,14 @@
 				</div>
 
 				<div
-					class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft"
+					class="meta-row"
 				>
 					<button
 						class="unstyled-button action-chip"
 						onmouseenter={() => (activeTooltip = "jira")}
 						onmouseleave={() => (activeTooltip = null)}
 					>
-						<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
+						<Ticket class="metadata-jira-icon" />
 						<span class="hyperlink-text metadata-jira">PULSE-1337</span>
 					</button>
 					<span aria-hidden="true" class="text-dim">•</span>
@@ -161,7 +161,7 @@
 							onmouseenter={() => (activeTooltip = "branch")}
 							onmouseleave={() => (activeTooltip = null)}
 						>
-							<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
+							<GitBranch class="metadata-branch-icon" />
 							<span class="hyperlink-text metadata-branch"
 								>feat/PULSE-1337/interactive-demo</span
 							>

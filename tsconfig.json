@@ -17,6 +17,6 @@
 		"extension/**/*.d.ts",
 		"extension/**/*.svelte",
 		"extension/service-worker.ts",
-		"vite.config.ts",
+		"vite.config.ts"
 	]
 }

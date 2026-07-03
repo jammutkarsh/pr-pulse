@@ -25,20 +25,20 @@
 </script>
 
 <SectionCard className="p-6">
-	<div class="mb-5 flex items-center gap-3">
-		<div class="rounded-2xl bg-white/6 p-3 text-white">
+	<div class="step-row">
+		<div class="step-icon">
 			<MonitorSmartphone class="h-5 w-5" />
 		</div>
 		<div>
-			<h2 class="text-xl font-semibold text-white">Choose a display mode</h2>
-			<p class="text-sm text-soft">Start compact in the popup or jump directly into a full-page workspace.</p>
+			<h2 class="step-heading">Choose a display mode</h2>
+			<p class="desc">Start compact in the popup or jump directly into a full-page workspace.</p>
 		</div>
 	</div>
 	<div class="grid gap-3 md:grid-cols-2">
 		<RadioCard name="displayMode" value="popup" currentValue={displayMode} title="Popup" description="A compact glanceable interface from the toolbar for quick daily use." iconComponent={MonitorSmartphone} onchange={onDisplayModeChange} />
 		<RadioCard name="displayMode" value="fullpage" currentValue={displayMode} title="Full page" description="A broader canvas better suited for future filters, search, and richer organization." iconComponent={Expand} onchange={onDisplayModeChange} />
 	</div>
-	<div class="mt-6 flex flex-wrap gap-3">
+	<div class="step-actions">
 		<Button variant="secondary" onclick={onBack}><ArrowLeft class="h-4 w-4" />Back</Button>
 		<Button onclick={onComplete} disabled={completingSetup}>
 			{completingSetup ? 'Finishing setup...' : 'Complete setup'}

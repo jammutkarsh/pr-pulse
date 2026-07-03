@@ -35,7 +35,6 @@ async function getRuntimeConfig(forceRefresh = false): Promise<{ settings: Setti
 	return runtimeConfig;
 }
 
-
 async function initializeProvider(forceRefresh = false): Promise<boolean> {
 	const { provider: providerConfig } = await getRuntimeConfig(forceRefresh);
 	if (providerConfig) {
@@ -50,6 +49,25 @@ async function initializeProvider(forceRefresh = false): Promise<boolean> {
 	return false;
 }
 
+async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			return await fn();
+		} catch (error) {
+			lastError = error;
+			const isNetworkError = error instanceof TypeError && error.message === 'Failed to fetch';
+			if (!isNetworkError || attempt === maxRetries) {
+				throw error;
+			}
+			const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+			console.log(`Fetch attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+			await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+	}
+	throw lastError;
+}
+
 async function fetchAndCachePRs(): Promise<void> {
 	try {
 		if (!providerManager.hasProvider()) {
@@ -61,7 +79,7 @@ async function fetchAndCachePRs(): Promise<void> {
 		}
 
 		console.log('Fetching PR data...');
-		const data = await providerManager.fetchAllPullRequests();
+		const data = await fetchWithRetry(() => providerManager.fetchAllPullRequests());
 		await storage.setPullRequests(data);
 		await updateBadgeFromSettings(data);
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
@@ -103,10 +121,7 @@ async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 
 async function updateBadge(count: number): Promise<void> {
 	const text = count > 0 ? String(count) : '';
-	await Promise.all([
-		actionSetBadgeText({ text }),
-		actionSetBadgeBackgroundColor({ color: '#238636' }),
-	]);
+	await Promise.all([actionSetBadgeText({ text }), actionSetBadgeBackgroundColor({ color: '#238636' })]);
 }
 
 async function setupPollingAlarm(forceRecreate = false): Promise<void> {

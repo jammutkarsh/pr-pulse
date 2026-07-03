@@ -7,7 +7,6 @@ import App from './App.svelte';
 const bootstrapDataPromise = storage.getPopupBootstrapData();
 const bootstrapData = await bootstrapDataPromise;
 const target = document.getElementById('app');
-const shell = document.getElementById('app-shell');
 
 if (!target) {
 	throw new Error('Failed to mount popup app: #app element not found.');
@@ -20,8 +19,4 @@ mount(App, {
 	props: {
 		bootstrapDataPromise: Promise.resolve(bootstrapData),
 	},
-});
-
-requestAnimationFrame(() => {
-	shell?.remove();
 });

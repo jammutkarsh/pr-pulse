@@ -1,5 +1,13 @@
 import { ProviderError } from '../errors';
-import type { PullRequest, PullRequestCheckDetail, PullRequestChecks, PullRequestRepoOwner, PullRequestReviews, ProviderConfig, User } from '../types';
+import type {
+	PullRequest,
+	PullRequestCheckDetail,
+	PullRequestChecks,
+	PullRequestRepoOwner,
+	PullRequestReviews,
+	ProviderConfig,
+	User,
+} from '../types';
 import { BaseProvider } from './base-provider';
 
 type GitHubSearchIssue = {
@@ -43,7 +51,7 @@ export class GitHubProvider extends BaseProvider {
 	}
 
 	async #throwApiError(response: Response): Promise<never> {
-		const error = await response.json().catch(() => ({} as { message?: string }));
+		const error = await response.json().catch(() => ({}) as { message?: string });
 		const statusCode = response.status;
 		const retryable = statusCode === 429 || statusCode >= 500;
 		throw new ProviderError(error.message || `GitHub API error: ${statusCode}`, 'API_ERROR', {
@@ -84,7 +92,7 @@ export class GitHubProvider extends BaseProvider {
 		}
 
 		try {
-			const data = await response.json() as T;
+			const data = (await response.json()) as T;
 			return this.#cacheAndReturn(url, response, data);
 		} catch (error) {
 			throw new ProviderError(`Failed to parse GitHub API response: ${(error as Error).message}`, 'PARSE_ERROR', {
@@ -186,7 +194,10 @@ export class GitHubProvider extends BaseProvider {
 					const sha = prDetails._raw?.head?.sha || '';
 					const [checks, reviews] = await Promise.all([
 						this.getCheckStatus(repoFullName, sha).catch((): PullRequestChecks => ({ status: 'unknown', details: [] })),
-						this.getReviewStatus(repoFullName, issue.number, prDetails.requestedReviewers).catch((): PullRequestReviews => ({ status: 'pending', reviewers: [] })),
+						this.getReviewStatus(repoFullName, issue.number, prDetails.requestedReviewers).catch((): PullRequestReviews => ({
+							status: 'pending',
+							reviewers: [],
+						})),
 					]);
 
 					return {
@@ -203,7 +214,7 @@ export class GitHubProvider extends BaseProvider {
 						repoOwner,
 					};
 				}
-			})
+			}),
 		);
 	}
 
@@ -280,7 +291,9 @@ export class GitHubProvider extends BaseProvider {
 			return { status: 'unknown', details: [] };
 		}
 
-		const data = await this.#request<{ check_runs?: PullRequestCheckDetail[] }>(`/repos/${repoFullName}/commits/${sha}/check-runs?per_page=100`);
+		const data = await this.#request<{ check_runs?: PullRequestCheckDetail[] }>(
+			`/repos/${repoFullName}/commits/${sha}/check-runs?per_page=100`,
+		);
 		const details = (data.check_runs || []).map((run) => ({
 			name: run.name,
 			status: run.status,
@@ -308,7 +321,9 @@ export class GitHubProvider extends BaseProvider {
 	}
 
 	override async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
-		const data = await this.#request<Array<{ id: number; state: string; user: { login: string; avatar_url: string } }>>(`/repos/${repoFullName}/pulls/${prNumber}/reviews`);
+		const data = await this.#request<Array<{ id: number; state: string; user: { login: string; avatar_url: string } }>>(
+			`/repos/${repoFullName}/pulls/${prNumber}/reviews`,
+		);
 		const reRequestedSet = new Set(requestedReviewers);
 		const reviewerMap = new Map<string, { login: string; avatarUrl: string; state: string }>();
 
@@ -338,15 +353,20 @@ export class GitHubProvider extends BaseProvider {
 			const changesRequestedReviews = data.filter((r) => r.state === 'CHANGES_REQUESTED');
 			if (changesRequestedReviews.length > 0) {
 				changesRequestedReviewId = changesRequestedReviews[changesRequestedReviews.length - 1].id;
-				console.debug(`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`);
+				console.debug(
+					`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`,
+				);
 			} else {
-				console.warn(`PR #${prNumber}: status=changes_requested but no CHANGES_REQUESTED reviews in data. Review states:`, data.map(r => `${r.id}:${r.state}`));
+				console.warn(
+					`PR #${prNumber}: status=changes_requested but no CHANGES_REQUESTED reviews in data. Review states:`,
+					data.map((r) => `${r.id}:${r.state}`),
+				);
 			}
 
 			try {
 				// ponytail: REST API doesn't expose resolved/unresolved, so we count top-level review comments as a proxy for open threads
 				const comments = await this.#request<Array<{ in_reply_to_id?: number }>>(
-					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`
+					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`,
 				);
 				openThreadCount = comments.filter((c) => !c.in_reply_to_id).length;
 			} catch (error) {

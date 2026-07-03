@@ -3,7 +3,6 @@
 	import PopupHeader from './PopupHeader.svelte';
 	import PrCard from './PrCard.svelte';
 	import PopupStates from './PopupStates.svelte';
-	import PopupSkeleton from './PopupSkeleton.svelte';
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import {
@@ -547,7 +546,7 @@
 			/>
 
 			{#if showSearchControls && isSearchOpen}
-				<div class="border-b border-soft px-4 py-2.5 sm:px-4">
+				<div class="border-b border-soft px-2.5 py-1.5 sm:px-2.5">
 					<SearchFilter
 						embedded={true}
 						fullpageMode={isFullpageMode}
@@ -571,7 +570,7 @@
 
 			<div class={`px-4 ${showSearchControls ? 'pb-3 pt-3' : 'py-3'} sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
 				{#if loading}
-					<PopupSkeleton className={isFullpageMode ? 'popup-skeleton--fullpage' : ''} />
+					<div class="flex min-h-50 items-center justify-center desc">Loading PRs...</div>
 				{:else if setupRequired || errorMessage || currentItems.length === 0}
 					<PopupStates
 						{setupRequired}

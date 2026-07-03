@@ -26,7 +26,7 @@ class ProviderManager {
 		if (!ProviderClass) {
 			throw new ProviderError(
 				`Unknown provider type: ${type}. Registered types: ${this.getRegisteredTypes().join(', ')}`,
-				'UNKNOWN_PROVIDER'
+				'UNKNOWN_PROVIDER',
 			);
 		}
 

@@ -1,0 +1,56 @@
+@layer utilities {
+	.text-dim {
+		color: var(--text-dim);
+	}
+
+	.text-soft {
+		color: var(--text-soft);
+	}
+
+	.bg-panel {
+		background: var(--bg-panel);
+	}
+
+	.bg-panel-strong {
+		background: var(--bg-panel-strong);
+	}
+
+	.bg-muted {
+		background: var(--bg-muted);
+	}
+
+	.border-soft {
+		border-color: var(--border-soft);
+	}
+
+	.border-strong {
+		border-color: var(--border-strong);
+	}
+
+	.shadow-soft {
+		box-shadow: var(--shadow-soft);
+	}
+
+	.scroll-thin {
+		scrollbar-width: thin;
+		scrollbar-color: rgba(124, 242, 190, 0.35) transparent;
+	}
+
+	.popup-frame {
+		height: var(--popup-height);
+		width: var(--popup-width);
+		overflow: hidden;
+	}
+
+	.popup-frame .surface-card {
+		border-radius: 0;
+	}
+
+	.popup-content-width {
+		max-width: var(--popup-content-width);
+	}
+
+	.guide-legend-shell {
+		max-width: 36rem;
+	}
+}

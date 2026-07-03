@@ -41,9 +41,7 @@ const browser = process.argv[2] as BrowserTarget | undefined;
 const outputPath = process.argv[3];
 
 if (!browser || !outputPath || !isBrowserTarget(browser)) {
-	throw new Error(
-		'Usage: tsx extension/scripts/generate-manifest.ts <chrome|firefox> <output-path>'
-	);
+	throw new Error('Usage: tsx extension/scripts/generate-manifest.ts <chrome|firefox> <output-path>');
 }
 
 // Read version from package.json
@@ -59,8 +57,7 @@ const baseManifest = {
 	manifest_version: 3,
 	name: 'PR Pulse - GitHub Pull Request Dashboard',
 	version: packageVersion,
-	description:
-		'PR Pulse is a Pull Request dashboard for GitHub, delivered as a browser extension. Say No to Navigation!',
+	description: 'PR Pulse is a Pull Request dashboard for GitHub, delivered as a browser extension. Say No to Navigation!',
 	permissions: ['storage', 'alarms'],
 	host_permissions: ['https://api.github.com/*'],
 	action: {
@@ -81,20 +78,13 @@ const manifest = createManifest(browser, baseManifest);
 const resolvedOutputPath = resolve(process.cwd(), outputPath);
 
 mkdirSync(dirname(resolvedOutputPath), { recursive: true });
-writeFileSync(
-	resolvedOutputPath,
-	`${JSON.stringify(manifest, null, 2)}\n`,
-	'utf8'
-);
+writeFileSync(resolvedOutputPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
 function isBrowserTarget(value: string): value is BrowserTarget {
 	return value === 'chrome' || value === 'firefox';
 }
 
-function createManifest(
-	target: BrowserTarget,
-	base: Omit<ExtensionManifest, 'background'>
-): ExtensionManifest {
+function createManifest(target: BrowserTarget, base: Omit<ExtensionManifest, 'background'>): ExtensionManifest {
 	if (target === 'firefox') {
 		return {
 			...base,

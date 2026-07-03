@@ -167,14 +167,14 @@
 			</button>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+		<div class="meta-row">
 			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
-				<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
+				<FolderGit2 class="metadata-repo-icon" />
 				<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>
 			</button>
 			<span aria-hidden="true" class="text-dim">•</span>
 			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`${pr.url}/changes`)}>
-				<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
+				<FileDiff class="metadata-diff-icon" />
 				<span class="metadata-diff">
 					<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
 					<span class="metadata-diff-del">-{safeParseInt(pr.changes?.deletions, 0)}</span>
@@ -183,10 +183,10 @@
 		</div>
 
 		{#if jiraLink || branchUrl}
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+			<div class="meta-row">
 				{#if jiraLink}
 				<button class="unstyled-button action-chip" onclick={() => onOpenUrl(jiraLink.url)}>
-					<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
+					<Ticket class="metadata-jira-icon" />
 					<span class="hyperlink-text metadata-jira">{jiraLink.ticket}</span>
 				</button>
 				{/if}
@@ -196,7 +196,7 @@
 				{#if branchUrl}
 				<div class="flex items-center gap-0.5">
 					<button class="unstyled-button action-chip" onclick={() => onOpenUrl(branchUrl)}>
-						<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
+						<GitBranch class="metadata-branch-icon" />
 						<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
 					</button>
 					<button class="unstyled-button metadata-copy-button" type="button" onclick={() => onCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
@@ -219,7 +219,7 @@
 				>
 					<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
 					<span class="status-inline-label">{checkDisplay.label}</span>
-					<ExternalLink class="status-link-icon h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+					<ExternalLink class="status-link-icon" />
 				</button>
 				<button
 				class={`unstyled-button status-inline min-w-0 group ${getReviewToneClass(reviewDisplay.className)}`}
@@ -227,7 +227,7 @@
 				>
 					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
-					<ExternalLink class="status-link-icon h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+					<ExternalLink class="status-link-icon" />
 				</button>
 				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none text-dim" title={createdAtText}>
 					<Clock class="h-3 w-3" />
