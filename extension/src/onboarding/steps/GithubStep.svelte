@@ -73,11 +73,22 @@
 
 		{#if providerData}
 			<div class="accent-surface rounded-lg border p-4">
-				<div class="flex items-center gap-3">
-					<img src={providerData.user.avatarUrl} alt="Avatar" class="h-12 w-12 rounded-2xl border border-soft object-cover" />
-					<div>
-						<div class="label-title">{providerData.user.name || providerData.user.login}</div>
-						<div class="label-sub">@{providerData.user.login}</div>
+				<div class="flex items-center justify-between gap-4">
+					<div class="flex items-center gap-3">
+						<img src={providerData.user.avatarUrl} alt="Avatar" class="h-12 w-12 rounded-2xl border border-soft object-cover shrink-0" />
+						<div class="min-w-0">
+							<div class="label-title truncate">{providerData.user.name || providerData.user.login}</div>
+							<div class="label-sub truncate">@{providerData.user.login}</div>
+						</div>
+					</div>
+					<div class="text-right text-xs font-medium text-dim">
+						{#if providerData.user.tokenExpiration}
+							Expires:<br/><span class="text-white/80">{new Date(providerData.user.tokenExpiration).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+						{:else if providerData.user.tokenExpiration === null}
+							<span class="text-white/80">Never expires</span>
+						{:else}
+							Checking...
+						{/if}
 					</div>
 				</div>
 			</div>

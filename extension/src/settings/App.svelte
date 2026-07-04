@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
@@ -9,7 +9,7 @@
 	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
+	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl, copyToClipboard } from '../../lib/utils';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 
 	const pollingOptions = [
@@ -38,6 +38,22 @@
 	let validatingToken = $state(false);
 	let saveVisible = $state(false);
 	let saveTimeoutId: ReturnType<typeof setTimeout> | undefined;
+	let isTokenInvalid = $state(false);
+
+	let revealConfirmState = $state(false);
+	let revealedToken = $state('');
+	let copySuccess = $state(false);
+
+	async function handleCopyToken() {
+		if (revealedToken) {
+			await copyToClipboard(revealedToken);
+			copySuccess = true;
+			setTimeout(() => { 
+				copySuccess = false; 
+				revealedToken = '';
+			}, 1200);
+		}
+	}
 
 	let isConnected = $derived(!!(provider && provider.user && !reconnecting));
 	let jiraDashboardUrl = $derived(jiraUrl && isValidHttpUrl(jiraUrl) ? `${jiraUrl}/jira/for-you` : '');
@@ -55,14 +71,25 @@
 		normalizedCustomMinutes * 60000 !== pollingIntervalMs
 	);
 
+	function handleVisibilityChange() {
+		if (document.visibilityState === 'visible' && provider && provider.user) {
+			void fetchTokenExpiration();
+		}
+	}
+
 	onMount(() => {
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		void init();
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	});
 
 	async function init() {
 		const [nextSettings, nextProvider] = await Promise.all([storage.getSettings(), storage.getProvider()]);
 		currentSettings = nextSettings;
 		provider = nextProvider;
+		isTokenInvalid = provider?.isTokenInvalid ?? false;
 		jiraUrl = sanitizeJiraUrl(currentSettings.jiraBaseUrl || '');
 		pollingIntervalMs = currentSettings.pollingIntervalMs ?? 600000;
 		if (PRESET_POLLING_VALUES.has(pollingIntervalMs)) {
@@ -70,6 +97,41 @@
 		} else {
 			selectedPollingValue = -1;
 			customMinutes = Math.round(pollingIntervalMs / 60000);
+		}
+
+		void fetchTokenExpiration();
+	}
+
+	async function fetchTokenExpiration() {
+		if (!provider || !provider.user) return;
+		try {
+			const { GitHubProvider } = await import('../../lib/providers/github-provider');
+			const github = new GitHubProvider({ token: provider.token });
+			const user = await github.getUser();
+			isTokenInvalid = false;
+			if (user.tokenExpiration !== undefined && provider.user) {
+				provider.user.tokenExpiration = user.tokenExpiration;
+				await storage.setProvider(provider);
+			}
+		} catch (err) {
+			const e = err as Error & { details?: { statusCode?: number } };
+			console.error('Failed to validate token:', e);
+			if (e.details?.statusCode === 401 || (e.message && e.message.includes('401'))) {
+				isTokenInvalid = true;
+				reconnecting = true;
+			}
+		}
+	}
+
+	function handleRevealClick() {
+		if (!revealConfirmState) {
+			revealConfirmState = true;
+			setTimeout(() => {
+				if (!revealedToken) revealConfirmState = false;
+			}, 3000);
+		} else {
+			revealedToken = provider?.token || '';
+			revealConfirmState = false;
 		}
 	}
 
@@ -172,6 +234,7 @@
 			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
 			tokenSuccess = `Connected as ${user.name || user.login}`;
 			reconnecting = false;
+			isTokenInvalid = false;
 			token = '';
 			flashSaved();
 		} catch (error) {
@@ -231,26 +294,75 @@
 
 			{#if isConnected}
 				<div class="rounded-[20px] border border-soft bg-black/20 p-4">
-					<div class="flex items-center gap-3">
-						<img src={provider.user.avatarUrl} alt="Avatar" class="h-11 w-11 rounded-2xl border border-soft object-cover" />
-						<div>
-							<div class="label-title">{provider.user.name || provider.user.login}</div>
-							<div class="label-sub">@{provider.user.login}</div>
+					<div class="flex items-center justify-between gap-4">
+						<div class="flex items-center gap-3">
+							<img src={provider.user.avatarUrl} alt="Avatar" class="h-11 w-11 rounded-2xl border border-soft object-cover shrink-0" />
+							<div class="min-w-0">
+								<div class="label-title truncate">{provider.user.name || provider.user.login}</div>
+								<div class="label-sub truncate">@{provider.user.login}</div>
+							</div>
+						</div>
+						<div class="text-right text-xs font-medium text-dim">
+							{#if provider.user.tokenExpiration}
+								Expires:<br/><span class="text-white/80">{new Date(provider.user.tokenExpiration).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+							{:else if provider.user.tokenExpiration === null}
+								<span class="text-white/80">Never expires</span>
+							{:else}
+								Checking...
+							{/if}
 						</div>
 					</div>
-					<div class="mt-4">
+
+					<div class="mt-4 flex flex-wrap items-center justify-between gap-3 bg-black/20 p-2.5 px-3 rounded-xl border border-white/5">
+						<div class="flex items-center gap-3 flex-1 min-w-0">
+							<span class="text-xs font-medium text-dim shrink-0">Token</span>
+							{#if revealedToken}
+								<code class="font-mono text-xs text-white truncate">{revealedToken}</code>
+							{:else}
+								<code class="font-mono text-xs text-soft/40 truncate tracking-[0.2em] mt-1">••••••••••••••••••••••••••••••••••••••••</code>
+							{/if}
+						</div>
+						<div class="shrink-0 flex items-center gap-2">
+							{#if revealedToken}
+								<Button variant="ghost" onclick={handleCopyToken}>
+									{#if copySuccess}
+										<Check class="h-4 w-4 mr-1.5 text-(--success)" />
+										Copied
+									{:else}
+										<Copy class="h-4 w-4 mr-1.5" />
+										Copy
+									{/if}
+								</Button>
+							{:else}
+								<Button variant="ghost" onclick={handleRevealClick}>
+									{#if revealConfirmState}
+										Confirm?
+									{:else}
+										Reveal
+									{/if}
+								</Button>
+							{/if}
+						</div>
+					</div>
+
+					<div class="mt-4 flex">
 						<Button variant="secondary" onclick={() => reconnecting = true}>Reconnect with a different token</Button>
 					</div>
 				</div>
 			{:else}
 				<div class="space-y-3">
+					{#if isTokenInvalid}
+						<div class="rounded-lg border border-(--danger)/20 bg-(--danger)/10 p-3 text-sm text-(--danger)">
+							Your GitHub token has expired or was revoked. Please connect a new one.
+						</div>
+					{/if}
 					<input class="field-input" type="password" bind:value={token} placeholder="ghp_xxxxxxxxxxxxx" autocomplete="off" />
-					<p class="desc">Enter a GitHub personal access token with repository access.</p>
+					<p class="desc">Enter a GitHub personal access token with repository access. Need a token? <a class="link-accent" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank" rel="noopener noreferrer">Create one here</a>.</p>
 					<div class="flex flex-wrap gap-3">
 						<Button onclick={validateAndSaveToken} disabled={validatingToken}>
 							{validatingToken ? 'Validating...' : 'Connect'}
 						</Button>
-						{#if provider?.user}
+						{#if provider?.user && !isTokenInvalid}
 							<Button variant="secondary" onclick={() => reconnecting = false}>Cancel</Button>
 						{/if}
 					</div>

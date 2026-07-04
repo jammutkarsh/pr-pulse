@@ -106,11 +106,26 @@ export class GitHubProvider extends BaseProvider {
 	}
 
 	override async getUser(): Promise<User> {
-		const data = await this.#request<{ login: string; avatar_url: string; name?: string }>('/user');
+		const url = `${this.baseUrl}/user`;
+		const response = await fetch(url, {
+			headers: {
+				Accept: 'application/vnd.github.v3+json',
+				Authorization: `Bearer ${this.token}`,
+			},
+		});
+
+		if (!response.ok) {
+			return this.#throwApiError(response);
+		}
+
+		const data = await response.json();
+		const expirationDate = response.headers.get('github-authentication-token-expiration');
+
 		return {
 			login: data.login,
 			avatarUrl: data.avatar_url,
 			name: data.name || data.login,
+			tokenExpiration: expirationDate || null,
 		};
 	}
 

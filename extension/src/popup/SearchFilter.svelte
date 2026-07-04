@@ -486,15 +486,15 @@
                             <div class={`filter-section-body ${contentPad}`}>
                         <div class={`flex flex-col ${sectionGap}`}>
                             <label class={`filter-label ${labelPad}`}>
-                                <input type="radio" name="draft_filter" value="exclude" class="filter-input h-3.5 w-3.5 rounded-full" bind:group={activeFilters.drafts} />
+                                <input type="radio" name="draft_filter" value="exclude" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
                                 <span class="filter-label-text">Don't show drafts</span>
                             </label>
                             <label class={`filter-label ${labelPad}`}>
-                                <input type="radio" name="draft_filter" value="include" class="filter-input h-3.5 w-3.5 rounded-full" bind:group={activeFilters.drafts} />
+                                <input type="radio" name="draft_filter" value="include" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
                                 <span class="filter-label-text">Include drafts</span>
                             </label>
                             <label class={`filter-label ${labelPad}`}>
-                                <input type="radio" name="draft_filter" value="only" class="filter-input h-3.5 w-3.5 rounded-full" bind:group={activeFilters.drafts} />
+                                <input type="radio" name="draft_filter" value="only" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
                                 <span class="min-w-0 flex-1 text-soft">Only show drafts</span>
                             </label>
                         </div>
@@ -525,11 +525,11 @@
                                 <div class={`filter-section-body ${contentPad}`}>
                             <div class={`flex flex-col ${sectionGap}`}>
                                 <label class={`filter-label ${labelPad}`}>
-                                    <input type="radio" name="review_filter" value="pending" checked={!activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: false }; }} class="filter-input h-3.5 w-3.5 rounded-full" />
+                                    <input type="radio" name="review_filter" value="pending" checked={!activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: false }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
                                     <span class="filter-label-text">Only pending review</span>
                                 </label>
                                 <label class={`filter-label ${labelPad}`}>
-                                    <input type="radio" name="review_filter" value="all" checked={activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: true }; }} class="filter-input h-3.5 w-3.5 rounded-full" />
+                                    <input type="radio" name="review_filter" value="all" checked={activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: true }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
                                     <span class="min-w-0 flex-1 text-soft">Show reviewed PRs</span>
                                 </label>
                             </div>
@@ -579,7 +579,7 @@
                                             <label class={`filter-label ${labelPad} ${ownerSelected || ownerAvailable ? '' : 'filter-label-disabled'}`}>
                                                 <input
                                                     type="checkbox"
-                                                    class="filter-input rounded"
+                                                    class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                     checked={ownerSelected}
                                                     disabled={!ownerSelected && !ownerAvailable}
                                                     onchange={() => toggleOwner(owner.login)}
@@ -637,7 +637,7 @@
                                             <label class={`filter-label ${labelPad} ${authorSelected || authorAvailable ? '' : 'filter-label-disabled'}`}>
                                                 <input
                                                     type="checkbox"
-                                                    class="filter-input rounded"
+                                                    class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                     checked={authorSelected}
                                                     disabled={!authorSelected && !authorAvailable}
                                                     onchange={() => toggleAuthor(author.login)}
@@ -695,7 +695,7 @@
                                             <label class={`filter-label ${labelPad} ${repoSelected || repoAvailable ? '' : 'filter-label-disabled'}`}>
                                                 <input
                                                     type="checkbox"
-                                                    class="filter-input rounded"
+                                                    class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                     checked={repoSelected}
                                                     disabled={!repoSelected && !repoAvailable}
                                                     onchange={() => toggleRepo(repo.fullName)}

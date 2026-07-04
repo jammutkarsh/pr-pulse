@@ -99,21 +99,7 @@
 		color: white;
 	}
 
-	/* ── Filter inputs ── */
-
-	.filter-input {
-		border: 1px solid var(--border-soft);
-		background: rgba(0, 0, 0, 0.4);
-		color: var(--accent);
-		outline: none;
-		appearance: none;
-		-webkit-appearance: none;
-		-moz-appearance: none;
-	}
-
-	.filter-input:focus {
-		box-shadow: 0 0 0 2px rgba(55, 148, 255, 0.18);
-	}
+	/* ── Filter search input ── */
 
 	.filter-search-input {
 		width: 100%;

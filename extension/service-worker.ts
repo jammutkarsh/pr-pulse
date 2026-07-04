@@ -68,12 +68,13 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<
 	throw lastError;
 }
 
-async function fetchAndCachePRs(): Promise<void> {
+async function fetchAndCachePRs(throwError = false): Promise<void> {
 	try {
 		if (!providerManager.hasProvider()) {
 			const initialized = await initializeProvider();
 			if (!initialized) {
 				console.log('No provider configured, skipping fetch');
+				if (throwError) throw new Error('No provider configured');
 				return;
 			}
 		}
@@ -85,6 +86,15 @@ async function fetchAndCachePRs(): Promise<void> {
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
 	} catch (error) {
 		console.error('Failed to fetch PR data:', error);
+		const err = error as Error & { details?: { statusCode?: number } };
+		if (err?.details?.statusCode === 401 || (err?.message && err.message.includes('401'))) {
+			const config = await storage.getProvider();
+			if (config) {
+				config.isTokenInvalid = true;
+				await storage.setProvider(config);
+			}
+		}
+		if (throwError) throw error;
 	}
 }
 
@@ -196,8 +206,16 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 	REFRESH_PRS: async () => {
-		await fetchAndCachePRs();
-		return { success: true };
+		try {
+			await fetchAndCachePRs(true);
+			return { success: true };
+		} catch (err) {
+			const error = err as Error & { details?: { statusCode?: number } };
+			if (error?.details?.statusCode === 401 || (error?.message && error.message.includes('401'))) {
+				return { success: false, error: 'TOKEN_INVALID' };
+			}
+			return { success: false, error: error?.message || 'Failed to refresh PRs' };
+		}
 	},
 	GET_PRS: async () => storage.getPullRequests(),
 	UPDATE_SETTINGS: async (message) => {
