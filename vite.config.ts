@@ -59,9 +59,9 @@ export default defineConfig(({ mode }) => ({
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,
-		minify: false,
-		reportCompressedSize: false,
-		cssMinify: false,
+		minify: true,
+		reportCompressedSize: true,
+		cssMinify: true,
 		target: 'es2022',
 		rollupOptions: {
 			input: {
