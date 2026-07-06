@@ -379,7 +379,7 @@ export class GitHubProvider extends BaseProvider {
 			}
 
 			try {
-				// ponytail: REST API doesn't expose resolved/unresolved, so we count top-level review comments as a proxy for open threads
+				// REST API doesn't expose resolved/unresolved, so we count top-level review comments as a proxy for open threads
 				const comments = await this.#request<Array<{ in_reply_to_id?: number }>>(
 					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`,
 				);
