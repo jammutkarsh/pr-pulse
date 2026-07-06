@@ -319,7 +319,7 @@
 							{#if revealedToken}
 								<code class="font-mono text-xs text-white truncate">{revealedToken}</code>
 							{:else}
-								<code class="font-mono text-xs text-soft/40 truncate tracking-[0.2em] mt-1">••••••••••••••••••••••••••••••••••••••••</code>
+								<code class="font-mono text-xs text-soft/40 truncate">•••••••••••••••••••••••••••••••••••••••••</code>
 							{/if}
 						</div>
 						<div class="shrink-0 flex items-center gap-2">
