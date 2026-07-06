@@ -25,6 +25,35 @@
         showReviewed: false,
     };
 
+    const LAYOUT = {
+        compact: {
+            outerPad: 'px-2.5 py-1.5',
+            panelPad: 'px-2 py-1.5',
+            sectionSpace: 'space-y-1',
+            headerPad: 'px-2 py-1 text-[13px]',
+            contentPad: 'px-2 py-1',
+            labelPad: 'px-1.5 py-0.5 text-[13px] gap-2',
+            rowGap: 'gap-1',
+            sectionGap: 'gap-0.5',
+            filterPanelMaxHeight: '12rem',
+            visibleLimit: 3,
+            overflowListClass: 'max-h-[8.25rem] space-y-1 overflow-y-auto pr-1 scroll-thin',
+        },
+        full: {
+            outerPad: 'px-4 py-3',
+            panelPad: 'px-4 py-3',
+            sectionSpace: 'space-y-2',
+            headerPad: 'px-3 py-2 text-sm',
+            contentPad: 'px-3 py-2',
+            labelPad: 'px-2 py-1.5 text-sm gap-3',
+            rowGap: 'gap-2',
+            sectionGap: 'gap-1',
+            filterPanelMaxHeight: 'min(40rem, calc(100vh - 13rem))',
+            visibleLimit: 4,
+            overflowListClass: 'max-h-[11rem] space-y-1 overflow-y-auto pr-1 scroll-thin',
+        },
+    } as const;
+
     interface Props {
         query?: string;
         activeFilters?: PopupFilters;
@@ -72,9 +101,7 @@
     });
 
     let searchInput = $state<HTMLInputElement | null>(null);
-    let authorSearchQuery = $state('');
-    let ownerSearchQuery = $state('');
-    let repoSearchQuery = $state('');
+    let sectionSearch = $state({ authors: '', owners: '', repos: '' });
     let surfaceElement = $state<HTMLDivElement | null>(null);
     let ignoreOutsideClick = false;
     let wasSearchOpen = false;
@@ -157,28 +184,12 @@
         };
     }
 
-    function toggleRepo(repo: string) {
-        const repos = activeFilters.repos.includes(repo)
-            ? activeFilters.repos.filter((entry) => entry !== repo)
-            : [...activeFilters.repos, repo];
-
-        activeFilters = { ...activeFilters, repos };
-    }
-
-    function toggleAuthor(author: string) {
-        const authors = activeFilters.authors.includes(author)
-            ? activeFilters.authors.filter((entry) => entry !== author)
-            : [...activeFilters.authors, author];
-
-        activeFilters = { ...activeFilters, authors };
-    }
-
-    function toggleOwner(owner: string) {
-        const owners = activeFilters.owners.includes(owner)
-            ? activeFilters.owners.filter((entry) => entry !== owner)
-            : [...activeFilters.owners, owner];
-
-        activeFilters = { ...activeFilters, owners };
+    function toggleFilter<K extends 'authors' | 'owners' | 'repos'>(key: K, value: string) {
+        const list = activeFilters[key] as string[];
+        const updated = list.includes(value)
+            ? list.filter((entry) => entry !== value)
+            : [...list, value];
+        activeFilters = { ...activeFilters, [key]: updated };
     }
 
     function clearSearch() {
@@ -202,20 +213,13 @@
     }
 
     function getSectionListClass(optionCount: number) {
-        const visibleLimit = fullpageMode ? 4 : 3;
-
-        if (optionCount <= visibleLimit) {
-            return 'space-y-1 pr-1';
-        }
-
-        return fullpageMode
-            ? 'max-h-[11rem] space-y-1 overflow-y-auto pr-1 scroll-thin'
-            : 'max-h-[8.25rem] space-y-1 overflow-y-auto pr-1 scroll-thin';
+        return optionCount <= layout.visibleLimit
+            ? 'space-y-1 pr-1'
+            : layout.overflowListClass;
     }
 
     function shouldShowSectionSearch(optionCount: number) {
-        const visibleLimit = fullpageMode ? 4 : 3;
-        return optionCount > visibleLimit;
+        return optionCount > layout.visibleLimit;
     }
 
     function sortSelectedFirst<T>(items: T[], isSelected: (item: T) => boolean) {
@@ -256,52 +260,46 @@
     }
 
     let hasQuery = $derived(query.trim().length > 0);
-    let showAuthorFilter = $derived(hasAuthorFilter || activeFilters.authors.length > 0);
-    let showOwnerFilter = $derived(hasOwnerFilter || activeFilters.owners.length > 0);
-    let showRepoFilter = $derived(hasRepoFilter || activeFilters.repos.length > 0);
-    let availableAuthorLogins = $derived(new Set(availableAuthors.map((author) => author.login)));
-    let availableOwnerLogins = $derived(new Set(availableOwners.map((owner) => owner.login)));
-    let availableRepoNames = $derived(new Set(availableRepos.map((repo) => repo.fullName)));
-    let visibleAuthors = $derived(
-        activeFilters.authors.length > 0 || allAuthors.length > 1
-            ? sortSelectedFirst(allAuthors, (author) => activeFilters.authors.includes(author.login))
-            : []
-    );
-    let visibleOwners = $derived(
-        activeFilters.owners.length > 0 || allOwners.length > 1
-            ? sortSelectedFirst(allOwners, (owner) => activeFilters.owners.includes(owner.login))
-            : []
-    );
-    let visibleRepos = $derived(
-        activeFilters.repos.length > 0 || allRepos.length > 1
-            ? sortSelectedFirst(allRepos, (repo) => activeFilters.repos.includes(repo.fullName))
-            : []
-    );
-    let filteredAuthors = $derived(
-        visibleAuthors.filter((author) => matchesFilterQuery(author.login, authorSearchQuery, author.name))
-    );
-    let filteredOwners = $derived(
-        visibleOwners.filter((owner) => matchesFilterQuery(owner.login, ownerSearchQuery, getOwnerTypeLabel(owner.type)))
-    );
-    let filteredRepos = $derived(
-        visibleRepos.filter((repo) => matchesFilterQuery(repo.fullName, repoSearchQuery, `${repo.name} ${repo.owner}`))
-    );
+    let section = $derived((() => {
+        const visibleAuthors = (activeFilters.authors.length > 0 || allAuthors.length > 1)
+            ? sortSelectedFirst(allAuthors, (a) => activeFilters.authors.includes(a.login))
+            : [];
+        const visibleOwners = (activeFilters.owners.length > 0 || allOwners.length > 1)
+            ? sortSelectedFirst(allOwners, (o) => activeFilters.owners.includes(o.login))
+            : [];
+        const visibleRepos = (activeFilters.repos.length > 0 || allRepos.length > 1)
+            ? sortSelectedFirst(allRepos, (r) => activeFilters.repos.includes(r.fullName))
+            : [];
+
+        return {
+            authors: {
+                show: hasAuthorFilter || activeFilters.authors.length > 0,
+                availableSet: new Set(availableAuthors.map(a => a.login)),
+                filtered: visibleAuthors.filter(a => matchesFilterQuery(a.login, sectionSearch.authors, a.name)),
+                showSearch: shouldShowSectionSearch(visibleAuthors.length),
+                singleLabel: activeFilters.authors.length === 1 ? activeFilters.authors[0] : '',
+            },
+            owners: {
+                show: hasOwnerFilter || activeFilters.owners.length > 0,
+                availableSet: new Set(availableOwners.map(o => o.login)),
+                filtered: visibleOwners.filter(o => matchesFilterQuery(o.login, sectionSearch.owners, getOwnerTypeLabel(o.type))),
+                showSearch: shouldShowSectionSearch(visibleOwners.length),
+                singleLabel: activeFilters.owners.length === 1 ? activeFilters.owners[0] : '',
+            },
+            repos: {
+                show: hasRepoFilter || activeFilters.repos.length > 0,
+                availableSet: new Set(availableRepos.map(r => r.fullName)),
+                filtered: visibleRepos.filter(r => matchesFilterQuery(r.fullName, sectionSearch.repos, `${r.name} ${r.owner}`)),
+                showSearch: shouldShowSectionSearch(visibleRepos.length),
+                singleLabel: activeFilters.repos.length === 1 ? getRepoDisplay(activeFilters.repos[0]).name : '',
+            },
+        };
+    })());
     let hasMeaningfulFilters = true; // Always true because Draft filter is always available
-    let showAuthorSearch = $derived(shouldShowSectionSearch(visibleAuthors.length));
-    let showOwnerSearch = $derived(shouldShowSectionSearch(visibleOwners.length));
-    let showRepoSearch = $derived(shouldShowSectionSearch(visibleRepos.length));
     let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed && isToReviewTab ? 1 : 0));
     let hasActiveFilters = $derived(activeFilterCount > 0);
+    let layout = $derived(fullpageMode ? LAYOUT.full : LAYOUT.compact);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
-    let filterPanelMaxHeight = $derived(fullpageMode ? 'min(40rem, calc(100vh - 13rem))' : '12rem');
-    let outerPad = $derived(fullpageMode ? 'px-4 py-3' : 'px-2.5 py-1.5');
-    let panelPad = $derived(fullpageMode ? 'px-4 py-3' : 'px-2 py-1.5');
-    let sectionSpace = $derived(fullpageMode ? 'space-y-2' : 'space-y-1');
-    let headerPad = $derived(fullpageMode ? 'px-3 py-2 text-sm' : 'px-2 py-1 text-[13px]');
-    let contentPad = $derived(fullpageMode ? 'px-3 py-2' : 'px-2 py-1');
-    let labelPad = $derived(fullpageMode ? 'px-2 py-1.5 text-sm gap-3' : 'px-1.5 py-0.5 text-[13px] gap-2');
-    let rowGap = $derived(fullpageMode ? 'gap-2' : 'gap-1');
-    let sectionGap = $derived(fullpageMode ? 'gap-1' : 'gap-0.5');
     let draftFilterLabel = $derived(
         activeFilters.drafts === 'only' ? 'Only drafts' :
         activeFilters.drafts === 'include' ? 'Included' :
@@ -310,22 +308,13 @@
     let reviewStatusLabel = $derived(
         activeFilters.showReviewed ? 'All' : 'Pending only'
     );
-    let ownerSingleLabel = $derived(
-        activeFilters.owners.length === 1 ? activeFilters.owners[0] : ''
-    );
-    let authorSingleLabel = $derived(
-        activeFilters.authors.length === 1 ? activeFilters.authors[0] : ''
-    );
-    let repoSingleLabel = $derived(
-        activeFilters.repos.length === 1 ? getRepoDisplay(activeFilters.repos[0]).name : ''
-    );
     let selectedFilterChips = $derived<FilterChip[]>([
         ...(activeFilters.authors.length > 1
             ? activeFilters.authors.map((authorLogin) => ({
                 key: `author:${authorLogin}`,
                 label: authorLogin,
                 value: getAuthorName(authorLogin),
-                onRemove: () => toggleAuthor(authorLogin),
+                onRemove: () => toggleFilter('authors', authorLogin),
             }))
             : []),
         ...(activeFilters.owners.length > 1
@@ -333,7 +322,7 @@
                 key: `owner:${ownerLogin}`,
                 label: ownerLogin,
                 value: getOwnerDisplay(ownerLogin),
-                onRemove: () => toggleOwner(ownerLogin),
+                onRemove: () => toggleFilter('owners', ownerLogin),
             }))
             : []),
         ...(activeFilters.repos.length > 1
@@ -341,7 +330,7 @@
                 key: `repo:${repoFullName}`,
                 label: getRepoDisplay(repoFullName).name,
                 value: getRepoDisplay(repoFullName).owner,
-                onRemove: () => toggleRepo(repoFullName),
+                onRemove: () => toggleFilter('repos', repoFullName),
             }))
             : []),
     ]);
@@ -352,20 +341,12 @@
     });
 
     $effect(() => {
-        const allAuthorLogins = new Set(allAuthors.map((author) => author.login));
-        const allOwnerLogins = new Set(allOwners.map((owner) => owner.login));
-        const allRepoNames = new Set(allRepos.map((repo) => repo.fullName));
-        const authors = showAuthorFilter ? activeFilters.authors.filter((author) => allAuthorLogins.has(author)) : [];
-        const owners = showOwnerFilter ? activeFilters.owners.filter((owner) => allOwnerLogins.has(owner)) : [];
-        const repos = showRepoFilter ? activeFilters.repos.filter((repo) => allRepoNames.has(repo)) : [];
+        const validAuthors = section.authors.show ? activeFilters.authors.filter(a => section.authors.availableSet.has(a)) : [];
+        const validOwners = section.owners.show ? activeFilters.owners.filter(o => section.owners.availableSet.has(o)) : [];
+        const validRepos = section.repos.show ? activeFilters.repos.filter(r => section.repos.availableSet.has(r)) : [];
 
-        if (authors.length !== activeFilters.authors.length || owners.length !== activeFilters.owners.length || repos.length !== activeFilters.repos.length) {
-            activeFilters = {
-                ...activeFilters,
-                authors,
-                owners,
-                repos,
-            };
+        if (validAuthors.length !== activeFilters.authors.length || validOwners.length !== activeFilters.owners.length || validRepos.length !== activeFilters.repos.length) {
+            activeFilters = { ...activeFilters, authors: validAuthors, owners: validOwners, repos: validRepos };
         }
 
         if (!hasMeaningfulFilters && isFilterOpen) {
@@ -374,17 +355,9 @@
     });
 
     $effect(() => {
-        if (!showAuthorSearch && authorSearchQuery) {
-            authorSearchQuery = '';
-        }
-
-        if (!showOwnerSearch && ownerSearchQuery) {
-            ownerSearchQuery = '';
-        }
-
-        if (!showRepoSearch && repoSearchQuery) {
-            repoSearchQuery = '';
-        }
+        if (!section.authors.showSearch && sectionSearch.authors) sectionSearch.authors = '';
+        if (!section.owners.showSearch && sectionSearch.owners) sectionSearch.owners = '';
+        if (!section.repos.showSearch && sectionSearch.repos) sectionSearch.repos = '';
     });
 
     $effect(() => {
@@ -407,9 +380,9 @@
 </script>
 
 {#if isSearchOpen}
-<div bind:this={surfaceElement} class={embedded ? 'relative z-20' : `relative z-20 border-b border-soft ${outerPad}`}>
+<div bind:this={surfaceElement} class={embedded ? 'relative z-20' : `relative z-20 border-b border-soft ${layout.outerPad}`}>
     <div class="space-y-1">
-            <div class={`flex items-center ${rowGap}`}>
+            <div class={`flex items-center ${layout.rowGap}`}>
                 <div class="relative min-w-0 flex-1">
                     <Search class="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-soft" />
                     <input
@@ -462,11 +435,11 @@
                 </div>
             {/if}
 
-            <div class={`overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) ${panelPad} shadow-lg`} style:max-height={filterPanelMaxHeight}>
-                <div class={sectionSpace}>
+            <div class={`overflow-y-auto rounded-xl border border-soft bg-(--bg-panel-strong) ${layout.panelPad} shadow-lg`} style:max-height={layout.filterPanelMaxHeight}>
+                <div class={layout.sectionSpace}>
                     <div class="filter-section">
                         <button
-                            class={`filter-section-header ${headerPad}`}
+                            class={`filter-section-header ${layout.headerPad}`}
                             onclick={() => toggleSection('drafts')}
                         >
                             <span class="flex items-center gap-2">
@@ -483,17 +456,17 @@
                         </button>
 
                         {#if expandedSections.drafts}
-                            <div class={`filter-section-body ${contentPad}`}>
-                        <div class={`flex flex-col ${sectionGap}`}>
-                            <label class={`filter-label ${labelPad}`}>
+                            <div class={`filter-section-body ${layout.contentPad}`}>
+                        <div class={`flex flex-col ${layout.sectionGap}`}>
+                            <label class={`filter-label ${layout.labelPad}`}>
                                 <input type="radio" name="draft_filter" value="exclude" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
                                 <span class="filter-label-text">Don't show drafts</span>
                             </label>
-                            <label class={`filter-label ${labelPad}`}>
+                            <label class={`filter-label ${layout.labelPad}`}>
                                 <input type="radio" name="draft_filter" value="include" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
                                 <span class="filter-label-text">Include drafts</span>
                             </label>
-                            <label class={`filter-label ${labelPad}`}>
+                            <label class={`filter-label ${layout.labelPad}`}>
                                 <input type="radio" name="draft_filter" value="only" class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" bind:group={activeFilters.drafts} />
                                 <span class="min-w-0 flex-1 text-soft">Only show drafts</span>
                             </label>
@@ -505,7 +478,7 @@
                     {#if isToReviewTab}
                         <div class="filter-section">
                             <button
-                            class={`filter-section-header ${headerPad}`}
+                            class={`filter-section-header ${layout.headerPad}`}
                                 onclick={() => toggleSection('reviewStatus')}
                             >
                                 <span class="flex items-center gap-2">
@@ -522,13 +495,13 @@
                             </button>
 
                             {#if expandedSections.reviewStatus}
-                                <div class={`filter-section-body ${contentPad}`}>
-                            <div class={`flex flex-col ${sectionGap}`}>
-                                <label class={`filter-label ${labelPad}`}>
+                                <div class={`filter-section-body ${layout.contentPad}`}>
+                            <div class={`flex flex-col ${layout.sectionGap}`}>
+                                <label class={`filter-label ${layout.labelPad}`}>
                                     <input type="radio" name="review_filter" value="pending" checked={!activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: false }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
                                     <span class="filter-label-text">Only pending review</span>
                                 </label>
-                                <label class={`filter-label ${labelPad}`}>
+                                <label class={`filter-label ${layout.labelPad}`}>
                                     <input type="radio" name="review_filter" value="all" checked={activeFilters.showReviewed} onchange={() => { activeFilters = { ...activeFilters, showReviewed: true }; }} class="h-3.5 w-3.5 border-soft bg-black/40 text-(--accent) focus:ring-(--accent)" />
                                     <span class="min-w-0 flex-1 text-soft">Show reviewed PRs</span>
                                 </label>
@@ -538,10 +511,10 @@
                         </div>
                     {/if}
 
-                    {#if showOwnerFilter}
+                    {#if section.owners.show}
                         <div class="filter-section">
                             <button
-                                class={`filter-section-header ${headerPad}`}
+                                class={`filter-section-header ${layout.headerPad}`}
                                 onclick={() => toggleSection('owners')}
                             >
                                 <span class="flex items-center gap-2">
@@ -551,8 +524,8 @@
                                             <ChevronRight class="icon-soft" />
                                         {/if}
                                         <span>Owners</span>
-                                        {#if !expandedSections.owners && ownerSingleLabel}
-                                            <span class="filter-meta">· {ownerSingleLabel}</span>
+                                        {#if !expandedSections.owners && section.owners.singleLabel}
+                                            <span class="filter-meta">· {section.owners.singleLabel}</span>
                                         {/if}
                                     </span>
                                     {#if activeFilters.owners.length > 0}
@@ -561,28 +534,28 @@
                             </button>
 
                             {#if expandedSections.owners}
-                                <div class={`filter-section-body ${contentPad}`}>
-                                    {#if showOwnerSearch}
+                                <div class={`filter-section-body ${layout.contentPad}`}>
+                                    {#if section.owners.showSearch}
                                         <div class="mb-2">
                                             <input
                                                 type="text"
-                                                bind:value={ownerSearchQuery}
+                                                bind:value={sectionSearch.owners}
                                                 placeholder="Search owners"
                                                 class="filter-search-input"
                                             />
                                         </div>
                                     {/if}
-                                    <div class={getSectionListClass(filteredOwners.length)}>
-                                        {#each filteredOwners as owner (owner.login)}
+                                    <div class={getSectionListClass(section.owners.filtered.length)}>
+                                        {#each section.owners.filtered as owner (owner.login)}
                                             {@const ownerSelected = activeFilters.owners.includes(owner.login)}
-                                            {@const ownerAvailable = availableOwnerLogins.has(owner.login)}
-                                            <label class={`filter-label ${labelPad} ${ownerSelected || ownerAvailable ? '' : 'filter-label-disabled'}`}>
+                                            {@const ownerAvailable = section.owners.availableSet.has(owner.login)}
+                                            <label class={`filter-label ${layout.labelPad} ${ownerSelected || ownerAvailable ? '' : 'filter-label-disabled'}`}>
                                                 <input
                                                     type="checkbox"
                                                     class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                     checked={ownerSelected}
                                                     disabled={!ownerSelected && !ownerAvailable}
-                                                    onchange={() => toggleOwner(owner.login)}
+                                                    onchange={() => toggleFilter('owners', owner.login)}
                                                 />
                                                 <span class="truncate-text">{owner.login}</span>
                                                 {#if owner.type !== 'unknown'}
@@ -596,10 +569,10 @@
                         </div>
                     {/if}
 
-                    {#if showAuthorFilter}
+                    {#if section.authors.show}
                         <div class="filter-section">
                             <button
-                                class={`filter-section-header ${headerPad}`}
+                                class={`filter-section-header ${layout.headerPad}`}
                                 onclick={() => toggleSection('authors')}
                             >
                                 <span class="flex items-center gap-2">
@@ -609,8 +582,8 @@
                                             <ChevronRight class="icon-soft" />
                                         {/if}
                                         <span>Author</span>
-                                        {#if !expandedSections.authors && authorSingleLabel}
-                                            <span class="filter-meta">· {authorSingleLabel}</span>
+                                        {#if !expandedSections.authors && section.authors.singleLabel}
+                                            <span class="filter-meta">· {section.authors.singleLabel}</span>
                                         {/if}
                                     </span>
                                     {#if activeFilters.authors.length > 0}
@@ -619,28 +592,28 @@
                             </button>
 
                             {#if expandedSections.authors}
-                                <div class={`filter-section-body ${contentPad}`}>
-                                    {#if showAuthorSearch}
+                                <div class={`filter-section-body ${layout.contentPad}`}>
+                                    {#if section.authors.showSearch}
                                         <div class="mb-2">
                                             <input
                                                 type="text"
-                                                bind:value={authorSearchQuery}
+                                                bind:value={sectionSearch.authors}
                                                 placeholder="Search PR authors"
                                                 class="filter-search-input"
                                             />
                                         </div>
                                     {/if}
-                                    <div class={getSectionListClass(filteredAuthors.length)}>
-                                        {#each filteredAuthors as author (author.login)}
+                                    <div class={getSectionListClass(section.authors.filtered.length)}>
+                                        {#each section.authors.filtered as author (author.login)}
                                             {@const authorSelected = activeFilters.authors.includes(author.login)}
-                                            {@const authorAvailable = availableAuthorLogins.has(author.login)}
-                                            <label class={`filter-label ${labelPad} ${authorSelected || authorAvailable ? '' : 'filter-label-disabled'}`}>
+                                            {@const authorAvailable = section.authors.availableSet.has(author.login)}
+                                            <label class={`filter-label ${layout.labelPad} ${authorSelected || authorAvailable ? '' : 'filter-label-disabled'}`}>
                                                 <input
                                                     type="checkbox"
                                                     class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                     checked={authorSelected}
                                                     disabled={!authorSelected && !authorAvailable}
-                                                    onchange={() => toggleAuthor(author.login)}
+                                                    onchange={() => toggleFilter('authors', author.login)}
                                                 />
                                                 <span class="truncate-text">{author.login}</span>
                                                 {#if getAuthorName(author.login)}
@@ -654,10 +627,10 @@
                         </div>
                     {/if}
 
-                    {#if showRepoFilter}
+                    {#if section.repos.show}
                         <div class="filter-section">
                             <button
-                                class={`filter-section-header ${headerPad}`}
+                                class={`filter-section-header ${layout.headerPad}`}
                                 onclick={() => toggleSection('repos')}
                             >
                                 <span class="flex items-center gap-2">
@@ -667,8 +640,8 @@
                                             <ChevronRight class="icon-soft" />
                                         {/if}
                                         <span>Repositories</span>
-                                        {#if !expandedSections.repos && repoSingleLabel}
-                                            <span class="filter-meta">· {repoSingleLabel}</span>
+                                        {#if !expandedSections.repos && section.repos.singleLabel}
+                                            <span class="filter-meta">· {section.repos.singleLabel}</span>
                                         {/if}
                                     </span>
                                     {#if activeFilters.repos.length > 0}
@@ -677,28 +650,28 @@
                                 </button>
 
                             {#if expandedSections.repos}
-                                <div class={`filter-section-body ${contentPad}`}>
-                                    {#if showRepoSearch}
+                                <div class={`filter-section-body ${layout.contentPad}`}>
+                                    {#if section.repos.showSearch}
                                         <div class="mb-2">
                                             <input
                                                 type="text"
-                                                bind:value={repoSearchQuery}
+                                                bind:value={sectionSearch.repos}
                                                 placeholder="Search repositories"
                                                 class="filter-search-input"
                                             />
                                         </div>
                                     {/if}
-                                    <div class={getSectionListClass(filteredRepos.length)}>
-                                        {#each filteredRepos as repo (repo.fullName)}
+                                    <div class={getSectionListClass(section.repos.filtered.length)}>
+                                        {#each section.repos.filtered as repo (repo.fullName)}
                                             {@const repoSelected = activeFilters.repos.includes(repo.fullName)}
-                                            {@const repoAvailable = availableRepoNames.has(repo.fullName)}
-                                            <label class={`filter-label ${labelPad} ${repoSelected || repoAvailable ? '' : 'filter-label-disabled'}`}>
+                                            {@const repoAvailable = section.repos.availableSet.has(repo.fullName)}
+                                            <label class={`filter-label ${layout.labelPad} ${repoSelected || repoAvailable ? '' : 'filter-label-disabled'}`}>
                                                 <input
                                                     type="checkbox"
                                                     class="rounded border-soft bg-black/40 text-(--accent) focus:ring-(--accent)"
                                                     checked={repoSelected}
                                                     disabled={!repoSelected && !repoAvailable}
-                                                    onchange={() => toggleRepo(repo.fullName)}
+                                                    onchange={() => toggleFilter('repos', repo.fullName)}
                                                 />
                                                 <span class="truncate-text" title={repo.fullName}>{repo.name}</span>
                                                 <span class="type-label">{repo.owner}</span>
