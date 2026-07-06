@@ -4,12 +4,10 @@ All notable changes to PR Pulse are documented in this file.
 
 ## [1.6.0] – 2026-07-04
 
-- **CSS Architecture Revamp**: Split the monolithic `app.css` file into a modular, maintainable structure (`theme.css`, `utilities.css`, `shared.css`, `filters.css`).
-- **Codebase Standardization**: Integrated and ran Prettier across the entire project for consistent code formatting.
-- **Token Expiration Awareness**: UI now displays a clean red inline banner when your GitHub token expires or is revoked, rather than silently failing or hiding data.
-- **Non-destructive Error States**: If a background refresh fails due to an expired token, the popup will gracefully preserve your previously cached PRs and still allow you to search/filter them, instead of replacing your list with a full error screen.
-- **Settings Auto-revalidation**: The Settings page now listens for tab visibility changes (`visibilitychange`) and automatically revalidates your token status without needing a manual page reload.
-- **Internal Polish**: Fixed TypeScript `any` types in background network handlers, and resolved Svelte A11Y and strict typing errors in the onboarding Interactive Guide mock PR data.
+- **Token Expiration Handling**: Inline red banner when your GitHub token expires or is revoked, graceful degradation that preserves cached PRs on refresh failure, and auto-revalidation on settings tab focus — replacing the previous silent-fail and full-error-screen behaviour.
+- **Code Quality & Architecture**: Split the monolithic CSS into modular files, and standardized formatting across the entire project with Prettier.
+- **Filter Improvements**: "Clear all filters" button and refactored filter state management for better maintainability.
+- **Bug Fixes**: Branch URL double-encoding, onboarding interactive guide links not opening, and PR card layout shifting on title hover.
 
 ## [1.5.0] – 2026-07-02
 
