@@ -1,14 +1,14 @@
 <script lang="ts">
-	import {
-		Copy,
-		FileDiff,
-		FolderGit2,
-		GitBranch,
-		Ticket,
-	} from "lucide-svelte";
-	import SectionCard from "./SectionCard.svelte";
+	import { onMount } from 'svelte';
+	import { storage } from '../../../lib/storage';
+	import type { PullRequest } from '../../../lib/types';
+	import PrCard from '../../popup/PrCard.svelte';
+	import { copyToClipboard, isValidHttpUrl } from '../../../lib/utils';
+	import { tabsCreate } from '../../../lib/extension-api';
 
 	let activeTooltip = $state<string | null>(null);
+	let realPr = $state<PullRequest | null>(null);
+	let copiedItemId = $state<string | null>(null);
 
 	const tooltips: Record<string, string> = {
 		title: "Opens Pull Request on GitHub",
@@ -51,17 +51,6 @@
 	// When hovering a legend pill, override card colors and text
 	let legendHoverTone = $state<string | null>(null);
 
-	const checkLabels = { success: 'All checks passed', warning: 'Checks pending', danger: 'Checks failed' };
-	const reviewLabels = { success: 'Approved', warning: 'Review pending', danger: 'Changes requested' };
-
-	let cardTitleDot = $derived(legendHoverTone ? `bg-(--${legendHoverTone})` : 'bg-(--success)');
-	let cardCheckTone = $derived(legendHoverTone ? `status-inline-${legendHoverTone}` : 'status-inline-success');
-	let cardCheckDot = $derived(legendHoverTone ? `status-dot-${legendHoverTone}` : 'status-dot-success');
-	let cardCheckLabel = $derived(legendHoverTone ? checkLabels[legendHoverTone] : 'All checks passed');
-	let cardReviewTone = $derived(legendHoverTone ? `status-inline-${legendHoverTone}` : 'status-inline-success');
-	let cardReviewDot = $derived(legendHoverTone ? `status-dot-${legendHoverTone}` : 'status-dot-success');
-	let cardReviewLabel = $derived(legendHoverTone ? reviewLabels[legendHoverTone] : 'Approved');
-
 	let mouseX = $state(0);
 	let mouseY = $state(0);
 
@@ -69,6 +58,74 @@
 		mouseX = e.clientX;
 		mouseY = e.clientY;
 	}
+
+	function handleMouseover(e: MouseEvent) {
+		const target = e.target as HTMLElement;
+		const guideNode = target.closest('[data-guide-id]');
+		if (guideNode) {
+			activeTooltip = guideNode.getAttribute('data-guide-id');
+		} else {
+			activeTooltip = null;
+		}
+	}
+
+	async function handleCopy(value: string, id: string) {
+		await copyToClipboard(value);
+		copiedItemId = id;
+		setTimeout(() => {
+			if (copiedItemId === id) {
+				copiedItemId = null;
+			}
+		}, 1000);
+	}
+
+	onMount(async () => {
+		try {
+			const data = await storage.getPullRequests();
+			if (data.myPRs && data.myPRs.length > 0) {
+				realPr = data.myPRs[0];
+			} else if (data.reviewRequests && data.reviewRequests.length > 0) {
+				realPr = data.reviewRequests[0];
+			}
+		} catch {
+			// ignore
+		}
+	});
+
+	const mockPr: PullRequest = {
+		id: 'mock-pr',
+		url: 'https://github.com/jammutkarsh/pr-pulse/pull/1',
+		title: 'feat(ui): implement modern interactive demo card',
+		createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+		isDraft: false,
+		provider: 'github',
+		state: 'open',
+		updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+		author: { login: 'demo', name: 'Demo Author', avatarUrl: '../icons/icon128.png' },
+		repoFullName: 'jammutkarsh/pr-pulse',
+		repoOwner: { login: 'jammutkarsh', type: 'user' },
+		branchName: 'feat/PULSE-1337/interactive-demo',
+		changes: { additions: 42, deletions: 12, filesChanged: 3 },
+		checks: { status: 'success', details: [] },
+		reviews: { status: 'approved', reviewers: [], openThreadCount: 0 },
+	};
+
+	let displayPr = $derived.by(() => {
+		const pr = { ...(realPr || mockPr) };
+		
+		if (legendHoverTone === 'success') {
+			pr.checks = { ...pr.checks, status: 'success' };
+			pr.reviews = { ...pr.reviews, status: 'approved' };
+		} else if (legendHoverTone === 'warning') {
+			pr.checks = { ...pr.checks, status: 'pending' };
+			pr.reviews = { ...pr.reviews, status: 'pending' };
+		} else if (legendHoverTone === 'danger') {
+			pr.checks = { ...pr.checks, status: 'failure' };
+			pr.reviews = { ...pr.reviews, status: 'changes_requested' };
+		}
+		
+		return pr;
+	});
 </script>
 
 <svelte:window onmousemove={handleMousemove} />
@@ -84,122 +141,10 @@
 		</div>
 	{/if}
 
-	<div class="popup-content-width mx-auto w-full">
-		<SectionCard className="p-3.5 relative">
-			<div class="min-w-0 space-y-1.5">
-				<div class="relative min-w-0 pr-6">
-					<div class="flex min-w-0 items-start gap-1">
-						<button
-							class="unstyled-button flex min-w-0 items-start gap-1 hyperlink-button line-clamp-2 flex-1 overflow-hidden text-left text-sm font-semibold leading-[1.15rem] text-white hover:text-(--accent)"
-							onmouseenter={() => (activeTooltip = "title")}
-							onmouseleave={() => (activeTooltip = null)}
-						>
-							<span
-								class={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full transition-colors duration-200 ${cardTitleDot}`}
-							></span>
-							feat(ui): implement modern interactive demo card
-						</button>
-					</div>
-					<button
-						class="unstyled-button metadata-copy-button absolute right-0 top-0 transition-colors hover:text-white"
-						type="button"
-						aria-label="Copy PR link"
-						onmouseenter={() => (activeTooltip = "copyPR")}
-						onmouseleave={() => (activeTooltip = null)}
-					>
-						<Copy class="metadata-copy-icon" />
-					</button>
-				</div>
-
-				<div
-					class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft"
-				>
-					<button
-						class="unstyled-button action-chip"
-						onmouseenter={() => (activeTooltip = "repo")}
-						onmouseleave={() => (activeTooltip = null)}
-						onclick={() =>
-							window.open(
-								"https://github.com/jammutkarsh/pr-pulse",
-								"_blank",
-							)}
-					>
-						<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
-						<span class="hyperlink-text metadata-repo"
-							>jammutkarsh/pr-pulse</span
-						>
-					</button>
-					<span aria-hidden="true" class="text-dim">•</span>
-					<button
-						class="unstyled-button action-chip"
-						onmouseenter={() => (activeTooltip = "diff")}
-						onmouseleave={() => (activeTooltip = null)}
-					>
-						<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
-						<span class="metadata-diff">
-							<span class="metadata-diff-add">+42</span>
-							<span class="metadata-diff-del">-12</span>
-						</span>
-					</button>
-				</div>
-
-				<div
-					class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft"
-				>
-					<button
-						class="unstyled-button action-chip"
-						onmouseenter={() => (activeTooltip = "jira")}
-						onmouseleave={() => (activeTooltip = null)}
-					>
-						<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
-						<span class="hyperlink-text metadata-jira">PULSE-1337</span>
-					</button>
-					<span aria-hidden="true" class="text-dim">•</span>
-					<div class="flex items-center gap-0.5">
-						<button
-							class="unstyled-button action-chip"
-							onmouseenter={() => (activeTooltip = "branch")}
-							onmouseleave={() => (activeTooltip = null)}
-						>
-							<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
-							<span class="hyperlink-text metadata-branch"
-								>feat/PULSE-1337/interactive-demo</span
-							>
-						</button>
-						<button
-							class="unstyled-button metadata-copy-button"
-							type="button"
-							aria-label="Copy branch name"
-							onmouseenter={() => (activeTooltip = "copyBranch")}
-							onmouseleave={() => (activeTooltip = null)}
-						>
-							<Copy class="metadata-copy-icon" />
-						</button>
-					</div>
-				</div>
-
-				<div class="border-t border-soft pt-2.5">
-					<div class="grid grid-cols-2 gap-x-5 gap-y-1.5 text-xs">
-						<button
-							class={`unstyled-button status-inline status-inline-button ${cardCheckTone} transition-all duration-200 hover:opacity-80`}
-							onmouseenter={() => (activeTooltip = "statusChecks")}
-							onmouseleave={() => (activeTooltip = null)}
-						>
-							<span class={`status-dot ${cardCheckDot} transition-colors duration-200`}></span>
-							<span class="status-inline-label">{cardCheckLabel}</span>
-						</button>
-						<button
-							class={`unstyled-button status-inline status-inline-button ${cardReviewTone} transition-all duration-200 hover:opacity-80`}
-							onmouseenter={() => (activeTooltip = "statusReview")}
-							onmouseleave={() => (activeTooltip = null)}
-						>
-							<span class={`status-dot ${cardReviewDot} transition-colors duration-200`}></span>
-							<span class="status-inline-label">{cardReviewLabel}</span>
-						</button>
-					</div>
-				</div>
-			</div>
-		</SectionCard>
+	<!-- svelte-ignore a11y_mouse_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="mx-auto w-full max-w-xl" onmouseover={handleMouseover}>
+		<PrCard pr={displayPr} isFullpageMode={true} {copiedItemId} onOpenUrl={(url: string) => { if (isValidHttpUrl(url)) void tabsCreate({ url }); }} onCopy={handleCopy} />
 	</div>
 
 	<!-- Context-aware color legend — content changes based on hover, position stays fixed -->

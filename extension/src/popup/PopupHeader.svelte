@@ -107,7 +107,7 @@
 					>
 						<span class="relative inline-flex">
 							<GitPullRequest class="h-4 w-4" />
-							<span class="absolute -right-2 -top-2 min-w-4 rounded-full bg-black/60 px-1 text-center text-[10px] font-semibold leading-4 text-white">{myPrCount}</span>
+							<span class="badge">{myPrCount}</span>
 						</span>
 					</Button>
 				</DelayedTooltip>
@@ -121,7 +121,7 @@
 					>
 						<span class="relative inline-flex">
 							<Inbox class="h-4 w-4" />
-							<span class="absolute -right-2 -top-2 min-w-4 rounded-full bg-black/60 px-1 text-center text-[10px] font-semibold leading-4 text-white">{reviewCount}</span>
+							<span class="badge">{reviewCount}</span>
 						</span>
 					</Button>
 				</DelayedTooltip>

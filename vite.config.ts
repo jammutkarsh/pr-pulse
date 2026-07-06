@@ -18,7 +18,10 @@ function copyExtensionAssets() {
 			const generatedHtmlFiles = [
 				{ source: resolve(outDir, 'extension/src/popup/index.html'), destination: resolve(outDir, 'popup/popup.html') },
 				{ source: resolve(outDir, 'extension/src/settings/index.html'), destination: resolve(outDir, 'settings/settings.html') },
-				{ source: resolve(outDir, 'extension/src/onboarding/index.html'), destination: resolve(outDir, 'onboarding/onboarding.html') },
+				{
+					source: resolve(outDir, 'extension/src/onboarding/index.html'),
+					destination: resolve(outDir, 'onboarding/onboarding.html'),
+				},
 			];
 
 			for (const asset of assetsToCopy) {
@@ -57,7 +60,7 @@ export default defineConfig(({ mode }) => ({
 		outDir: 'dist',
 		emptyOutDir: true,
 		minify: true,
-		reportCompressedSize: false,
+		reportCompressedSize: true,
 		cssMinify: true,
 		target: 'es2022',
 		rollupOptions: {

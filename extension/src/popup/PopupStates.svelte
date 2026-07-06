@@ -27,7 +27,7 @@
 		</div>
 		<div class="space-y-1">
 			<h2 class="text-lg font-semibold">Setup Required</h2>
-			<p class="max-w-sm text-sm text-soft">Connect your GitHub account to start tracking PRs in the popup.</p>
+			<p class="max-w-sm desc">Connect your GitHub account to start tracking PRs in the popup.</p>
 		</div>
 		<Button onclick={onOpenSetup}>Open Setup</Button>
 	</div>
@@ -42,7 +42,7 @@
 			<Inbox class="h-8 w-8" />
 		</div>
 		<h2 class="text-lg font-semibold">No pull requests here</h2>
-		<p class="max-w-sm text-sm text-soft">
+		<p class="max-w-sm desc">
 			{currentTab === 'myPRs' ? "You don't have any open PRs right now." : 'No pull requests are waiting for your review.'}
 		</p>
 	</div>

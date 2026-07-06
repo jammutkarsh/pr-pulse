@@ -4,6 +4,7 @@ export interface User {
 	login: string;
 	avatarUrl: string;
 	name: string;
+	tokenExpiration?: string | null;
 }
 
 export interface PullRequestAuthor {
@@ -76,6 +77,7 @@ export interface ProviderConfig {
 export interface StoredProviderConfig extends ProviderConfig {
 	type: ProviderType;
 	user?: User;
+	isTokenInvalid?: boolean;
 }
 
 export interface UiConfig {

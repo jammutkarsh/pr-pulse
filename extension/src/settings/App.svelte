@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
@@ -9,7 +9,7 @@
 	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
+	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl, copyToClipboard } from '../../lib/utils';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 
 	const pollingOptions = [
@@ -38,6 +38,22 @@
 	let validatingToken = $state(false);
 	let saveVisible = $state(false);
 	let saveTimeoutId: ReturnType<typeof setTimeout> | undefined;
+	let isTokenInvalid = $state(false);
+
+	let revealConfirmState = $state(false);
+	let revealedToken = $state('');
+	let copySuccess = $state(false);
+
+	async function handleCopyToken() {
+		if (revealedToken) {
+			await copyToClipboard(revealedToken);
+			copySuccess = true;
+			setTimeout(() => { 
+				copySuccess = false; 
+				revealedToken = '';
+			}, 1200);
+		}
+	}
 
 	let isConnected = $derived(!!(provider && provider.user && !reconnecting));
 	let jiraDashboardUrl = $derived(jiraUrl && isValidHttpUrl(jiraUrl) ? `${jiraUrl}/jira/for-you` : '');
@@ -55,14 +71,25 @@
 		normalizedCustomMinutes * 60000 !== pollingIntervalMs
 	);
 
+	function handleVisibilityChange() {
+		if (document.visibilityState === 'visible' && provider && provider.user) {
+			void fetchTokenExpiration();
+		}
+	}
+
 	onMount(() => {
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		void init();
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	});
 
 	async function init() {
 		const [nextSettings, nextProvider] = await Promise.all([storage.getSettings(), storage.getProvider()]);
 		currentSettings = nextSettings;
 		provider = nextProvider;
+		isTokenInvalid = provider?.isTokenInvalid ?? false;
 		jiraUrl = sanitizeJiraUrl(currentSettings.jiraBaseUrl || '');
 		pollingIntervalMs = currentSettings.pollingIntervalMs ?? 600000;
 		if (PRESET_POLLING_VALUES.has(pollingIntervalMs)) {
@@ -70,6 +97,41 @@
 		} else {
 			selectedPollingValue = -1;
 			customMinutes = Math.round(pollingIntervalMs / 60000);
+		}
+
+		void fetchTokenExpiration();
+	}
+
+	async function fetchTokenExpiration() {
+		if (!provider || !provider.user) return;
+		try {
+			const { GitHubProvider } = await import('../../lib/providers/github-provider');
+			const github = new GitHubProvider({ token: provider.token });
+			const user = await github.getUser();
+			isTokenInvalid = false;
+			if (user.tokenExpiration !== undefined && provider.user) {
+				provider.user.tokenExpiration = user.tokenExpiration;
+				await storage.setProvider(provider);
+			}
+		} catch (err) {
+			const e = err as Error & { details?: { statusCode?: number } };
+			console.error('Failed to validate token:', e);
+			if (e.details?.statusCode === 401 || (e.message && e.message.includes('401'))) {
+				isTokenInvalid = true;
+				reconnecting = true;
+			}
+		}
+	}
+
+	function handleRevealClick() {
+		if (!revealConfirmState) {
+			revealConfirmState = true;
+			setTimeout(() => {
+				if (!revealedToken) revealConfirmState = false;
+			}, 3000);
+		} else {
+			revealedToken = provider?.token || '';
+			revealConfirmState = false;
 		}
 	}
 
@@ -172,6 +234,7 @@
 			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
 			tokenSuccess = `Connected as ${user.name || user.login}`;
 			reconnecting = false;
+			isTokenInvalid = false;
 			token = '';
 			flashSaved();
 		} catch (error) {
@@ -197,8 +260,8 @@
 	}
 </script>
 
-<div class="min-h-screen px-5 py-6 sm:px-6">
-	<div class="page-shell mx-auto flex flex-col gap-4">
+<div class="page-screen">
+	<div class="page-wrap">
 		<div class="flex items-center justify-between gap-3">
 			<Button variant="ghost" onclick={goBack}>
 				<ArrowLeft class="h-4 w-4" />
@@ -212,45 +275,94 @@
 			{/if}
 		</div>
 
-		<div class="surface-card p-6">
+		<div class="surface-card-padded">
 			<div class="max-w-xl space-y-2">
-				<div class="text-xs font-semibold uppercase tracking-[0.24em] text-(--accent)">Settings</div>
+				<div class="section-title">Settings</div>
 			</div>
 		</div>
 
 		<SectionCard>
-			<div class="mb-4 flex items-center gap-3">
-				<div class="accent-surface rounded-lg border p-3 text-(--accent)">
+			<div class="section-row">
+				<div class="accent-box">
 					<UserRound class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">GitHub Account</h2>
-					<p class="text-sm text-soft">Manage the token used by the background sync and popup.</p>
+					<h2 class="card-title">GitHub Account</h2>
+					<p class="desc">Manage the token used by the background sync and popup.</p>
 				</div>
 			</div>
 
 			{#if isConnected}
 				<div class="rounded-[20px] border border-soft bg-black/20 p-4">
-					<div class="flex items-center gap-3">
-						<img src={provider.user.avatarUrl} alt="Avatar" class="h-11 w-11 rounded-2xl border border-soft object-cover" />
-						<div>
-							<div class="text-sm font-semibold text-white">{provider.user.name || provider.user.login}</div>
-							<div class="text-xs text-soft">@{provider.user.login}</div>
+					<div class="flex items-center justify-between gap-4">
+						<div class="flex items-center gap-3">
+							<img src={provider.user.avatarUrl} alt="Avatar" class="h-11 w-11 rounded-2xl border border-soft object-cover shrink-0" />
+							<div class="min-w-0">
+								<div class="label-title truncate">{provider.user.name || provider.user.login}</div>
+								<div class="label-sub truncate">@{provider.user.login}</div>
+							</div>
+						</div>
+						<div class="text-right text-xs font-medium text-dim">
+							{#if provider.user.tokenExpiration}
+								Expires:<br/><span class="text-white/80">{new Date(provider.user.tokenExpiration).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+							{:else if provider.user.tokenExpiration === null}
+								<span class="text-white/80">Never expires</span>
+							{:else}
+								Checking...
+							{/if}
 						</div>
 					</div>
-					<div class="mt-4">
+
+					<div class="mt-4 flex flex-wrap items-center justify-between gap-3 bg-black/20 p-2.5 px-3 rounded-xl border border-white/5">
+						<div class="flex items-center gap-3 flex-1 min-w-0">
+							<span class="text-xs font-medium text-dim shrink-0">Token</span>
+							{#if revealedToken}
+								<code class="font-mono text-xs text-white truncate">{revealedToken}</code>
+							{:else}
+								<code class="font-mono text-xs text-soft/40 truncate">•••••••••••••••••••••••••••••••••••••••••</code>
+							{/if}
+						</div>
+						<div class="shrink-0 flex items-center gap-2">
+							{#if revealedToken}
+								<Button variant="ghost" onclick={handleCopyToken}>
+									{#if copySuccess}
+										<Check class="h-4 w-4 mr-1.5 text-(--success)" />
+										Copied
+									{:else}
+										<Copy class="h-4 w-4 mr-1.5" />
+										Copy
+									{/if}
+								</Button>
+							{:else}
+								<Button variant="ghost" onclick={handleRevealClick}>
+									{#if revealConfirmState}
+										Confirm?
+									{:else}
+										Reveal
+									{/if}
+								</Button>
+							{/if}
+						</div>
+					</div>
+
+					<div class="mt-4 flex">
 						<Button variant="secondary" onclick={() => reconnecting = true}>Reconnect with a different token</Button>
 					</div>
 				</div>
 			{:else}
 				<div class="space-y-3">
+					{#if isTokenInvalid}
+						<div class="rounded-lg border border-(--danger)/20 bg-(--danger)/10 p-3 text-sm text-(--danger)">
+							Your GitHub token has expired or was revoked. Please connect a new one.
+						</div>
+					{/if}
 					<input class="field-input" type="password" bind:value={token} placeholder="ghp_xxxxxxxxxxxxx" autocomplete="off" />
-					<p class="text-sm text-soft">Enter a GitHub personal access token with repository access.</p>
+					<p class="desc">Enter a GitHub personal access token with repository access. Need a token? <a class="link-accent" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank" rel="noopener noreferrer">Create one here</a>.</p>
 					<div class="flex flex-wrap gap-3">
 						<Button onclick={validateAndSaveToken} disabled={validatingToken}>
 							{validatingToken ? 'Validating...' : 'Connect'}
 						</Button>
-						{#if provider?.user}
+						{#if provider?.user && !isTokenInvalid}
 							<Button variant="secondary" onclick={() => reconnecting = false}>Cancel</Button>
 						{/if}
 					</div>
@@ -265,50 +377,50 @@
 		</SectionCard>
 
 		<SectionCard>
-			<div class="mb-4 flex items-center gap-3">
-				<div class="rounded-2xl bg-white/6 p-3 text-white">
+			<div class="section-row">
+				<div class="step-icon">
 					<Pin class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Default View</h2>
-					<p class="text-sm text-soft">Choose the tab the popup opens to by default.</p>
+					<h2 class="card-title">Default View</h2>
+					<p class="desc">Choose the tab the popup opens to by default.</p>
 				</div>
 			</div>
-			<div class="grid gap-3 sm:grid-cols-2">
+			<div class="grid-2">
 				<RadioCard name="pinnedTab" value="myPRs" currentValue={currentSettings.pinnedTab || 'myPRs'} title="My PRs" description="Track the pull requests you created." iconComponent={GitPullRequest} onchange={updatePinnedTab} />
 				<RadioCard name="pinnedTab" value="toReview" currentValue={currentSettings.pinnedTab || 'myPRs'} title="To Review" description="Track the pull requests that need your attention as a reviewer." iconComponent={Inbox} onchange={updatePinnedTab} />
 			</div>
 		</SectionCard>
 
 		<SectionCard>
-			<div class="mb-4 flex items-center gap-3">
-				<div class="rounded-2xl bg-white/6 p-3 text-white">
+			<div class="section-row">
+				<div class="step-icon">
 					<Ticket class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Jira Integration</h2>
-					<p class="text-sm text-soft">Jira origin link to derive ticket links from branch names.</p>
+					<h2 class="card-title">Jira Integration</h2>
+					<p class="desc">Jira origin link to derive ticket links from branch names.</p>
 				</div>
 			</div>
 			<div class="space-y-3">
 				<input class="field-input" type="url" bind:value={jiraUrl} placeholder="https://company.atlassian.net/browse/PROJ-123" onblur={saveJiraUrl} />
 				{#if jiraDashboardUrl}
-					<p class="text-sm text-soft">Your Dashboard: <a class="text-(--accent) underline" href={jiraDashboardUrl} target="_blank" rel="noopener noreferrer">{jiraDashboardUrl}</a></p>
+					<p class="desc">Your Dashboard: <a class="link-accent" href={jiraDashboardUrl} target="_blank" rel="noopener noreferrer">{jiraDashboardUrl}</a></p>
 				{:else}
-					<p class="text-sm text-soft">Enter any Jira URL and PR Pulse will normalize it to the base workspace URL.</p>
+					<p class="desc">Enter any Jira URL and PR Pulse will normalize it to the base workspace URL.</p>
 				{/if}
 			</div>
 		</SectionCard>
 
 		<div class="grid gap-4 lg:grid-cols-2">
 			<SectionCard>
-				<div class="mb-4 flex items-center gap-3">
-					<div class="rounded-2xl bg-white/6 p-3 text-white">
+				<div class="section-row">
+					<div class="step-icon">
 						<Clock3 class="h-5 w-5" />
 					</div>
 					<div>
-						<h2 class="text-base font-semibold text-white">Refresh Interval</h2>
-						<p class="text-sm text-soft">Control how often the background worker refreshes cached PR data.</p>
+						<h2 class="card-title">Refresh Interval</h2>
+						<p class="desc">Control how often the background worker refreshes cached PR data.</p>
 					</div>
 				</div>
 				<div class="space-y-3">
@@ -323,7 +435,7 @@
 						</div>
 					</div>
 					{#if selectedPollingValue === 0}
-						<p class="text-sm text-soft">Pull requests will only update when you click the refresh button in the popup.</p>
+						<p class="desc">Pull requests will only update when you click the refresh button in the popup.</p>
 					{:else if selectedPollingValue === -1}
 						<div class="flex items-center gap-3">
 							<input class="field-input" type="number" min="1" max="1440" bind:value={customMinutes} placeholder="Minutes (1–1440)" />
@@ -331,19 +443,19 @@
 								<Button onclick={applyCustomInterval}>Apply</Button>
 							{/if}
 						</div>
-						<p class="text-sm text-soft">Enter a value between 1 and 1440 minutes (1 day max).</p>
+						<p class="desc">Enter a value between 1 and 1440 minutes (1 day max).</p>
 					{/if}
 				</div>
 			</SectionCard>
 
 			<SectionCard>
-				<div class="mb-4 flex items-center gap-3">
-					<div class="rounded-2xl bg-white/6 p-3 text-white">
+				<div class="section-row">
+					<div class="step-icon">
 						<MonitorCog class="h-5 w-5" />
 					</div>
 					<div>
-						<h2 class="text-base font-semibold text-white">Display Mode</h2>
-						<p class="text-sm text-soft">Choose view mode when extension is clicked.</p>
+						<h2 class="card-title">Display Mode</h2>
+						<p class="desc">Choose view mode when extension is clicked.</p>
 					</div>
 				</div>
 				<div class="grid gap-3">
@@ -354,32 +466,32 @@
 		</div>
 
 		<SectionCard>
-			<div class="mb-4 flex items-center gap-3">
-				<div class="rounded-2xl bg-white/6 p-3 text-white">
+			<div class="section-row">
+				<div class="step-icon">
 					<ListFilter class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Filters</h2>
-					<p class="text-sm text-soft">Configure the active filter persistence.</p>
+					<h2 class="card-title">Filters</h2>
+					<p class="desc">Configure the active filter persistence.</p>
 				</div>
 			</div>
-			<div class="grid gap-3 sm:grid-cols-2">
+			<div class="grid-2">
 				<RadioCard name="persistFilters" value={true} currentValue={currentSettings.persistFilters ?? true} title="Remember Filters" description="Keep your active filters across extension sessions." iconComponent={Save} onchange={() => updateSetting('persistFilters', true)} />
 				<RadioCard name="persistFilters" value={false} currentValue={currentSettings.persistFilters ?? true} title="Per Session" description="Clear active filters every time you close the popup." iconComponent={Eraser} onchange={() => updateSetting('persistFilters', false)} />
 			</div>
 		</SectionCard>
 
 		<SectionCard>
-			<div class="mb-4 flex items-center gap-3">
-				<div class="rounded-2xl bg-white/6 p-3 text-white">
+			<div class="section-row">
+				<div class="step-icon">
 					<GitPullRequest class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Badge Count</h2>
-					<p class="text-sm text-soft">Choose what the icon badge number represents.</p>
+					<h2 class="card-title">Badge Count</h2>
+					<p class="desc">Choose what the icon badge number represents.</p>
 				</div>
 			</div>
-			<div class="grid gap-3 sm:grid-cols-2">
+			<div class="grid-2">
 				<RadioCard name="badgeCountMode" value="total" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Total PRs" description="Show the total number of pull requests in the pinned tab." iconComponent={GitPullRequest} onchange={async () => { await updateSetting('badgeCountMode', 'total'); await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { badgeCountMode: 'total' } }); }} />
 				<RadioCard name="badgeCountMode" value="filters" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Filtered PRs" description="Show the count matching your active filters and search." iconComponent={ListFilter} onchange={async () => { await updateSetting('badgeCountMode', 'filters'); await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { badgeCountMode: 'filters' } }); }} />
 			</div>
@@ -387,12 +499,12 @@
 
 		<SectionCard>
 			<div class="mb-0 flex items-center gap-3">
-				<div class="rounded-2xl bg-white/6 p-3 text-white">
+				<div class="step-icon">
 					<Sparkles class="h-5 w-5" />
 				</div>
 				<div>
-					<h2 class="text-base font-semibold text-white">Visual Guidance</h2>
-					<p class="text-sm text-soft">Hover over the sample card elements to recall what they do.</p>
+					<h2 class="card-title">Visual Guidance</h2>
+					<p class="desc">Hover over the sample card elements to recall what they do.</p>
 				</div>
 			</div>
 			<InteractiveGuide />

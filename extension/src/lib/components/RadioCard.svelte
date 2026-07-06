@@ -57,10 +57,10 @@
 					<span class="text-2xl">{icon}</span>
 				{/if}
 				<div>
-					<div class="text-sm font-semibold text-white">{title}</div>
+					<div class="label-title">{title}</div>
 				</div>
 			</div>
-			<p class="text-sm leading-[1.2rem] text-soft">{description}</p>
+			<p class="body-text">{description}</p>
 		</div>
 		<div class={indicatorClasses}>
 			<Check class="h-3.5 w-3.5" />

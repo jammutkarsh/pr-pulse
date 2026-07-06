@@ -1,77 +1,81 @@
 {
-  "name": "pr-pulse",
-  "version": "1.5.0",
-  "description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
-  "main": "extension/service-worker.ts",
-  "directories": {
-    "lib": "extension/lib"
-  },
-  "scripts": {
-    "dev": "vite",
-    "check": "svelte-check --incremental",
-    "lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
-    "clean:cache": "rm -rf .cache .svelte-check",
-    "clean": "rm -rf dist && rm -f pr-pulse-*.zip pr-pulse-*.xpi",
-    "manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
-    "manifest:firefox": "tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
-    "manifest": "npm run manifest:chrome && npm run manifest:firefox",
-    "build:watch": "vite build --mode chrome --watch --outDir dist/chrome",
-    "build:chrome": "vite build --mode chrome --outDir dist/chrome && npm run manifest:chrome",
-    "build:firefox": "vite build --mode firefox --outDir dist/firefox && npm run manifest:firefox",
-    "build": "npm run build:chrome && npm run build:firefox",
-    "zip:chrome": "cd dist/chrome && zip -rq ../../pr-pulse-v$npm_package_version-chrome.zip .",
-    "zip:firefox": "cd dist/firefox && zip -rq ../../pr-pulse-v$npm_package_version-firefox.xpi .",
-    "zip": "npm run zip:chrome && npm run zip:firefox",
-    "generate:chrome": "npm run clean && npm run lint && npm run build:chrome && npm run zip:chrome",
-    "generate:firefox": "npm run clean && npm run lint && npm run build:firefox && npm run zip:firefox",
-    "generate": "npm run clean && npm run lint && npm run build && npm run zip"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jammutkarsh/pr-pulse.git"
-  },
-  "keywords": [
-    "Chrome Extension",
-    "Browser Extension",
-    "Firefox Extension",
-    "GitHub",
-    "Pull Requests",
-    "Dashboard",
-    "Developer Tools"
-  ],
-  "author": "Utkarsh Chourasia <utkarshchourasia.in>",
-  "license": "MIT",
-  "type": "module",
-  "bugs": {
-    "url": "https://github.com/jammutkarsh/pr-pulse/issues"
-  },
-  "homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
-  "dependencies": {
-    "fuse.js": "^7.1.0",
-    "lucide-svelte": "^0.577.0",
-    "svelte": "^5.55.7",
-    "webextension-polyfill": "^0.12.0"
-  },
-  "devDependencies": {
-    "@eslint/compat": "^2.0.3",
-    "@eslint/js": "^10.0.1",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
-    "@tailwindcss/vite": "^4.2.2",
-    "@types/chrome": "^0.1.38",
-    "@types/node": "^24.12.2",
-    "@types/webextension-polyfill": "^0.12.3",
-    "eslint": "^10.0.3",
-    "eslint-plugin-svelte": "^3.15.2",
-    "globals": "^17.4.0",
-    "svelte-check": "^4.4.5",
-    "tailwindcss": "^4.3.0",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.62.1",
-    "vite": "^8.0.1"
-  },
-  "allowScripts": {
-    "fsevents@2.3.3": true,
-    "esbuild@0.28.1": true
-  }
+	"name": "pr-pulse",
+	"version": "1.6.0",
+	"description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
+	"main": "extension/service-worker.ts",
+	"directories": {
+		"lib": "extension/lib"
+	},
+	"scripts": {
+		"dev": "vite",
+		"check": "svelte-check --incremental",
+		"format": "prettier --write .",
+		"lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
+		"deadcode": "fallow fix",
+		"clean:cache": "rm -rf .cache .svelte-check",
+		"clean": "rm -rf dist && rm -f pr-pulse-*.zip pr-pulse-*.xpi",
+		"manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
+		"manifest:firefox": "tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
+		"manifest": "npm run manifest:chrome && npm run manifest:firefox",
+		"build:watch": "vite build --mode chrome --watch --outDir dist/chrome",
+		"build:chrome": "vite build --mode chrome --outDir dist/chrome && npm run manifest:chrome",
+		"build:firefox": "vite build --mode firefox --outDir dist/firefox && npm run manifest:firefox",
+		"build": "npm run build:chrome && npm run build:firefox",
+		"zip:chrome": "cd dist/chrome && zip -rq ../../pr-pulse-v$npm_package_version-chrome.zip .",
+		"zip:firefox": "cd dist/firefox && zip -rq ../../pr-pulse-v$npm_package_version-firefox.xpi .",
+		"zip": "npm run zip:chrome && npm run zip:firefox",
+		"generate:chrome": "npm run clean && npm run lint && npm run build:chrome && npm run zip:chrome",
+		"generate:firefox": "npm run clean && npm run lint && npm run build:firefox && npm run zip:firefox",
+		"generate": "npm run clean && npm run lint && npm run build && npm run zip"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jammutkarsh/pr-pulse.git"
+	},
+	"keywords": [
+		"Chrome Extension",
+		"Browser Extension",
+		"Firefox Extension",
+		"GitHub",
+		"Pull Requests",
+		"Dashboard",
+		"Developer Tools"
+	],
+	"author": "Utkarsh Chourasia <utkarshchourasia.in>",
+	"license": "MIT",
+	"type": "module",
+	"bugs": {
+		"url": "https://github.com/jammutkarsh/pr-pulse/issues"
+	},
+	"homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
+	"dependencies": {
+		"fallow": "^2.104.0",
+		"fuse.js": "^7.1.0",
+		"lucide-svelte": "^0.577.0",
+		"svelte": "^5.55.7",
+		"webextension-polyfill": "^0.12.0"
+	},
+	"devDependencies": {
+		"@eslint/compat": "^2.0.3",
+		"@eslint/js": "^10.0.1",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@tailwindcss/vite": "^4.2.2",
+		"@types/chrome": "^0.1.38",
+		"@types/node": "^24.12.2",
+		"@types/webextension-polyfill": "^0.12.3",
+		"eslint": "^10.0.3",
+		"eslint-plugin-svelte": "^3.15.2",
+		"globals": "^17.4.0",
+		"prettier": "^3.9.4",
+		"svelte-check": "^4.4.5",
+		"tailwindcss": "^4.3.0",
+		"tsx": "^4.22.4",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.62.1",
+		"vite": "^8.0.1"
+	},
+	"allowScripts": {
+		"fsevents@2.3.3": true,
+		"esbuild@0.28.1": true
+	}
 }

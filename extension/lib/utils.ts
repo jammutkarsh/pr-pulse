@@ -36,9 +36,7 @@ export function getReviewStatusDisplay(status: string, openThreadCount?: number)
 		case 'approved':
 			return { label: 'Approved', icon: '✓', className: 'status-approved' };
 		case 'changes_requested': {
-			const label = openThreadCount && openThreadCount > 0
-				? `Changes Requested (${openThreadCount})`
-				: 'Changes Requested';
+			const label = openThreadCount && openThreadCount > 0 ? `Changes Requested (${openThreadCount})` : 'Changes Requested';
 			return { label, icon: '✗', className: 'status-changes' };
 		}
 		case 'pending':
@@ -60,7 +58,6 @@ export function getCheckStatusDisplay(status: string) {
 			return { label: 'No Checks', icon: '○', className: 'checks-unknown' };
 	}
 }
-
 
 export async function copyToClipboard(text: string): Promise<void> {
 	await navigator.clipboard.writeText(text);
@@ -141,7 +138,7 @@ export function filterPullRequests(
 		repos?: string[];
 		drafts?: 'only' | 'include' | 'exclude';
 		showReviewed?: boolean;
-	}
+	},
 ): PullRequest[] {
 	let result = items;
 

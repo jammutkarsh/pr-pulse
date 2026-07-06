@@ -3,7 +3,6 @@
 	import PopupHeader from './PopupHeader.svelte';
 	import PrCard from './PrCard.svelte';
 	import PopupStates from './PopupStates.svelte';
-	import PopupSkeleton from './PopupSkeleton.svelte';
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import {
@@ -40,6 +39,8 @@
 		activeFilters?: StoredFilters;
 	};
 	type FiltersByTab = Record<PopupTab, PopupFilters>;
+
+	const tokenExpired = 'Token expired or revoked; Connect a new one.';
 
 	function createDefaultFilters(): PopupFilters {
 		return {
@@ -263,6 +264,10 @@
 		setupRequired = !(provider && provider.user && provider.token);
 		currentTab = settings.pinnedTab || 'myPRs';
 
+		if (provider?.isTokenInvalid) {
+			errorMessage = tokenExpired;
+		}
+
 		if (setupRequired) {
 			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
 			filtersByTab = createDefaultFiltersByTab();
@@ -319,7 +324,14 @@
 
 		refreshInProgress = true;
 		try {
-			await runtimeSendMessage({ type: 'REFRESH_PRS' });
+			const response = await runtimeSendMessage<{ success?: boolean; error?: string }>({ type: 'REFRESH_PRS' });
+			if (response && response.success === false) {
+				if (response.error === 'TOKEN_INVALID') {
+					errorMessage = tokenExpired;
+					return;
+				}
+				throw new Error(response.error);
+			}
 			await loadPrData();
 			showToast('PR data refreshed', 'success');
 		} catch (error) {
@@ -421,8 +433,8 @@
 	let availableOwners = $derived(getOwnersFromItems(itemsForOwnerOptions));
 	let availableAuthors = $derived(getAuthorsFromItems(itemsForAuthorOptions, currentTab === 'toReview'));
 	let availableRepos = $derived(getReposFromItems(itemsForRepoOptions));
-	let showSearchControls = $derived(!loading && !setupRequired && !errorMessage && currentItems.length > 0);
-	let showTabToggle = $derived(!loading && !setupRequired && !errorMessage);
+	let showSearchControls = $derived(!loading && !setupRequired && currentItems.length > 0);
+	let showTabToggle = $derived(!loading && !setupRequired);
 	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
 	let hasOwnerFilter = $derived(allAvailableOwners.length > 1);
 	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
@@ -547,7 +559,7 @@
 			/>
 
 			{#if showSearchControls && isSearchOpen}
-				<div class="border-b border-soft px-4 py-2.5 sm:px-4">
+				<div class="border-b border-soft px-2.5 py-1.5 sm:px-2.5">
 					<SearchFilter
 						embedded={true}
 						fullpageMode={isFullpageMode}
@@ -571,8 +583,8 @@
 
 			<div class={`px-4 ${showSearchControls ? 'pb-3 pt-3' : 'py-3'} sm:px-4 ${isFullpageMode ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
 				{#if loading}
-					<PopupSkeleton className={isFullpageMode ? 'popup-skeleton--fullpage' : ''} />
-				{:else if setupRequired || errorMessage || currentItems.length === 0}
+					<div class="flex min-h-50 items-center justify-center desc">Loading PRs...</div>
+				{:else if setupRequired || currentItems.length === 0}
 					<PopupStates
 						{setupRequired}
 						{errorMessage}
@@ -581,6 +593,12 @@
 						onRetry={loadPrData}
 					/>
 				{:else}
+					{#if errorMessage}
+						<div class="mb-4 rounded-lg border border-(--danger)/20 bg-(--danger)/10 p-3 text-sm text-(--danger) flex items-center justify-between gap-4">
+							<span>{errorMessage}</span>
+							<button class="shrink-0 text-xs font-medium underline hover:text-(--danger)/80 whitespace-nowrap" onclick={openSettings}>Open Settings</button>
+						</div>
+					{/if}
 					{#if filteredItems.length === 0}
 						<div class="py-8 text-center text-soft">
 							<p>No PRs match your filters.</p>

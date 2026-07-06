@@ -177,27 +177,27 @@
 	}
 </script>
 
-<div class="min-h-screen px-5 py-6 sm:px-6">
+<div class="page-screen">
 	{#if !onboardingStateReady}
-		<div class="page-shell mx-auto flex flex-col gap-4">
-			<div class="surface-card p-6">
+		<div class="page-wrap">
+			<div class="surface-card-padded">
 				<div class="space-y-2">
-					<div class="text-xs font-semibold uppercase tracking-[0.24em] text-(--accent)">Setup</div>
+					<div class="section-title">Setup</div>
 					<h1 class="text-3xl font-semibold text-white">Configure PR Pulse</h1>
-					<p class="text-sm leading-[1.2rem] text-soft">Restoring your onboarding progress...</p>
+					<p class="body-text">Restoring your onboarding progress...</p>
 				</div>
 			</div>
 		</div>
 	{:else}
-	<div class="page-shell mx-auto flex flex-col gap-4">
-		<div class="surface-card p-6">
+	<div class="page-wrap">
+		<div class="surface-card-padded">
 			<div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 				<div class="max-w-xl space-y-2">
-					<div class="text-xs font-semibold uppercase tracking-[0.24em] text-(--accent)">Setup</div>
+					<div class="section-title">Setup</div>
 					<h1 class="text-3xl font-semibold text-white">Configure PR Pulse</h1>
-					<p class="text-sm leading-[1.2rem] text-soft">Connect GitHub, choose your default view, and optionally enable Jira ticket links.</p>
+					<p class="body-text">Connect GitHub, choose your default view, and optionally enable Jira ticket links.</p>
 				</div>
-				<div class="rounded-lg border border-soft bg-(--bg-muted) px-4 py-3 text-sm text-soft">
+				<div class="rounded-lg border border-soft bg-(--bg-muted) px-4 py-3 desc">
 					{currentStep === STEP_COMPLETE ? 'Setup complete' : `Step ${Math.min(currentStep, STEP_DISPLAY)} of ${STEP_DISPLAY}`}
 				</div>
 			</div>

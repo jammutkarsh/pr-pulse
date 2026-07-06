@@ -41,12 +41,12 @@
 <SectionCard className="p-6">
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
-			<div class="accent-surface rounded-lg border p-3 text-(--accent)">
+			<div class="accent-box">
 				<Github class="h-5 w-5" />
 			</div>
 			<div>
-				<h2 class="text-xl font-semibold text-white">Connect to GitHub</h2>
-				<p class="text-sm text-soft">Authenticate once, then let the background worker keep your PRs fresh.</p>
+				<h2 class="step-heading">Connect to GitHub</h2>
+				<p class="desc">Authenticate once, then let the background worker keep your PRs fresh.</p>
 			</div>
 		</div>
 
@@ -68,16 +68,27 @@
 					{/if}
 				</button>
 			</div>
-			<p class="text-sm text-soft">Need a token? <a class="text-(--accent) underline" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank" rel="noopener noreferrer">Create one here</a>.</p>
+			<p class="desc">Need a token? <a class="link-accent" href="https://github.com/settings/tokens/new?scopes=repo&description=PR%20Pulse" target="_blank" rel="noopener noreferrer">Create one here</a>.</p>
 		</div>
 
 		{#if providerData}
 			<div class="accent-surface rounded-lg border p-4">
-				<div class="flex items-center gap-3">
-					<img src={providerData.user.avatarUrl} alt="Avatar" class="h-12 w-12 rounded-2xl border border-soft object-cover" />
-					<div>
-						<div class="text-sm font-semibold text-white">{providerData.user.name || providerData.user.login}</div>
-						<div class="text-xs text-soft">@{providerData.user.login}</div>
+				<div class="flex items-center justify-between gap-4">
+					<div class="flex items-center gap-3">
+						<img src={providerData.user.avatarUrl} alt="Avatar" class="h-12 w-12 rounded-2xl border border-soft object-cover shrink-0" />
+						<div class="min-w-0">
+							<div class="label-title truncate">{providerData.user.name || providerData.user.login}</div>
+							<div class="label-sub truncate">@{providerData.user.login}</div>
+						</div>
+					</div>
+					<div class="text-right text-xs font-medium text-dim">
+						{#if providerData.user.tokenExpiration}
+							Expires:<br/><span class="text-white/80">{new Date(providerData.user.tokenExpiration).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+						{:else if providerData.user.tokenExpiration === null}
+							<span class="text-white/80">Never expires</span>
+						{:else}
+							Checking...
+						{/if}
 					</div>
 				</div>
 			</div>

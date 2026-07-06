@@ -26,7 +26,7 @@ class ProviderManager {
 		if (!ProviderClass) {
 			throw new ProviderError(
 				`Unknown provider type: ${type}. Registered types: ${this.getRegisteredTypes().join(', ')}`,
-				'UNKNOWN_PROVIDER'
+				'UNKNOWN_PROVIDER',
 			);
 		}
 
@@ -52,7 +52,7 @@ class ProviderManager {
 	async fetchAllPullRequests(): Promise<PullRequestData> {
 		const provider = this.#ensureProvider();
 
-		// ponytail: 3 parallel queries — the 3rd (reviewed-by) adds one extra GitHub search call per refresh.
+		// 3 parallel queries — the 3rd (reviewed-by) adds one extra GitHub search call per refresh.
 		// Gate behind a flag if rate limits ever matter.
 		const [myPRs, reviewRequests, reviewedPRs] = await Promise.all([
 			provider.getMyPullRequests(),

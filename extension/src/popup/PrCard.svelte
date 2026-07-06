@@ -87,7 +87,7 @@
 			return null;
 		}
 
-		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName)}`;
+		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName).replaceAll('%2F', '/')}`;
 	}
 
 	function getJiraLink(pr: PullRequest) {
@@ -110,15 +110,21 @@
 		}
 
 		const checksStatus = pr.checks?.status;
+		const reviewsStatus = pr.reviews?.status;
+
+		if (checksStatus === 'failure' || reviewsStatus === 'changes_requested') {
+			return 'pr-card-danger';
+		}
+
+		if (checksStatus === 'pending' || reviewsStatus === 'pending') {
+			return 'pr-card-warning';
+		}
+
 		const checksOk = !checksStatus || checksStatus === 'success' || checksStatus === 'unknown';
-		const reviewOk = pr.reviews?.status === 'approved';
+		const reviewOk = reviewsStatus === 'approved';
 
 		if (checksOk && reviewOk) {
 			return 'pr-card-success';
-		}
-
-		if (!checksOk && !reviewOk) {
-			return 'pr-card-danger';
 		}
 
 		return 'pr-card-warning';
@@ -148,7 +154,7 @@
 	<div class="min-w-0 space-y-1.5">
 		<div class="relative min-w-0 pr-6">
 			<div class="flex min-w-0 items-start gap-1.5">
-				<button class="unstyled-button pr-title-link group flex min-w-0 flex-1 items-start gap-2.5 text-left text-white" onclick={() => onOpenUrl(pr.url)}>
+				<button class="unstyled-button pr-title-link group flex min-w-0 flex-1 items-start gap-2.5 text-left text-white" onclick={() => onOpenUrl(pr.url)} data-guide-id="title">
 					<img src={pr.author?.avatarUrl || '../icons/icon128.png'} alt={pr.author?.name || pr.author?.login} title={pr.author?.name || pr.author?.login} class="mt-0.5 h-5 w-5 rounded-full object-cover shrink-0" />
 					<span class={`line-clamp-2 min-w-0 wrap-break-word group-hover:underline group-hover:text-(--accent) group-hover:decoration-(--accent) decoration-[0.14em] ${pr.isDraft ? 'text-soft/90' : ''}`}>
 						{pr.title}
@@ -158,7 +164,7 @@
 					<span class="mt-0.5 inline-flex shrink-0 items-center rounded border border-soft/20 bg-soft/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-soft leading-none">Draft</span>
 				{/if}
 			</div>
-			<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" onclick={() => onCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link">
+			<button class="unstyled-button metadata-copy-button absolute right-0 top-0" type="button" onclick={() => onCopy(pr.url, `pr-${pr.id}`)} aria-label="Copy PR link" title="Copy PR link" data-guide-id="copyPR">
 				{#if copiedItemId === `pr-${pr.id}`}
 					<Check class="metadata-copy-icon text-(--success)" />
 				{:else}
@@ -167,14 +173,14 @@
 			</button>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
-			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)}>
-				<FolderGit2 class="metadata-repo-icon h-3.5 w-3.5" />
+		<div class="meta-row">
+			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`https://github.com/${encodeURI(pr.repoFullName || '')}`)} data-guide-id="repo">
+				<FolderGit2 class="metadata-repo-icon" />
 				<span class="hyperlink-text metadata-repo">{pr.repoFullName}</span>
 			</button>
 			<span aria-hidden="true" class="text-dim">•</span>
-			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`${pr.url}/changes`)}>
-				<FileDiff class="metadata-diff-icon h-3.5 w-3.5" />
+			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`${pr.url}/changes`)} data-guide-id="diff">
+				<FileDiff class="metadata-diff-icon" />
 				<span class="metadata-diff">
 					<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
 					<span class="metadata-diff-del">-{safeParseInt(pr.changes?.deletions, 0)}</span>
@@ -183,10 +189,10 @@
 		</div>
 
 		{#if jiraLink || branchUrl}
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-soft">
+			<div class="meta-row">
 				{#if jiraLink}
-				<button class="unstyled-button action-chip" onclick={() => onOpenUrl(jiraLink.url)}>
-					<Ticket class="metadata-jira-icon h-3.5 w-3.5" />
+				<button class="unstyled-button action-chip" onclick={() => onOpenUrl(jiraLink.url)} data-guide-id="jira">
+					<Ticket class="metadata-jira-icon" />
 					<span class="hyperlink-text metadata-jira">{jiraLink.ticket}</span>
 				</button>
 				{/if}
@@ -195,11 +201,11 @@
 				{/if}
 				{#if branchUrl}
 				<div class="flex items-center gap-0.5">
-					<button class="unstyled-button action-chip" onclick={() => onOpenUrl(branchUrl)}>
-						<GitBranch class="metadata-branch-icon h-3.5 w-3.5" />
+					<button class="unstyled-button action-chip" onclick={() => onOpenUrl(branchUrl)} data-guide-id="branch">
+						<GitBranch class="metadata-branch-icon" />
 						<span class="hyperlink-text metadata-branch">{pr.branchName}</span>
 					</button>
-					<button class="unstyled-button metadata-copy-button" type="button" onclick={() => onCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name">
+					<button class="unstyled-button metadata-copy-button" type="button" onclick={() => onCopy(pr.branchName, `branch-${pr.id}`)} aria-label="Copy branch name" title="Copy branch name" data-guide-id="copyBranch">
 						{#if copiedItemId === `branch-${pr.id}`}
 							<Check class="metadata-copy-icon text-(--success)" />
 						{:else}
@@ -216,18 +222,20 @@
 				<button
 					class={`${checkStatusClasses} ${getCheckToneClass(checkDisplay.className)}`}
 					onclick={() => onOpenUrl(`${pr.url}/checks`)}
+					data-guide-id="statusChecks"
 				>
 					<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
 					<span class="status-inline-label">{checkDisplay.label}</span>
-					<ExternalLink class="status-link-icon h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+					<ExternalLink class="status-link-icon" />
 				</button>
 				<button
 				class={`unstyled-button status-inline min-w-0 group ${getReviewToneClass(reviewDisplay.className)}`}
 					onclick={() => onOpenUrl(reviewUrl)}
+					data-guide-id="statusReview"
 				>
 					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
-					<ExternalLink class="status-link-icon h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+					<ExternalLink class="status-link-icon" />
 				</button>
 				<div class="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none text-dim" title={createdAtText}>
 					<Clock class="h-3 w-3" />

@@ -35,7 +35,6 @@ async function getRuntimeConfig(forceRefresh = false): Promise<{ settings: Setti
 	return runtimeConfig;
 }
 
-
 async function initializeProvider(forceRefresh = false): Promise<boolean> {
 	const { provider: providerConfig } = await getRuntimeConfig(forceRefresh);
 	if (providerConfig) {
@@ -50,23 +49,52 @@ async function initializeProvider(forceRefresh = false): Promise<boolean> {
 	return false;
 }
 
-async function fetchAndCachePRs(): Promise<void> {
+async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			return await fn();
+		} catch (error) {
+			lastError = error;
+			const isNetworkError = error instanceof TypeError && error.message === 'Failed to fetch';
+			if (!isNetworkError || attempt === maxRetries) {
+				throw error;
+			}
+			const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+			console.log(`Fetch attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+			await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+	}
+	throw lastError;
+}
+
+async function fetchAndCachePRs(throwError = false): Promise<void> {
 	try {
 		if (!providerManager.hasProvider()) {
-			const initialized = await initializeProvider();
+			const initialized = await initializeProvider(true);
 			if (!initialized) {
 				console.log('No provider configured, skipping fetch');
+				if (throwError) throw new Error('No provider configured');
 				return;
 			}
 		}
 
 		console.log('Fetching PR data...');
-		const data = await providerManager.fetchAllPullRequests();
+		const data = await fetchWithRetry(() => providerManager.fetchAllPullRequests());
 		await storage.setPullRequests(data);
 		await updateBadgeFromSettings(data);
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
 	} catch (error) {
 		console.error('Failed to fetch PR data:', error);
+		const err = error as Error & { details?: { statusCode?: number } };
+		if (err?.details?.statusCode === 401 || (err?.message && err.message.includes('401'))) {
+			const config = await storage.getProvider();
+			if (config) {
+				config.isTokenInvalid = true;
+				await storage.setProvider(config);
+			}
+		}
+		if (throwError) throw error;
 	}
 }
 
@@ -103,10 +131,7 @@ async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
 
 async function updateBadge(count: number): Promise<void> {
 	const text = count > 0 ? String(count) : '';
-	await Promise.all([
-		actionSetBadgeText({ text }),
-		actionSetBadgeBackgroundColor({ color: '#238636' }),
-	]);
+	await Promise.all([actionSetBadgeText({ text }), actionSetBadgeBackgroundColor({ color: '#238636' })]);
 }
 
 async function setupPollingAlarm(forceRecreate = false): Promise<void> {
@@ -181,8 +206,16 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 	REFRESH_PRS: async () => {
-		await fetchAndCachePRs();
-		return { success: true };
+		try {
+			await fetchAndCachePRs(true);
+			return { success: true };
+		} catch (err) {
+			const error = err as Error & { details?: { statusCode?: number } };
+			if (error?.details?.statusCode === 401 || (error?.message && error.message.includes('401'))) {
+				return { success: false, error: 'TOKEN_INVALID' };
+			}
+			return { success: false, error: error?.message || 'Failed to refresh PRs' };
+		}
 	},
 	GET_PRS: async () => storage.getPullRequests(),
 	UPDATE_SETTINGS: async (message) => {
