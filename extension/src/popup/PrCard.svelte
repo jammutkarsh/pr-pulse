@@ -87,7 +87,7 @@
 			return null;
 		}
 
-		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName)}`;
+		return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName).replaceAll('%2F', '/')}`;
 	}
 
 	function getJiraLink(pr: PullRequest) {

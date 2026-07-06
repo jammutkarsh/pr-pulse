@@ -3,7 +3,8 @@
 	import { storage } from '../../../lib/storage';
 	import type { PullRequest } from '../../../lib/types';
 	import PrCard from '../../popup/PrCard.svelte';
-	import { copyToClipboard } from '../../../lib/utils';
+	import { copyToClipboard, isValidHttpUrl } from '../../../lib/utils';
+	import { tabsCreate } from '../../../lib/extension-api';
 
 	let activeTooltip = $state<string | null>(null);
 	let realPr = $state<PullRequest | null>(null);
@@ -143,7 +144,7 @@
 	<!-- svelte-ignore a11y_mouse_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="mx-auto w-full max-w-xl" onmouseover={handleMouseover}>
-		<PrCard pr={displayPr} isFullpageMode={true} {copiedItemId} onOpenUrl={() => {}} onCopy={handleCopy} />
+		<PrCard pr={displayPr} isFullpageMode={true} {copiedItemId} onOpenUrl={(url: string) => { if (isValidHttpUrl(url)) void tabsCreate({ url }); }} onCopy={handleCopy} />
 	</div>
 
 	<!-- Context-aware color legend — content changes based on hover, position stays fixed -->
