@@ -71,7 +71,7 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<
 async function fetchAndCachePRs(throwError = false): Promise<void> {
 	try {
 		if (!providerManager.hasProvider()) {
-			const initialized = await initializeProvider();
+			const initialized = await initializeProvider(true);
 			if (!initialized) {
 				console.log('No provider configured, skipping fetch');
 				if (throwError) throw new Error('No provider configured');

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { tick } from 'svelte';
     import { onDestroy, onMount } from 'svelte';
-    import { ChevronDown, ChevronRight, ListFilter, Search, X } from 'lucide-svelte';
+    import { ChevronDown, ChevronRight, ListFilter, Search, Trash2, X } from 'lucide-svelte';
     import type { PullRequestRepoOwner, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
     import Button from '../lib/components/Button.svelte';
 
@@ -194,6 +194,11 @@
 
     function clearSearch() {
         query = '';
+    }
+
+    function clearAllFilters() {
+        query = '';
+        activeFilters = { ...EMPTY_FILTERS };
     }
 
     function closeSearchSurface() {
@@ -410,6 +415,18 @@
                 >
                     <ListFilter class="h-3.5 w-3.5" />
                 </Button>
+                {#if hasActiveFilters}
+                    <Button
+                        className="h-7 w-7 shrink-0 px-0 text-soft hover:text-white hover:bg-(--bg-muted) hover:border-strong cursor-pointer"
+                        size="icon"
+                        variant="ghost"
+                        onclick={clearAllFilters}
+                        aria-label="Clear all filters"
+                        title="Clear all filters"
+                    >
+                        <Trash2 class="h-3.5 w-3.5" />
+                    </Button>
+                {/if}
             </div>
 
         {#if isFilterOpen && hasMeaningfulFilters}
