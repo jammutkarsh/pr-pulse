@@ -13,10 +13,7 @@ export default defineConfig({
 				},
 				test: {
 					name: 'unit',
-					include: [
-						'extension/lib/__tests__/**/*.test.ts',
-						'extension/src/ui/__tests__/**/*.test.ts',
-					],
+					include: ['extension/lib/__tests__/**/*.test.ts', 'extension/src/ui/__tests__/**/*.test.ts'],
 					environment: 'node',
 					setupFiles: ['./tests/setup/unit.ts'],
 				},

@@ -341,15 +341,36 @@ describe('safeParseInt', () => {
 
 describe('filterPullRequests', () => {
 	const prs = [
-		makePR({ id: '1', isDraft: false, author: { login: 'alice', avatarUrl: '', name: 'Alice' }, repoFullName: 'org/repo-a', repoOwner: { login: 'org', type: 'org' }, reviews: { status: 'approved', reviewers: [] } }),
-		makePR({ id: '2', isDraft: true, author: { login: 'bob', avatarUrl: '', name: 'Bob' }, repoFullName: 'org/repo-b', repoOwner: { login: 'org', type: 'org' }, reviews: { status: 'pending', reviewers: [] } }),
-		makePR({ id: '3', isDraft: false, author: { login: 'charlie', avatarUrl: '', name: 'Charlie' }, repoFullName: 'user/repo-c', repoOwner: { login: 'user', type: 'user' }, reviews: { status: 'changes_requested', reviewers: [] } }),
+		makePR({
+			id: '1',
+			isDraft: false,
+			author: { login: 'alice', avatarUrl: '', name: 'Alice' },
+			repoFullName: 'org/repo-a',
+			repoOwner: { login: 'org', type: 'org' },
+			reviews: { status: 'approved', reviewers: [] },
+		}),
+		makePR({
+			id: '2',
+			isDraft: true,
+			author: { login: 'bob', avatarUrl: '', name: 'Bob' },
+			repoFullName: 'org/repo-b',
+			repoOwner: { login: 'org', type: 'org' },
+			reviews: { status: 'pending', reviewers: [] },
+		}),
+		makePR({
+			id: '3',
+			isDraft: false,
+			author: { login: 'charlie', avatarUrl: '', name: 'Charlie' },
+			repoFullName: 'user/repo-c',
+			repoOwner: { login: 'user', type: 'user' },
+			reviews: { status: 'changes_requested', reviewers: [] },
+		}),
 	];
 
 	it('excludes drafts by default filter', () => {
 		const result = filterPullRequests(prs, { drafts: 'exclude' });
 		expect(result).toHaveLength(2);
-		expect(result.every(pr => !pr.isDraft)).toBe(true);
+		expect(result.every((pr) => !pr.isDraft)).toBe(true);
 	});
 
 	it('shows only drafts', () => {
@@ -382,7 +403,7 @@ describe('filterPullRequests', () => {
 	it('filters out approved when showReviewed is false', () => {
 		const result = filterPullRequests(prs, { showReviewed: false });
 		expect(result).toHaveLength(2);
-		expect(result.every(pr => pr.reviews.status !== 'approved')).toBe(true);
+		expect(result.every((pr) => pr.reviews.status !== 'approved')).toBe(true);
 	});
 
 	it('returns all when filters are empty', () => {

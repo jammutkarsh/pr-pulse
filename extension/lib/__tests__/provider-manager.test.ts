@@ -90,7 +90,7 @@ describe('ProviderManager', () => {
 			expect(result.myPRs).toHaveLength(1);
 			// shared should appear once, plus uniqueReview and uniqueReviewed
 			expect(result.reviewRequests).toHaveLength(3);
-			const ids = result.reviewRequests.map(pr => pr.id);
+			const ids = result.reviewRequests.map((pr) => pr.id);
 			expect(ids).toContain('shared-1');
 			expect(ids).toContain('review-only');
 			expect(ids).toContain('reviewed-only');

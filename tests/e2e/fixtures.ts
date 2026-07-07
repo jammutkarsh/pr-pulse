@@ -33,12 +33,7 @@ async function ensureContext(): Promise<{ context: BrowserContext; extensionId: 
 
 	_context = await chromium.launchPersistentContext('', {
 		headless: false,
-		args: [
-			`--disable-extensions-except=${extensionPath}`,
-			`--load-extension=${extensionPath}`,
-			'--no-first-run',
-			'--disable-gpu',
-		],
+		args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, '--no-first-run', '--disable-gpu'],
 	});
 
 	let [background] = _context.serviceWorkers();
@@ -85,11 +80,7 @@ export { expect } from '@playwright/test';
 /**
  * Open an extension page in a new tab.
  */
-export async function openExtensionPage(
-	context: BrowserContext,
-	extensionId: string,
-	path: string,
-): Promise<Page> {
+export async function openExtensionPage(context: BrowserContext, extensionId: string, path: string): Promise<Page> {
 	const page = await context.newPage();
 	await page.goto(`chrome-extension://${extensionId}/${path}`);
 	return page;
@@ -102,10 +93,7 @@ export async function openExtensionPage(
  * If not, opens the onboarding page and waits up to 2 minutes
  * for you to complete it manually in the browser.
  */
-export async function completeOnboarding(
-	context: BrowserContext,
-	extensionId: string,
-): Promise<Page> {
+export async function completeOnboarding(context: BrowserContext, extensionId: string): Promise<Page> {
 	const page = await openExtensionPage(context, extensionId, 'onboarding/onboarding.html');
 	const token = process.env.GITHUB_TOKEN;
 

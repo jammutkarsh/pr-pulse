@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { PullRequest } from '@lib/types';
-import {
-	getCheckToneClass,
-	getReviewToneClass,
-	getDotToneClass,
-	getBranchUrl,
-	getJiraLink,
-	getCardStatusClass,
-} from '@ui/pr-card-helpers';
+import { getCheckToneClass, getReviewToneClass, getDotToneClass, getBranchUrl, getJiraLink, getCardStatusClass } from '@ui/pr-card-helpers';
 
 function makePR(overrides: Partial<PullRequest> = {}): PullRequest {
 	return {

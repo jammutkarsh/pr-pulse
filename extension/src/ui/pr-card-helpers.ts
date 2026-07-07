@@ -55,10 +55,7 @@ export function getBranchUrl(pr: PullRequest): string | null {
 	return `https://github.com/${pr.repoFullName}/tree/${encodeURIComponent(pr.branchName)}`;
 }
 
-export function getJiraLink(
-	pr: PullRequest,
-	jiraBaseUrl: string,
-): { ticket: string; url: string } | null {
+export function getJiraLink(pr: PullRequest, jiraBaseUrl: string): { ticket: string; url: string } | null {
 	const jiraTicket = extractJiraTicket(pr.branchName);
 	if (!jiraTicket || !jiraBaseUrl) {
 		return null;

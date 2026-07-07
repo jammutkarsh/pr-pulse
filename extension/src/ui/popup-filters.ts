@@ -91,9 +91,10 @@ export function getAuthorsFromItems(items: PullRequest[], isToReview: boolean): 
 	const uniqueAuthorsList = Array.from(uniqueAuthorsMap.values());
 
 	// 4. Sort alphabetically by login, then name
-	uniqueAuthorsList.sort((left, right) =>
-		left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
-		left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+	uniqueAuthorsList.sort(
+		(left, right) =>
+			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
+			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
 	);
 
 	return uniqueAuthorsList;
@@ -120,9 +121,10 @@ export function getReposFromItems(items: PullRequest[]): PopupRepoFilterOption[]
 	const uniqueReposList = Array.from(uniqueReposMap.values());
 
 	// 4. Sort alphabetically by name, then owner
-	uniqueReposList.sort((left, right) =>
-		left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
-		left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })
+	uniqueReposList.sort(
+		(left, right) =>
+			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
+			left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' }),
 	);
 
 	return uniqueReposList;

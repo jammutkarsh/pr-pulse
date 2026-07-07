@@ -103,7 +103,7 @@ describe('getOwnersFromItems', () => {
 		];
 		const owners = getOwnersFromItems(prs);
 		expect(owners).toHaveLength(2);
-		expect(owners.map(o => o.login)).toEqual(['org-a', 'user-b']);
+		expect(owners.map((o) => o.login)).toEqual(['org-a', 'user-b']);
 	});
 
 	it('sorts alphabetically by login', () => {
@@ -140,7 +140,7 @@ describe('getAuthorsFromItems', () => {
 		];
 		const authors = getAuthorsFromItems(prs, true);
 		expect(authors).toHaveLength(2);
-		expect(authors.map(a => a.login)).toEqual(['alice', 'bob']);
+		expect(authors.map((a) => a.login)).toEqual(['alice', 'bob']);
 	});
 
 	it('handles PRs with missing author login', () => {
@@ -172,10 +172,7 @@ describe('getReposFromItems', () => {
 	});
 
 	it('sorts by name then owner', () => {
-		const prs = [
-			makePR({ repoFullName: 'org-b/zebra', id: '1' }),
-			makePR({ repoFullName: 'org-a/alpha', id: '2' }),
-		];
+		const prs = [makePR({ repoFullName: 'org-b/zebra', id: '1' }), makePR({ repoFullName: 'org-a/alpha', id: '2' })];
 		const repos = getReposFromItems(prs);
 		expect(repos[0].name).toBe('alpha');
 		expect(repos[1].name).toBe('zebra');
@@ -243,21 +240,27 @@ describe('normalizeStoredFilterState', () => {
 	});
 
 	it('normalizes tab-based stored state', () => {
-		const result = normalizeStoredFilterState({
-			tabs: {
-				myPRs: { drafts: 'include', authors: ['alice'] },
-				toReview: { drafts: 'only' },
+		const result = normalizeStoredFilterState(
+			{
+				tabs: {
+					myPRs: { drafts: 'include', authors: ['alice'] },
+					toReview: { drafts: 'only' },
+				},
 			},
-		}, 'myPRs');
+			'myPRs',
+		);
 		expect(result.myPRs.drafts).toBe('include');
 		expect(result.myPRs.authors).toEqual(['alice']);
 		expect(result.toReview.drafts).toBe('only');
 	});
 
 	it('uses activeFilters fallback with fallbackTab', () => {
-		const result = normalizeStoredFilterState({
-			activeFilters: { authors: ['bob'] },
-		}, 'toReview');
+		const result = normalizeStoredFilterState(
+			{
+				activeFilters: { authors: ['bob'] },
+			},
+			'toReview',
+		);
 		expect(result.toReview.authors).toEqual(['bob']);
 		expect(result.myPRs.authors).toEqual([]); // default
 	});
