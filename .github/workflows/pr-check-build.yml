@@ -34,3 +34,30 @@ jobs:
 
             - name: Build project
               run: npm run build
+
+    website-check-and-build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: |
+                      package-lock.json
+                      website/package-lock.json
+
+            # Root install too: reused extension sources resolve their tooling
+            # (svelte.config.js and friends) from the repo root.
+            - name: Install dependencies
+              run: npm ci && npm ci --prefix website
+
+            - name: Run checks
+              run: npm run check --prefix website
+
+            - name: Build website
+              run: npm run build --prefix website
