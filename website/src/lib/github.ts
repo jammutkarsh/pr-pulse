@@ -26,7 +26,7 @@ async function search(q: string): Promise<SearchItem[]> {
 	const url = `${API}/search/issues?q=${encodeURIComponent(q)}&per_page=${PER_PAGE}&sort=updated`;
 	const res = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
 	if (res.status === 403 || res.status === 429) {
-		throw new RateLimitError('GitHub’s free API limit is shared by every visitor to this site.');
+		throw new RateLimitError('GitHub limits anonymous API requests from your network.');
 	}
 	if (!res.ok) throw new Error(`GitHub request failed (${res.status}).`);
 	const data = (await res.json()) as { items?: SearchItem[] };

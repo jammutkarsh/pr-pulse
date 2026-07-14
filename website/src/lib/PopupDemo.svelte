@@ -91,7 +91,7 @@
 		activeFilters.authors.length +
 			activeFilters.owners.length +
 			activeFilters.repos.length +
-			(activeFilters.drafts !== 'exclude' ? 1 : 0) +
+			(activeFilters.drafts !== 'include' ? 1 : 0) +
 			(activeFilters.showReviewed && currentTab === 'toReview' ? 1 : 0),
 	);
 	let filterActive = $derived(filterCount > 0);
@@ -221,7 +221,7 @@
 						>
 							Install the extension for unlimited access
 						</a>
-						<span class="text-xs text-dim">This site shares one GitHub rate limit across every visitor. The extension calls GitHub from your own browser, so it isn’t affected.</span>
+						<span class="text-xs text-dim">GitHub caps anonymous API use per network. The extension connects with your own token, so it isn’t affected.</span>
 					{:else}
 						<button class="text-sm text-[color:var(--accent)] hover:underline" onclick={() => onRefresh()}>Try again</button>
 					{/if}
