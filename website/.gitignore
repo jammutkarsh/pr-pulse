@@ -1,0 +1,11 @@
+node_modules
+dist
+.cache
+*.local
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
