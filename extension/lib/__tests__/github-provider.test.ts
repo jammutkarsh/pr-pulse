@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GitHubProvider } from '@lib/providers/github-provider';
-import { ProviderError } from '@lib/errors';
 
 function jsonResponse(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}): Response {
 	return new Response(JSON.stringify(body), {
