@@ -1,0 +1,10 @@
+{
+	"name": "pr-pulse-extension",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
+		"format": "prettier --write .",
+		"check": "svelte-check --incremental"
+	}
+}

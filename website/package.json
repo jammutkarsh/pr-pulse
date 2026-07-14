@@ -8,7 +8,10 @@
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
-		"check": "svelte-check --tsconfig ./tsconfig.json"
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
+		"format": "prettier --write .",
+		"deploy": "vite build && wrangler pages deploy dist"
 	},
 	"license": "MIT",
 	"dependencies": {
@@ -23,6 +26,7 @@
 		"svelte-check": "^4.4.5",
 		"tailwindcss": "^4.3.0",
 		"typescript": "^6.0.3",
-		"vite": "^8.0.1"
+		"vite": "^8.0.1",
+		"wrangler": "^4.110.0"
 	}
 }

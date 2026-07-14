@@ -165,11 +165,32 @@ body {
 	transform: scaleX(0);
 	width: calc(100% + 4px);
 }
+/* text highlight while a step is "loading": white when the dots run,
+   dim otherwise. The animation delay/duration match the load-dots. */
+.tax.play .strike {
+	animation: stepHighlight 0.75s ease-in-out forwards;
+	animation-delay: var(--step-delay, 0s);
+}
+@keyframes stepHighlight {
+	0% {
+		color: var(--text-dim);
+	}
+	20% {
+		color: #fff;
+	}
+	80% {
+		color: #fff;
+	}
+	100% {
+		color: var(--text-dim);
+	}
+}
+
 /* Animation only plays once the section is scrolled into view (.tax.play,
    toggled by an IntersectionObserver) — running it at parse time meant it was
    long over before anyone scrolled down to see it. */
 .tax.play .strike::after {
-	animation: drawStrike 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+	animation: drawStrike 0.75s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 	animation-delay: var(--strike-delay, 0s);
 }
 
@@ -190,7 +211,7 @@ body {
 }
 .load-dots::after {
 	content: '...';
-	animation: loadDotsCycle 0.55s steps(4) infinite;
+	animation: loadDotsCycle 0.75s steps(4) infinite;
 }
 .tax.play .load-dots {
 	animation-name: loadDotsFade;
@@ -434,6 +455,10 @@ summary::-webkit-details-marker {
 	.tax.play .strike::after {
 		animation: none;
 		transform: scaleX(1);
+	}
+	.tax.play .strike {
+		animation: none;
+		color: var(--text-dim);
 	}
 	.single-click-anim {
 		animation: none;
