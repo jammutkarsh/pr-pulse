@@ -9,6 +9,7 @@
 		SlidersHorizontal,
 		ShieldCheck,
 		MousePointerClick,
+		Download,
 		CircleQuestionMark,
 	} from 'lucide-svelte';
 	import PopupDemo from './lib/PopupDemo.svelte';
@@ -98,6 +99,7 @@
 		}
 
 		loading = true;
+		activeUsername = username;
 		errorMessage = '';
 		isRateLimited = false;
 		try {
@@ -160,7 +162,10 @@
 					observer.disconnect();
 				}
 			},
-			{ threshold: 0.4 },
+			// low threshold: the before/after panels can be taller than a short
+			// viewport, where 40% visibility is never reached and the animation
+			// would never fire
+			{ threshold: 0.15 },
 		);
 		observer.observe(taxSection);
 		return () => observer.disconnect();
@@ -180,6 +185,12 @@
 	];
 
 	const tax = ['open github', 'pick a repo', 'find pull requests', 'check status', 'go back', 'switch repo'];
+	// Animation beats for the before/after panels: every step shows a short
+	// "loading" pause (page loads take time), then gets struck out.
+	const TAX_LOAD = 0.55;
+	const TAX_STEP = 0.5;
+	const taxDone = tax.length * TAX_STEP + TAX_LOAD;
+	const badgeCount = $derived(myPRs.length + reviewRequests.length);
 
 	// The strike-through / chip animation plays once, the moment the section
 	// actually scrolls into view — not at page load, which is long over by the
@@ -307,20 +318,60 @@
 
 		<section class="py-14 sm:py-16">
 			<h2 class="display text-3xl sm:text-4xl">The Navigation Dance</h2>
-			<div bind:this={taxSection} class={`tax mono mt-9 flex flex-col items-start gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2.5 sm:gap-y-2 ${taxVisible ? 'play' : ''}`}>
-				{#each tax as step, i}
-					<span class="strike" style="--strike-delay:{i * 0.55}s">{step}</span>
-					<span class="tax-arrow text-dim" style="--arrow-delay:{i * 0.55 + 0.5}s" aria-hidden="true">→</span>
-				{/each}
-				<span class="single-click-anim brand-chip inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 font-semibold" style="animation-delay:{tax.length * 0.55 + 0.5}s">
-					<MousePointerClick class="h-4 w-4" /> Single Click
-					<span class="single-click-sparkle"></span>
-					<span class="single-click-sparkle"></span>
-					<span class="single-click-sparkle"></span>
-					<span class="single-click-sparkle"></span>
-					<span class="single-click-sparkle"></span>
-					<span class="single-click-sparkle"></span>
-				</span>
+			<p class="mt-4 max-w-xl text-soft">
+				Checking on your pull requests means the same six-step ritual — every repo, every time. PR Pulse retires the
+				whole routine.
+			</p>
+			<div
+				bind:this={taxSection}
+				class={`tax mt-9 grid gap-px overflow-hidden rounded-2xl border border-soft bg-[color:var(--border-soft)] sm:grid-cols-2 ${taxVisible ? 'play' : ''}`}
+			>
+				<div class="bg-[color:var(--bg-panel)] p-6 sm:p-7">
+					<p class="eyebrow">Without PR Pulse · 6 steps</p>
+					<ol class="mono mt-5 flex flex-col gap-2.5 text-sm">
+						{#each tax as step, i (step)}
+							<li class="flex items-baseline gap-3">
+								<span class="text-dim">0{i + 1}</span>
+								<span class="strike" style="--strike-delay:{i * TAX_STEP + TAX_LOAD}s">{step}</span>
+								<span
+									class="load-dots"
+									style="animation-delay:{i * TAX_STEP}s; animation-duration:{TAX_LOAD}s"
+									aria-hidden="true"
+								></span>
+							</li>
+						{/each}
+					</ol>
+				</div>
+				<div class="flex flex-col bg-[color:var(--bg-panel)] p-6 sm:p-7">
+					<p class="eyebrow">With PR Pulse · 1 step</p>
+					<div class="flex flex-1 flex-col items-center justify-center gap-5 py-8">
+						<span
+							class="install-chip"
+							style="--click-delay:{taxDone}s"
+						>
+							<Download class="h-4 w-4" /> Install
+						</span>
+						<span class="single-click-anim relative" style="--chip-delay:{taxDone + 0.5}s">
+							<img src={logo} alt="PR Pulse toolbar icon" class="h-12 w-12 rounded-xl" />
+							{#if badgeCount > 0}
+								<span
+									class="absolute -right-1.5 -bottom-1.5 rounded-[5px] bg-[#238636] px-1 text-[11px] leading-4 font-semibold text-white"
+								>
+									{badgeCount}
+								</span>
+							{/if}
+							<span class="single-click-sparkle"></span>
+							<span class="single-click-sparkle"></span>
+							<span class="single-click-sparkle"></span>
+							<span class="single-click-sparkle"></span>
+							<span class="single-click-sparkle"></span>
+							<span class="single-click-sparkle"></span>
+						</span>
+						<p class="single-click-anim mono text-xs text-dim" style="--chip-delay:{taxDone + 0.9}s">
+							every PR that needs you, in your toolbar
+						</p>
+					</div>
+				</div>
 			</div>
 		</section>
 
@@ -355,6 +406,7 @@
 							<span class="mono shrink-0 text-dim transition-transform duration-200 group-open:rotate-45">+</span>
 						</summary>
 						<div class="px-6 pb-6 sm:px-7 sm:pb-7">
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<p class="max-w-3xl pl-10 text-sm leading-relaxed text-soft">{@html f.a}</p>
 						</div>
 					</details>
