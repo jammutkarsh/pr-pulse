@@ -26,17 +26,20 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
-            - name: Run lint
+            - name: Run lint(Extension)
               run: npm run lint
 
-            - name: Run checks
+            - name: Run lint(Website)
+              run: npm run lint -w website
+
+            - name: Run checks(Extension)
               run: npm run check
 
-            - name: Build project
-              run: npm run build
-
-            - name: Run checks
+            - name: Run checks(Website)
               run: npm run check -w website
 
-            - name: Build website
+            - name: Build project(Extension)
+              run: npm run build
+
+            - name: Build project(Website)
               run: npm run build -w website
