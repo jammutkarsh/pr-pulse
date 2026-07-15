@@ -51,6 +51,9 @@
 		"url": "https://github.com/jammutkarsh/pr-pulse/issues"
 	},
 	"homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
+	"engines": {
+		"node": ">=26"
+	},
 	"dependencies": {
 		"fallow": "^2.104.0",
 		"fuse.js": "^7.1.0",
