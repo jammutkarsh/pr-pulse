@@ -209,14 +209,14 @@
 {#snippet installButtons(size: 'base' | 'lg')}
 	<a
 		href={CHROME}
-		class={`inline-flex items-center justify-center gap-2.5 rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--bg-panel)] font-semibold text-soft no-underline transition hover:text-white ${size === 'lg' ? 'px-6 py-3.5' : 'px-5 py-3'}`}
+		class={`inline-flex items-center justify-center gap-2.5 rounded-xl border border-(--border-strong) bg-(--bg-panel) font-semibold text-soft no-underline transition hover:text-white ${size === 'lg' ? 'px-6 py-3.5' : 'px-5 py-3'}`}
 	>
 		<img src="/chrome.svg" alt="" class="h-5 w-5" />
 		Add to Chrome
 	</a>
 	<a
 		href={FIREFOX}
-		class={`inline-flex items-center justify-center gap-2.5 rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--bg-panel)] font-semibold text-soft no-underline transition hover:text-white ${size === 'lg' ? 'px-6 py-3.5' : 'px-5 py-3'}`}
+		class={`inline-flex items-center justify-center gap-2.5 rounded-xl border border-(--border-strong) bg-(--bg-panel) font-semibold text-soft no-underline transition hover:text-white ${size === 'lg' ? 'px-6 py-3.5' : 'px-5 py-3'}`}
 	>
 		<img src="/firefox.png" alt="" class="h-5 w-5" />
 		Add to Firefox
@@ -224,7 +224,7 @@
 {/snippet}
 
 <div class="relative min-h-screen overflow-x-hidden">
-	<div class="pointer-events-none absolute inset-x-0 top-0 h-[900px] grid-bg"></div>
+	<div class="pointer-events-none absolute inset-x-0 top-0 h-225 grid-bg"></div>
 
 	<div class="relative mx-auto max-w-6xl px-4 sm:px-6">
 		<!-- nav -->
@@ -235,13 +235,13 @@
 			</span>
 			<a
 				href={REPO}
-				class="group inline-flex items-center gap-2 rounded-lg border border-soft px-3 py-2 text-sm text-soft no-underline transition hover:border-[color:var(--border-strong)] hover:text-white"
+				class="group inline-flex items-center gap-2 rounded-lg border border-soft px-3 py-2 text-sm text-soft no-underline transition hover:border-(--border-strong) hover:text-white"
 			>
 				<Github class="h-4 w-4" />
 				<span>Star us on GitHub</span>
 				{#if stars !== null}
-					<span class="mono flex items-center gap-1 border-l border-soft pl-2 text-xs tabular-nums text-soft transition group-hover:border-[color:var(--border-strong)] group-hover:text-white">
-						<Star class="h-3 w-3 fill-[color:var(--warning)] text-[color:var(--warning)]" />{fmtStars(stars)}
+					<span class="mono flex items-center gap-1 border-l border-soft pl-2 text-xs tabular-nums text-soft transition group-hover:border-(--border-strong) group-hover:text-white">
+						<Star class="h-3 w-3 fill-(--warning) text-(--warning)" />{fmtStars(stars)}
 					</span>
 				{/if}
 			</a>
@@ -262,7 +262,7 @@
 				<!-- signature: try it with your own PRs -->
 				<form onsubmit={submit} class="mt-8 max-w-md">
 					<label for="ghuser" class="eyebrow">See it with your own pull requests</label>
-					<div class="mt-2 flex items-center gap-2 rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--bg-panel)] p-1.5 focus-within:border-[color:var(--accent)]">
+					<div class="mt-2 flex items-center gap-2 rounded-xl border border-(--border-strong) bg-(--bg-panel) p-1.5 focus-within:border-(--accent)">
 						<span class="mono pl-2.5 text-soft">@</span>
 						<input
 							id="ghuser"
@@ -286,7 +286,7 @@
 
 			<!-- live popup -->
 			<div bind:this={popupSection} class="flex min-w-0 flex-col gap-3 lg:items-end">
-				<div class="glow relative mx-auto w-full max-w-[420px] lg:mx-0">
+				<div class="glow relative mx-auto w-full max-w-105 lg:mx-0">
 					<PopupDemo
 						username={activeUsername}
 						{myPRs}
@@ -310,9 +310,9 @@
 			</p>
 			<div
 				bind:this={taxSection}
-				class={`tax mt-9 grid gap-px overflow-hidden rounded-2xl border border-soft bg-[color:var(--border-soft)] sm:grid-cols-2 ${taxVisible ? 'play' : ''}`}
+				class={`tax mt-9 grid gap-px overflow-hidden rounded-2xl border border-soft bg-(--border-soft) sm:grid-cols-2 ${taxVisible ? 'play' : ''}`}
 			>
-				<div class="bg-[color:var(--bg-panel)] p-6 sm:p-7">
+				<div class="bg-(--bg-panel) p-6 sm:p-7">
 					<p class="eyebrow">Without PR Pulse · 6 steps</p>
 					<ol class="mono mt-5 flex flex-col gap-2.5 text-sm">
 						{#each tax as step, i (step)}
@@ -328,7 +328,7 @@
 						{/each}
 					</ol>
 				</div>
-				<div class="flex flex-col bg-[color:var(--bg-panel)] p-6 sm:p-7">
+				<div class="flex flex-col bg-(--bg-panel) p-6 sm:p-7">
 					<p class="eyebrow">With PR Pulse · 1 step</p>
 					<div class="flex flex-1 flex-col items-center justify-center gap-5 py-8">
 						<button
@@ -339,7 +339,7 @@
 							<img src={logo} alt="PR Pulse toolbar icon" class="h-12 w-12 rounded-xl" />
 							{#if badgeCount > 0}
 								<span
-									class="absolute -right-[5px] -bottom-[5px] rounded-[5px] bg-[#238636] px-1 text-[11px] leading-4 font-semibold text-white {taxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}"
+									class="absolute -right-1.25 -bottom-1.25 rounded-[5px] bg-[#238636] px-1 text-[11px] leading-4 font-semibold text-white {taxVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}"
 									style="transition: opacity 0.3s ease-out 0.055s, transform 0.3s ease-out 0.055s"
 								>
 									{badgeCount}
@@ -357,11 +357,11 @@
 		<!-- features -->
 		<section class="py-14 sm:py-16">
 			<h2 class="display text-3xl sm:text-4xl">Built to remove a ritual, not add a tool.</h2>
-			<div class="mt-9 grid gap-px overflow-hidden rounded-2xl border border-soft bg-[color:var(--border-soft)] sm:grid-cols-2 lg:grid-cols-3">
+			<div class="mt-9 grid gap-px overflow-hidden rounded-2xl border border-soft bg-(--border-soft) sm:grid-cols-2 lg:grid-cols-3">
 				{#each features as f (f.title)}
-					<div class="card-hover bg-[color:var(--bg-panel)] p-6 sm:p-7">
+					<div class="card-hover bg-(--bg-panel) p-6 sm:p-7">
 						<div class="flex items-center justify-between">
-							<f.icon class="h-5 w-5 text-[color:var(--accent)]" />
+							<f.icon class="h-5 w-5 text-(--accent)" />
 							<span class="eyebrow">{f.tag}</span>
 						</div>
 						<h3 class="mt-4 font-semibold text-white">{f.title}</h3>
@@ -374,11 +374,11 @@
 		<!-- FAQ -->
 		<section class="py-14 sm:py-16">
 			<h2 class="display text-3xl sm:text-4xl">FAQ</h2>
-			<div class="mt-9 divide-y divide-[color:var(--border-soft)] overflow-hidden rounded-2xl border border-soft bg-[color:var(--bg-panel)]">
+			<div class="mt-9 divide-y divide-(--border-soft) overflow-hidden rounded-2xl border border-soft bg-(--bg-panel)">
 				{#each faqs as f, i (f.q)}
 					<details class="faq-item group" open={i === 0}>
 						<summary class="flex cursor-pointer list-none items-center gap-4 p-6 font-semibold text-white marker:content-none sm:p-7">
-							<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-soft text-dim transition group-hover:border-[color:var(--border-strong)] group-hover:text-white">
+							<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-soft text-dim transition group-hover:border-(--border-strong) group-hover:text-white">
 								<CircleQuestionMark class="h-3.5 w-3.5" />
 							</span>
 							<span class="flex-1">{f.q}</span>

@@ -206,12 +206,12 @@
 		<div class={`px-4 py-3 sm:px-4 ${fullpage ? 'min-h-[70vh]' : 'min-h-0 flex-1 overflow-auto'}`}>
 			{#if loading}
 				<div class="flex min-h-50 flex-col items-center justify-center gap-3 text-soft">
-					<Loader class="h-5 w-5 animate-spin text-[color:var(--accent)]" />
+					<Loader class="h-5 w-5 animate-spin text-(--accent)" />
 					<span>Fetching @{username}’s pull requests…</span>
 				</div>
 			{:else if errorMessage}
 				<div class="flex min-h-50 flex-col items-center justify-center gap-3 px-6 text-center text-soft">
-					<span class="text-[color:var(--danger)]">{errorMessage}</span>
+					<span class="text-(--danger)">{errorMessage}</span>
 					{#if isRateLimited}
 						<a
 							href={installUrl}
@@ -223,7 +223,7 @@
 						</a>
 						<span class="text-xs text-dim">GitHub caps anonymous API use per network. The extension connects with your own token, so it isn’t affected.</span>
 					{:else}
-						<button class="text-sm text-[color:var(--accent)] hover:underline" onclick={() => onRefresh()}>Try again</button>
+						<button class="text-sm text-(--accent) hover:underline" onclick={() => onRefresh()}>Try again</button>
 					{/if}
 				</div>
 			{:else if filteredItems.length === 0}
@@ -252,22 +252,22 @@
 {#if fullpage}
 	<!-- Fixed overlay = the extension's full-page tab, reproduced on the site.
 	     Exit lives in its own sticky bar so it never overlaps the popup header. -->
-	<div class="fixed inset-0 z-50 overflow-auto bg-[color:var(--bg-base)]">
-		<div class="sticky top-0 z-10 flex items-center justify-end border-b border-soft bg-[color:var(--bg-panel)]/85 px-6 py-3 backdrop-blur">
+	<div class="fixed inset-0 z-50 overflow-auto bg-(--bg-base)">
+		<div class="sticky top-0 z-10 flex items-center justify-end border-b border-soft bg-(--bg-panel)/85 px-6 py-3 backdrop-blur">
 			<button
-				class="unstyled-button inline-flex items-center gap-1.5 rounded-lg border border-soft bg-[color:var(--bg-panel-strong)] px-3 py-2 text-sm text-soft hover:text-white"
+				class="unstyled-button inline-flex items-center gap-1.5 rounded-lg border border-soft bg-(--bg-panel-strong) px-3 py-2 text-sm text-soft hover:text-white"
 				onclick={() => (fullpage = false)}
 			>
 				<Minimize2 class="h-4 w-4" /> Exit full screen <span class="text-dim">Esc</span>
 			</button>
 		</div>
-		<div class="mx-auto flex w-full max-w-[80rem] flex-col gap-3 px-6 py-6">
+		<div class="mx-auto flex w-full max-w-7xl flex-col gap-3 px-6 py-6">
 			{@render popup()}
 			<AttributionFooter />
 		</div>
 	</div>
 {:else}
-	<div class="flex h-[600px] w-full max-w-[420px] flex-col">
+	<div class="flex h-150 w-full max-w-105 flex-col">
 		{@render popup()}
 	</div>
 {/if}
