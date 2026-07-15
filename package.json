@@ -98,9 +98,9 @@
 		"wrangler": "^4.110.0"
 	},
 	"allowScripts": {
-		"fsevents@2.3.3": true,
 		"esbuild@0.28.1": true,
 		"sharp@0.34.5": true,
-		"workerd@1.20260710.1": true
+		"workerd@1.20260710.1": true,
+		"fsevents@2.3.2": true
 	}
 }
