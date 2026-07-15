@@ -3,6 +3,9 @@
 	"version": "1.6.0",
 	"description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
 	"main": "extension/service-worker.ts",
+	"workspaces": [
+		"website"
+	],
 	"directories": {
 		"lib": "extension/lib"
 	},
@@ -61,7 +64,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.2",
 		"@types/chrome": "^0.1.38",
-		"@types/node": "^24.12.2",
+		"@types/node": "^26.1.1",
 		"@types/webextension-polyfill": "^0.12.3",
 		"eslint": "^10.0.3",
 		"eslint-plugin-svelte": "^3.15.2",
@@ -76,6 +79,8 @@
 	},
 	"allowScripts": {
 		"fsevents@2.3.3": true,
-		"esbuild@0.28.1": true
+		"esbuild@0.28.1": true,
+		"sharp@0.34.5": true,
+		"workerd@1.20260710.1": true
 	}
 }

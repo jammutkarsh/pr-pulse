@@ -37,9 +37,14 @@
 		isVisible = false;
 	}
 
-	onDestroy(() => {
-		clearTooltipTimer();
-	});
+	// Guarded: SSR (website prerender reuses this component) has no timers to
+	// clear and hits a Svelte SSR bug registering onDestroy through this nested
+	// snippet chain. No behavior change in the extension — always browser there.
+	if (typeof document !== 'undefined') {
+		onDestroy(() => {
+			clearTooltipTimer();
+		});
+	}
 </script>
 
 <span
