@@ -14,8 +14,8 @@ const SERVICE_WORKER = 'extension/service-worker.ts';
 // 1. Read app.css and extract class selectors
 const css = readFileSync(CSS_FILE, 'utf8');
 const classRegex = /\.([a-zA-Z_][\w-]*)\s*[{,:]/g;
-const classes = new Set();
-let match;
+const classes = new Set<string>();
+let match: RegExpExecArray | null;
 while ((match = classRegex.exec(css)) !== null) {
 	const name = match[1];
 	// Skip pseudo-classes/elements and Tailwind utilities
@@ -30,7 +30,7 @@ while ((match = classRegex.exec(css)) !== null) {
 
 // 2. Scan all source files for usage
 const files = globSync([SRC, SERVICE_WORKER]);
-const usageCount = new Map();
+const usageCount = new Map<string, number>();
 for (const c of classes) usageCount.set(c, 0);
 
 for (const file of files) {

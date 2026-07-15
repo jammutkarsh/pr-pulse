@@ -41,7 +41,7 @@ const browser = process.argv[2] as BrowserTarget | undefined;
 const outputPath = process.argv[3];
 
 if (!browser || !outputPath || !isBrowserTarget(browser)) {
-	throw new Error('Usage: tsx extension/scripts/generate-manifest.ts <chrome|firefox> <output-path>');
+	throw new Error('Usage: tsx scripts/generate-manifest.ts <chrome|firefox> <output-path>');
 }
 
 // Read version from package.json

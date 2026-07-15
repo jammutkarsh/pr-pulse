@@ -20,7 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(root, '..');
+const projectRoot = path.join(root, '..', 'website');
 const outDir = path.join(projectRoot, process.argv[2] || 'dist');
 const indexPath = path.join(outDir, 'index.html');
 const ssrOutDir = path.join(projectRoot, '.ssr-tmp');
@@ -35,6 +35,11 @@ await build({
 		write: true,
 		rollupOptions: { output: { format: 'es', entryFileNames: 'app.mjs' } },
 	},
+	// lucide-svelte's own barrel file omits the .js extension on a relative
+	// export, invalid under strict Node ESM. Vite's bundler tolerates it;
+	// left externalized (Vite's SSR default), Node/Tailwind's own resolvers
+	// don't. Bundling it inline sidesteps the broken import entirely.
+	ssr: { noExternal: ['lucide-svelte'] },
 });
 
 try {

@@ -10,9 +10,10 @@ import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.join(root, '..', 'public');
-const outDir = path.join(root, '..', process.argv[2] || 'dist');
-const cacheDir = path.join(root, '..', '.cache', 'fonts');
+const websiteDir = path.join(root, '..', 'website');
+const publicDir = path.join(websiteDir, 'public');
+const outDir = path.join(websiteDir, process.argv[2] || 'dist');
+const cacheDir = path.join(websiteDir, '.cache', 'fonts');
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(outDir, { recursive: true });
 
@@ -32,7 +33,7 @@ const borderStrong = '#4f4f4f';
 // predate WOFF2 support.
 const LEGACY_UA = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.17 Safari/537.36';
 
-async function loadGoogleFont(family, weight) {
+async function loadGoogleFont(family: string, weight: number) {
 	const cacheFile = path.join(cacheDir, `${family.replace(/\s+/g, '-')}-${weight}.woff`);
 	if (existsSync(cacheFile)) return readFileSync(cacheFile);
 
@@ -41,12 +42,15 @@ async function loadGoogleFont(family, weight) {
 	}).then((r) => r.text());
 	const url = css.match(/url\(([^)]+)\)/)?.[1];
 	if (!url) throw new Error(`No font URL found for ${family} ${weight}`);
-	const buf = Buffer.from(await fetch(url).then((r) => r.arrayBuffer()));
+	// DOM lib + @types/node both declare Response.arrayBuffer(), yielding a union
+	// return type Buffer.from()'s overloads can't match directly — cast through.
+	const arrayBuffer = (await fetch(url).then((r) => r.arrayBuffer())) as ArrayBuffer;
+	const buf = Buffer.from(new Uint8Array(arrayBuffer));
 	writeFileSync(cacheFile, buf);
 	return buf;
 }
 
-function dataUri(file, mime) {
+function dataUri(file: string, mime: string) {
 	return `data:${mime};base64,${readFileSync(path.join(publicDir, file)).toString('base64')}`;
 }
 
@@ -56,7 +60,7 @@ const logo = dataUri('icon-1024.png', 'image/png');
 const chrome = dataUri('chrome.svg', 'image/svg+xml');
 const firefox = dataUri('firefox.png', 'image/png');
 
-function browserChip(icon, label) {
+function browserChip(icon: string, label: string) {
 	return {
 		type: 'div',
 		props: {
