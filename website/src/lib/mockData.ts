@@ -1,4 +1,4 @@
-import type { PullRequest, StoredProviderConfig } from '../../../extension/lib/types';
+import type { PullRequest } from '../../../extension/lib/types';
 
 // Static demo data shaped as real PullRequest objects so the actual extension
 // components (PopupHeader, PrCard) render them exactly as they would in-browser.
@@ -23,18 +23,12 @@ function pr(p: Partial<PullRequest> & Pick<PullRequest, 'id' | 'title' | 'repoFu
 	} as PullRequest;
 }
 
-export const provider: StoredProviderConfig = {
-	type: 'github',
-	token: 'demo',
-	user: { login: 'octocat', name: 'You', avatarUrl: avatar('octocat') },
-};
-
 export const myPRs: PullRequest[] = [
 	pr({
 		id: 'm1',
-		title: 'feat: streaming token usage meter in the status bar',
+		title: 'fix: retry GitHub API calls because github.com is down again',
 		repoFullName: 'acme/web-app',
-		branchName: 'feat/usage-meter',
+		branchName: 'fix/github-is-down-again',
 		changes: { additions: 342, deletions: 58, filesChanged: 12 },
 		checks: { status: 'success', details: [] },
 		reviews: { status: 'approved', reviewers: [] },
@@ -42,9 +36,9 @@ export const myPRs: PullRequest[] = [
 	}),
 	pr({
 		id: 'm2',
-		title: 'fix: debounce search input to stop re-render storm',
+		title: 'chore: add exponential backoff, github.com/notifications timed out again',
 		repoFullName: 'acme/web-app',
-		branchName: 'fix/search-debounce',
+		branchName: 'chore/notifications-backoff',
 		changes: { additions: 24, deletions: 11, filesChanged: 2 },
 		checks: { status: 'failure', details: [] },
 		reviews: { status: 'changes_requested', reviewers: [], openThreadCount: 3 },
@@ -52,9 +46,9 @@ export const myPRs: PullRequest[] = [
 	}),
 	pr({
 		id: 'm3',
-		title: 'chore: bump vite to 8 and drop legacy polyfills',
+		title: 'chore: cache the PR list so we stop re-loading github.com every 4 seconds',
 		repoFullName: 'acme/design-system',
-		branchName: 'chore/vite-8',
+		branchName: 'chore/stop-reloading-github',
 		changes: { additions: 9, deletions: 214, filesChanged: 6 },
 		checks: { status: 'pending', details: [] },
 		reviews: { status: 'pending', reviewers: [] },
@@ -62,9 +56,9 @@ export const myPRs: PullRequest[] = [
 	}),
 	pr({
 		id: 'm4',
-		title: 'wip: extract PR card into reusable component',
+		title: 'wip: this extension, because clicking through github.com six times a day was the bug',
 		repoFullName: 'acme/web-app',
-		branchName: 'wip/pr-card',
+		branchName: 'wip/pr-pulse-itself',
 		changes: { additions: 88, deletions: 40, filesChanged: 4 },
 		checks: { status: 'unknown', details: [] },
 		reviews: { status: 'pending', reviewers: [] },
@@ -76,9 +70,9 @@ export const myPRs: PullRequest[] = [
 export const reviewRequests: PullRequest[] = [
 	pr({
 		id: 'r1',
-		title: 'perf: cache GitHub API responses per repo',
+		title: 'perf: stop waiting on githubstatus.com before starting the work day',
 		repoFullName: 'acme/web-app',
-		branchName: 'perf/api-cache',
+		branchName: 'perf/githubstatus-cache',
 		author: { login: 'gaearon', name: 'Maya', avatarUrl: avatar('gaearon') },
 		changes: { additions: 156, deletions: 32, filesChanged: 5 },
 		checks: { status: 'success', details: [] },
@@ -87,9 +81,9 @@ export const reviewRequests: PullRequest[] = [
 	}),
 	pr({
 		id: 'r2',
-		title: 'feat: dark mode for the settings page',
+		title: 'feat: dark mode, so the 500 page at least looks intentional',
 		repoFullName: 'acme/design-system',
-		branchName: 'feat/settings-dark',
+		branchName: 'feat/pretty-500-page',
 		author: { login: 'sindresorhus', name: 'Devon', avatarUrl: avatar('sindresorhus') },
 		changes: { additions: 210, deletions: 8, filesChanged: 9 },
 		checks: { status: 'success', details: [] },
@@ -98,9 +92,9 @@ export const reviewRequests: PullRequest[] = [
 	}),
 	pr({
 		id: 'r3',
-		title: 'refactor: move auth into a shared middleware',
+		title: 'refactor: replace GitHub Actions with literally anything that finishes',
 		repoFullName: 'acme/api',
-		branchName: 'refactor/auth-mw',
+		branchName: 'refactor/ditch-actions',
 		author: { login: 'yyx990803', name: 'Sam', avatarUrl: avatar('yyx990803') },
 		changes: { additions: 401, deletions: 377, filesChanged: 18 },
 		checks: { status: 'failure', details: [] },

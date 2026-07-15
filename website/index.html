@@ -4,22 +4,96 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/png" href="/icon.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="canonical" href="https://prpulse.utkarshchourasia.in/" />
+		<meta name="theme-color" content="#0a1020" />
 		<title>PR Pulse — Say no to Navigation</title>
 		<meta
 			name="description"
 			content="PR Pulse turns your GitHub pull requests into one fast dashboard inside your browser. Say No to Navigation."
 		/>
 		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://prpulse.utkarshchourasia.in/" />
+		<meta property="og:site_name" content="PR Pulse" />
+		<meta property="og:locale" content="en_US" />
 		<meta property="og:title" content="PR Pulse — Say no to Navigation" />
 		<meta
 			property="og:description"
 			content="PR Pulse turns your GitHub pull requests into one fast dashboard inside your browser. Say No to Navigation."
 		/>
-		<meta property="og:image" content="/og.png" />
+		<meta property="og:image" content="https://prpulse.utkarshchourasia.in/og.png" />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
 		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:image" content="/og.png" />
+		<meta name="twitter:title" content="PR Pulse — Say no to Navigation" />
+		<meta
+			name="twitter:description"
+			content="PR Pulse turns your GitHub pull requests into one fast dashboard inside your browser. Say No to Navigation."
+		/>
+		<meta name="twitter:image" content="https://prpulse.utkarshchourasia.in/og.png" />
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "WebApplication",
+				"name": "PR Pulse",
+				"url": "https://prpulse.utkarshchourasia.in/",
+				"description": "PR Pulse turns your GitHub pull requests into one fast dashboard inside your browser.",
+				"applicationCategory": "BrowserApplication",
+				"operatingSystem": "Chrome, Firefox"
+			}
+		</script>
+		<!-- ponytail: hand-mirrored from src/App.svelte faqs[], keep in sync manually; generate at build time if it drifts -->
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "FAQPage",
+				"mainEntity": [
+					{
+						"@type": "Question",
+						"name": "Didn’t GitHub just ship this?",
+						"acceptedAnswer": {
+							"@type": "Answer",
+							"text": "GitHub’s native pull requests dashboard is good — but it still lives behind a site visit, a search, and a set of filters you re-apply every time. PR Pulse was never about a prettier list. It’s about the feedback loop: single click from any tab, no page load, filters already where you left them."
+						}
+					},
+					{
+						"@type": "Question",
+						"name": "Can I see private PRs?",
+						"acceptedAnswer": {
+							"@type": "Answer",
+							"text": "Yes — install PR Pulse and connect a GitHub token during setup."
+						}
+					},
+					{
+						"@type": "Question",
+						"name": "Which platforms do you support?",
+						"acceptedAnswer": {
+							"@type": "Answer",
+							"text": "GitHub, right now. Feel free to raise a PR for others."
+						}
+					},
+					{
+						"@type": "Question",
+						"name": "Is this free?",
+						"acceptedAnswer": {
+							"@type": "Answer",
+							"text": "Yes — and open-source as well."
+						}
+					},
+					{
+						"@type": "Question",
+						"name": "What’s the tech stack?",
+						"acceptedAnswer": {
+							"@type": "Answer",
+							"text": "Svelte, because React is too hyped and bloated."
+						}
+					}
+				]
+			}
+		</script>
 	</head>
 	<body>
 		<div id="app"></div>

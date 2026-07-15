@@ -5,36 +5,13 @@
 	"description": "Marketing site for the PR Pulse browser extension — Say No to Navigation.",
 	"type": "module",
 	"scripts": {
-		"dev": "node scripts/generate-og.mjs public && vite",
-		"build": "vite build && node scripts/generate-og.mjs dist",
+		"dev": "tsx ../scripts/generate-og.ts public && vite",
+		"build": "vite build && tsx ../scripts/generate-og.ts dist && tsx ../scripts/prerender.ts dist",
 		"preview": "npm run build && vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
 		"format": "prettier --write .",
 		"deploy": "npm run build && wrangler deploy"
 	},
-	"license": "MIT",
-	"dependencies": {
-		"fuse.js": "^7.1.0",
-		"lucide-svelte": "^0.577.0",
-		"svelte": "^5.55.7"
-	},
-	"devDependencies": {
-		"@resvg/resvg-js": "^2.6.2",
-		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@tailwindcss/vite": "^4.3.0",
-		"@types/node": "^26.1.1",
-		"satori": "^0.12.2",
-		"svelte-check": "^4.4.5",
-		"tailwindcss": "^4.3.0",
-		"typescript": "^6.0.3",
-		"vite": "^8.0.1",
-		"wrangler": "^4.110.0"
-	},
-	"allowScripts": {
-		"esbuild@0.28.1": true,
-		"fsevents@2.3.3": true,
-		"sharp@0.34.5": true,
-		"workerd@1.20260708.1": true
-	}
+	"license": "MIT"
 }

@@ -3,6 +3,10 @@
 	"version": "1.6.0",
 	"description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
 	"main": "extension/service-worker.ts",
+	"workspaces": [
+		"extension",
+		"website"
+	],
 	"directories": {
 		"lib": "extension/lib"
 	},
@@ -14,8 +18,8 @@
 		"deadcode": "fallow fix",
 		"clean:cache": "rm -rf .cache .svelte-check",
 		"clean": "rm -rf dist && rm -f pr-pulse-*.zip pr-pulse-*.xpi",
-		"manifest:chrome": "tsx extension/scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
-		"manifest:firefox": "tsx extension/scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
+		"manifest:chrome": "tsx scripts/generate-manifest.ts chrome dist/chrome/manifest.json $npm_package_version",
+		"manifest:firefox": "tsx scripts/generate-manifest.ts firefox dist/firefox/manifest.json $npm_package_version",
 		"manifest": "npm run manifest:chrome && npm run manifest:firefox",
 		"build:watch": "vite build --mode chrome --watch --outDir dist/chrome",
 		"build:chrome": "vite build --mode chrome --outDir dist/chrome && npm run manifest:chrome",
@@ -26,7 +30,13 @@
 		"zip": "npm run zip:chrome && npm run zip:firefox",
 		"generate:chrome": "npm run clean && npm run lint && npm run build:chrome && npm run zip:chrome",
 		"generate:firefox": "npm run clean && npm run lint && npm run build:firefox && npm run zip:firefox",
-		"generate": "npm run clean && npm run lint && npm run build && npm run zip"
+		"generate": "npm run clean && npm run lint && npm run build && npm run zip",
+		"dev:website": "npm run dev -w website",
+		"build:website": "npm run build -w website",
+		"preview:website": "npm run preview -w website",
+		"check:website": "npm run check -w website",
+		"lint:website": "npm run lint -w website",
+		"deploy:website": "npm run deploy -w website"
 	},
 	"repository": {
 		"type": "git",
@@ -48,6 +58,9 @@
 		"url": "https://github.com/jammutkarsh/pr-pulse/issues"
 	},
 	"homepage": "https://github.com/jammutkarsh/pr-pulse#readme",
+	"engines": {
+		"node": ">=26"
+	},
 	"dependencies": {
 		"fallow": "^2.104.0",
 		"fuse.js": "^7.1.0",
@@ -58,24 +71,29 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.0.3",
 		"@eslint/js": "^10.0.1",
+		"@resvg/resvg-js": "^2.6.2",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@tailwindcss/vite": "^4.2.2",
+		"@tailwindcss/vite": "^4.3.0",
 		"@types/chrome": "^0.1.38",
-		"@types/node": "^24.12.2",
+		"@types/node": "^26.1.1",
 		"@types/webextension-polyfill": "^0.12.3",
 		"eslint": "^10.0.3",
 		"eslint-plugin-svelte": "^3.15.2",
 		"globals": "^17.4.0",
 		"prettier": "^3.9.4",
+		"satori": "^0.12.2",
 		"svelte-check": "^4.4.5",
 		"tailwindcss": "^4.3.0",
 		"tsx": "^4.22.4",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.62.1",
-		"vite": "^8.0.1"
+		"vite": "^8.0.1",
+		"wrangler": "^4.110.0"
 	},
 	"allowScripts": {
 		"fsevents@2.3.3": true,
-		"esbuild@0.28.1": true
+		"esbuild@0.28.1": true,
+		"sharp@0.34.5": true,
+		"workerd@1.20260710.1": true
 	}
 }

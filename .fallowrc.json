@@ -5,10 +5,16 @@
 		"extension/src/popup/main.ts",
 		"extension/src/onboarding/main.ts",
 		"extension/src/settings/main.ts",
-		"extension/scripts/generate-manifest.ts",
-		"vite.config.ts"
+		"vite.config.ts",
+		"website/src/main.ts",
+		"website/vite.config.ts",
+		"website/svelte.config.js",
+		"scripts/generate-manifest.ts",
+		"scripts/generate-og.ts",
+		"scripts/prerender.ts",
+		"scripts/find-unused-css.ts"
 	],
-	"ignorePatterns": ["node_modules/**", "dist/**", "build/**", "**/*.d.ts", ".cache/**"],
+	"ignorePatterns": ["node_modules/**", "**/dist/**", "build/**", "**/*.d.ts", "**/.cache/**", "**/.ssr-tmp/**"],
 	"ignoreExportsUsedInFile": true,
 	"duplicates": {
 		"minOccurrences": 2
@@ -18,5 +24,7 @@
 		"maxCognitive": 20,
 		"maxCrap": 150
 	},
-	"rules": {}
+	"rules": {
+		"unlisted-dependencies": "off"
+	}
 }

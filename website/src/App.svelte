@@ -64,12 +64,12 @@
 		}
 	}
 
-	function useSample() {
+	function useSample(rateLimited = false) {
 		activeUsername = DEFAULT_USER;
 		myPRs = sampleMy;
 		reviewRequests = sampleReview;
 		isSample = true;
-		isRateLimited = false;
+		isRateLimited = rateLimited;
 		errorMessage = '';
 	}
 
@@ -110,15 +110,17 @@
 			saveUsername(username);
 			writeCache(username, result);
 		} catch (err) {
-			if (silent) {
-				useSample();
+			// GitHub's anonymous rate limit is the one failure mode a visitor can't
+			// do anything about — show sample data instead of a dead end, same as
+			// the silent default-load fallback above.
+			if (silent || err instanceof RateLimitError) {
+				useSample(err instanceof RateLimitError);
 				return;
 			}
 			activeUsername = username;
 			myPRs = [];
 			reviewRequests = [];
 			isSample = false;
-			isRateLimited = err instanceof RateLimitError;
 			errorMessage = err instanceof Error ? err.message : 'Something went wrong.';
 		} finally {
 			loading = false;

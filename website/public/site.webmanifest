@@ -1,0 +1,13 @@
+{
+	"name": "PR Pulse",
+	"short_name": "PR Pulse",
+	"description": "PR Pulse turns your GitHub pull requests into one fast dashboard inside your browser.",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#0a1020",
+	"theme_color": "#0a1020",
+	"icons": [
+		{ "src": "/icon.png", "sizes": "128x128", "type": "image/png" },
+		{ "src": "/icon-1024.png", "sizes": "1024x1024", "type": "image/png" }
+	]
+}

@@ -8,6 +8,7 @@
 		"verbatimModuleSyntax": true,
 		"noEmit": true,
 		"strict": false,
+		"skipLibCheck": true,
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"types": ["chrome", "node"]
 	},
@@ -17,6 +18,7 @@
 		"extension/**/*.d.ts",
 		"extension/**/*.svelte",
 		"extension/service-worker.ts",
-		"vite.config.ts"
+		"vite.config.ts",
+		"scripts/**/*.ts"
 	]
 }
