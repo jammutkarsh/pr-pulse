@@ -212,19 +212,7 @@
 			{:else if errorMessage}
 				<div class="flex min-h-50 flex-col items-center justify-center gap-3 px-6 text-center text-soft">
 					<span class="text-(--danger)">{errorMessage}</span>
-					{#if isRateLimited}
-						<a
-							href={installUrl}
-							target="_blank"
-							rel="noopener"
-							class="btn-brand inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium text-white no-underline"
-						>
-							Install the extension for unlimited access
-						</a>
-						<span class="text-xs text-dim">GitHub caps anonymous API use per network. The extension connects with your own token, so it isn’t affected.</span>
-					{:else}
-						<button class="text-sm text-(--accent) hover:underline" onclick={() => onRefresh()}>Try again</button>
-					{/if}
+					<button class="text-sm text-(--accent) hover:underline" onclick={() => onRefresh()}>Try again</button>
 				</div>
 			{:else if filteredItems.length === 0}
 				<div class="flex min-h-50 items-center justify-center px-6 text-center text-soft">
@@ -240,7 +228,13 @@
 		</div>
 
 		<div class="flex items-center justify-center gap-2 border-t border-soft px-4 py-2.5 text-xs text-soft">
-			{#if isSample}
+			{#if isSample && isRateLimited}
+				<span class="text-dim">
+					GitHub rate-limited this network — showing sample data.
+					<a href={installUrl} target="_blank" rel="noopener" class="text-(--accent) hover:underline">Install the extension</a>
+					to use your own token instead.
+				</span>
+			{:else if isSample}
 				<span class="text-dim">Sample data — enter your username above for the real thing</span>
 			{:else}
 				<span>Live from GitHub · {filteredItems.length} shown</span>
