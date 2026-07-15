@@ -19,7 +19,7 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: 22
+                  node-version: 26
                   cache: npm
                   cache-dependency-path: package-lock.json
 
@@ -45,19 +45,16 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: 22
+                  node-version: 26
                   cache: npm
-                  cache-dependency-path: |
-                      package-lock.json
-                      website/package-lock.json
+                  cache-dependency-path: package-lock.json
 
-            # Root install too: reused extension sources resolve their tooling
-            # (svelte.config.js and friends) from the repo root.
+            # website is an npm workspace now — one install covers both.
             - name: Install dependencies
-              run: npm ci && npm ci --prefix website
+              run: npm ci
 
             - name: Run checks
-              run: npm run check --prefix website
+              run: npm run check -w website
 
             - name: Build website
-              run: npm run build --prefix website
+              run: npm run build -w website
