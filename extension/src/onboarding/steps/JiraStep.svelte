@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { ArrowLeft, ArrowRight, Link2 } from 'lucide-svelte';
-	import Button from '../../lib/components/Button.svelte';
-	import SectionCard from '../../lib/components/SectionCard.svelte';
-	import { isValidHttpUrl } from '../../../lib/utils';
+	import Button from '@ui/components/Button.svelte';
+	import SectionCard from '@ui/components/SectionCard.svelte';
+	import { isValidHttpUrl } from '@lib/utils';
 
 	type VoidCallback = () => void;
 

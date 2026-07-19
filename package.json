@@ -36,7 +36,12 @@
 		"preview:website": "npm run preview -w website",
 		"check:website": "npm run check -w website",
 		"lint:website": "npm run lint -w website",
-		"deploy:website": "npm run deploy -w website"
+		"deploy:website": "npm run deploy -w website",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:unit": "vitest run --project unit",
+		"test:e2e": "npm run build:chrome && playwright test",
+		"test:all": "npm run test && npm run test:e2e"
 	},
 	"repository": {
 		"type": "git",
@@ -71,6 +76,7 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.0.3",
 		"@eslint/js": "^10.0.1",
+		"@playwright/test": "^1.52.0",
 		"@resvg/resvg-js": "^2.6.2",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.3.0",
@@ -88,12 +94,13 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.62.1",
 		"vite": "^8.0.1",
+		"vitest": "^3.2.0",
 		"wrangler": "^4.110.0"
 	},
 	"allowScripts": {
-		"fsevents@2.3.3": true,
 		"esbuild@0.28.1": true,
 		"sharp@0.34.5": true,
-		"workerd@1.20260710.1": true
+		"workerd@1.20260710.1": true,
+		"fsevents@2.3.2": true
 	}
 }

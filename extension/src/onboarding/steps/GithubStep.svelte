@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { ArrowRight, Eye, EyeOff, Github } from 'lucide-svelte';
-	import Button from '../../lib/components/Button.svelte';
-	import SectionCard from '../../lib/components/SectionCard.svelte';
-	import type { StoredProviderConfig } from '../../../lib/types';
+	import Button from '@ui/components/Button.svelte';
+	import SectionCard from '@ui/components/SectionCard.svelte';
+	import type { StoredProviderConfig } from '@lib/types';
 
 	type VoidCallback = () => void;
 	type StringCallback = (value: string) => void;

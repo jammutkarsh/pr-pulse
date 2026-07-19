@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { ArrowLeft, ArrowRight, GitPullRequest, Inbox, LayoutPanelLeft } from 'lucide-svelte';
-	import Button from '../../lib/components/Button.svelte';
-	import RadioCard from '../../lib/components/RadioCard.svelte';
-	import SectionCard from '../../lib/components/SectionCard.svelte';
-	import type { Settings } from '../../../lib/types';
+	import Button from '@ui/components/Button.svelte';
+	import RadioCard from '@ui/components/RadioCard.svelte';
+	import SectionCard from '@ui/components/SectionCard.svelte';
+	import type { Settings } from '@lib/types';
 
 	type VoidCallback = () => void;
 

@@ -4,7 +4,7 @@
 	import PopupHeader from '../../../extension/src/popup/PopupHeader.svelte';
 	import PrCard from '../../../extension/src/popup/PrCard.svelte';
 	import SearchFilter from '../../../extension/src/popup/SearchFilter.svelte';
-	import AttributionFooter from '../../../extension/src/lib/components/AttributionFooter.svelte';
+	import AttributionFooter from '../../../extension/src/ui/components/AttributionFooter.svelte';
 	import { filterPullRequests } from '../../../extension/lib/utils';
 	import type { PullRequest, PopupFilters, Settings, StoredProviderConfig } from '../../../extension/lib/types';
 	import {

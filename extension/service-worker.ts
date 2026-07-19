@@ -1,4 +1,4 @@
-import { providerManager } from './lib/provider-manager';
+import { providerManager } from '@lib/provider-manager';
 import {
 	actionSetBadgeBackgroundColor,
 	actionSetBadgeText,
@@ -12,10 +12,10 @@ import {
 	runtimeOnStartupAddListener,
 	storageLocalGet,
 	tabsCreate,
-} from './lib/extension-api';
-import { storage } from './lib/storage';
-import { filterPullRequests } from './lib/utils';
-import type { PullRequestData, PopupFilters, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
+} from '@lib/extension-api';
+import { storage } from '@lib/storage';
+import { filterPullRequests } from '@lib/utils';
+import type { PullRequestData, PopupFilters, RuntimeMessage, Settings, StoredProviderConfig } from '@lib/types';
 
 const ALARM_NAME = 'pr-poll';
 let cachedSettings: Settings | null = null;

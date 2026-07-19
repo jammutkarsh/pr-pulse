@@ -1,7 +1,7 @@
 import { mount } from 'svelte';
 import '../styles/app.css';
-import { storage } from '../../lib/storage';
-import { applyDocumentUiConfig } from '../../lib/ui-config';
+import { storage } from '@lib/storage';
+import { applyDocumentUiConfig } from '@lib/ui-config';
 import App from './App.svelte';
 
 const bootstrapDataPromise = storage.getPopupBootstrapData();

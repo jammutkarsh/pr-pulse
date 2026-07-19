@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { runtimeGetURL, runtimeSendMessage, storageOnChangedAddListener, storageOnChangedRemoveListener, type StorageChangeMap } from '../../lib/extension-api';
-	import { storage } from '../../lib/storage';
-	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
-	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
+	import { runtimeGetURL, runtimeSendMessage, storageOnChangedAddListener, storageOnChangedRemoveListener, type StorageChangeMap } from '@lib/extension-api';
+	import { storage } from '@lib/storage';
+	import { DEFAULT_SETTINGS } from '@lib/ui-config';
+	import type { PullRequestData, Settings, StoredProviderConfig } from '@lib/types';
+	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '@lib/utils';
 	import GithubStep from './steps/GithubStep.svelte';
 	import DefaultViewStep from './steps/DefaultViewStep.svelte';
 	import JiraStep from './steps/JiraStep.svelte';
 	import DisplayStep from './steps/DisplayStep.svelte';
 	import CompleteStep from './steps/CompleteStep.svelte';
-	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import AttributionFooter from '@ui/components/AttributionFooter.svelte';
 
 	const STEP_GITHUB = 1;
 	const STEP_DEFAULT_VIEW = 2;

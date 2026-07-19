@@ -1,4 +1,4 @@
-import type { ProviderConfig, PullRequest, PullRequestChecks, PullRequestReviews, User } from '../types';
+import type { ProviderConfig, PullRequest, PullRequestChecks, PullRequestReviews, User } from '@lib/types';
 
 export abstract class BaseProvider {
 	name = 'base';

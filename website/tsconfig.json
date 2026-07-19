@@ -11,7 +11,9 @@
 		"lib": ["ES2022", "ESNext", "DOM", "DOM.Iterable"],
 		"types": ["svelte", "vite/client", "node"],
 		"paths": {
-			"lucide-svelte": ["./node_modules/lucide-svelte"]
+			"lucide-svelte": ["./node_modules/lucide-svelte"],
+			"@lib/*": ["../extension/lib/*"],
+			"@ui/*": ["../extension/src/ui/*"]
 		}
 	},
 	"include": ["src/**/*.ts", "src/**/*.svelte", "vite.config.ts"]

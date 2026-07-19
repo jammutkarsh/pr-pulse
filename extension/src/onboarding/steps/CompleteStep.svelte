@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { CheckCircle2 } from 'lucide-svelte';
-	import Button from '../../lib/components/Button.svelte';
-	import SectionCard from '../../lib/components/SectionCard.svelte';
-	import InteractiveGuide from '../../lib/components/InteractiveGuide.svelte';
-	import type { Settings } from '../../../lib/types';
+	import Button from '@ui/components/Button.svelte';
+	import SectionCard from '@ui/components/SectionCard.svelte';
+	import InteractiveGuide from '@ui/components/InteractiveGuide.svelte';
+	import type { Settings } from '@lib/types';
 
 	interface Props {
 		displayMode?: Settings['displayMode'];

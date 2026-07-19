@@ -4,7 +4,7 @@
 	import PrCard from './PrCard.svelte';
 	import PopupStates from './PopupStates.svelte';
 	import SearchFilter from './SearchFilter.svelte';
-	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import AttributionFooter from '@ui/components/AttributionFooter.svelte';
 	import {
 		runtimeGetURL,
 		storageOnChangedAddListener,
@@ -15,23 +15,29 @@
 		storageLocalSet,
 		tabsCreate,
 		type StorageChangeMap,
-	} from '../../lib/extension-api';
-	import { storage } from '../../lib/storage';
+	} from '@lib/extension-api';
+	import { storage } from '@lib/storage';
 	import Fuse from 'fuse.js';
-	import type { PullRequest, PullRequestData, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption, Settings, StoredProviderConfig } from '../../lib/types';
-	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
+	import type { PullRequest, PullRequestData, PopupFilters, Settings, StoredProviderConfig } from '@lib/types';
+	import { DEFAULT_SETTINGS } from '@lib/ui-config';
 	import {
 		copyToClipboard,
 		filterPullRequests,
 		formatRelativeTime,
 		isValidHttpUrl,
-	} from '../../lib/utils';
+	} from '@lib/utils';
+	import {
+		createDefaultFilters,
+		createDefaultFiltersByTab,
+		cloneFilters,
+		getOwnersFromItems,
+		getAuthorsFromItems,
+		getReposFromItems,
+		normalizeStoredFilterState,
+	} from '@ui/popup-filters';
 
 	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getPopupBootstrapData>>;
 	type SearchablePullRequest = PullRequest & { _jiraTicket: string };
-	type AuthorFilterOption = PopupAuthorFilterOption;
-	type OwnerFilterOption = PopupOwnerFilterOption;
-	type RepoFilterOption = PopupRepoFilterOption;
 	type PopupTab = Settings['pinnedTab'];
 	type StoredFilters = Partial<PopupFilters>;
 	type StoredFilterState = {
@@ -41,163 +47,6 @@
 	type FiltersByTab = Record<PopupTab, PopupFilters>;
 
 	const tokenExpired = 'Token expired or revoked; Connect a new one.';
-
-	function createDefaultFilters(): PopupFilters {
-		return {
-			authors: [],
-			owners: [],
-			repos: [],
-			ageRange: '',
-			drafts: 'exclude',
-			showReviewed: false,
-		};
-	}
-
-	function createDefaultFiltersByTab(): FiltersByTab {
-		return {
-			myPRs: createDefaultFilters(),
-			toReview: createDefaultFilters(),
-		};
-	}
-
-	function cloneFilters(filters: PopupFilters): PopupFilters {
-		return {
-			authors: [...filters.authors],
-			owners: [...filters.owners],
-			repos: [...filters.repos],
-			ageRange: filters.ageRange,
-			drafts: filters.drafts,
-			showReviewed: filters.showReviewed,
-		};
-	}
-
-	function getOwnersFromItems(items: PullRequest[]): OwnerFilterOption[] {
-		// 1. Extract owner configurations from items
-		const mappedOwners = items.map((pr) => {
-			const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-			const ownerType = pr.repoOwner?.type || 'unknown';
-			return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
-		});
-
-		// 2. Filter out items with empty or invalid owner login
-		const validOwners = mappedOwners.filter(([login]) => Boolean(login));
-
-		// 3. De-duplicate owners using a Map
-		const uniqueOwnersMap = new Map<string, OwnerFilterOption>(validOwners);
-		const uniqueOwnersList = Array.from(uniqueOwnersMap.values());
-
-		// 4. Sort the result alphabetically by login name
-		uniqueOwnersList.sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }));
-
-		return uniqueOwnersList;
-	}
-
-	function getAuthorsFromItems(items: PullRequest[], isToReview: boolean): AuthorFilterOption[] {
-		if (!isToReview) {
-			return [];
-		}
-
-		// 1. Map items to author tuples
-		const mappedAuthors = items.map((pr) => {
-			const login = pr.author?.login || '';
-			const name = pr.author?.name || login;
-			return [login.toLowerCase(), { login, name }] as const;
-		});
-
-		// 2. Filter out empty/invalid author logins
-		const validAuthors = mappedAuthors.filter(([login]) => Boolean(login));
-
-		// 3. De-duplicate authors using a Map
-		const uniqueAuthorsMap = new Map<string, AuthorFilterOption>(validAuthors);
-		const uniqueAuthorsList = Array.from(uniqueAuthorsMap.values());
-
-		// 4. Sort alphabetically by login, then name
-		uniqueAuthorsList.sort((left, right) =>
-			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
-			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
-		);
-
-		return uniqueAuthorsList;
-	}
-
-	function getReposFromItems(items: PullRequest[]): RepoFilterOption[] {
-		// 1. Filter out PRs that don't have a repoFullName
-		const prsWithRepos = items.filter((pr) => pr.repoFullName);
-
-		// 2. Map PRs to repo tuple entries
-		const mappedRepos = prsWithRepos.map((pr) => {
-			const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
-			const repoOption: RepoFilterOption = {
-				fullName: pr.repoFullName,
-				owner,
-				ownerType: pr.repoOwner?.type || 'unknown',
-				name,
-			};
-			return [pr.repoFullName, repoOption] as const;
-		});
-
-		// 3. De-duplicate repos using a Map
-		const uniqueReposMap = new Map<string, RepoFilterOption>(mappedRepos);
-		const uniqueReposList = Array.from(uniqueReposMap.values());
-
-		// 4. Sort alphabetically by name, then owner
-		uniqueReposList.sort((left, right) =>
-			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
-			left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })
-		);
-
-		return uniqueReposList;
-	}
-
-	function toStringArray(value: unknown): string[] {
-		if (!Array.isArray(value)) {
-			return [];
-		}
-
-		return value.filter((entry): entry is string => typeof entry === 'string');
-	}
-
-	function normalizeStoredFilters(value: StoredFilters | undefined): PopupFilters {
-		const storedFilters = value ?? {};
-		const authors = toStringArray(storedFilters.authors);
-		const owners = toStringArray(storedFilters.owners);
-		const repos = toStringArray(storedFilters.repos);
-		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
-		const drafts = storedFilters.drafts === 'only' || storedFilters.drafts === 'include' ? storedFilters.drafts : 'exclude';
-		const showReviewed = typeof storedFilters.showReviewed === 'boolean' ? storedFilters.showReviewed : false;
-
-		return {
-			...DEFAULT_FILTERS,
-			authors,
-			repos,
-			owners,
-			ageRange,
-			drafts,
-			showReviewed,
-		};
-	}
-
-	function normalizeStoredFilterState(value: StoredFilterState | undefined, fallbackTab: PopupTab): FiltersByTab {
-		const defaultState = createDefaultFiltersByTab();
-		const storedTabs = value?.tabs;
-
-		if (storedTabs) {
-			return {
-				myPRs: normalizeStoredFilters(storedTabs.myPRs),
-				toReview: normalizeStoredFilters(storedTabs.toReview),
-			};
-		}
-
-		if (value?.activeFilters) {
-			return {
-				...defaultState,
-				[fallbackTab]: normalizeStoredFilters(value.activeFilters),
-			};
-		}
-
-		return defaultState;
-	}
-
 	const DEFAULT_FILTERS = createDefaultFilters();
 
 	interface Props {

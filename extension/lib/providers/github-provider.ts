@@ -1,4 +1,4 @@
-import { ProviderError } from '../errors';
+import { ProviderError } from '@lib/errors';
 import type {
 	PullRequest,
 	PullRequestCheckDetail,
@@ -7,7 +7,7 @@ import type {
 	PullRequestReviews,
 	ProviderConfig,
 	User,
-} from '../types';
+} from '@lib/types';
 import { BaseProvider } from './base-provider';
 
 type GitHubSearchIssue = {

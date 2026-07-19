@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check } from 'lucide-svelte';
-	import Button from '../lib/components/Button.svelte';
-	import RadioCard from '../lib/components/RadioCard.svelte';
-	import SectionCard from '../lib/components/SectionCard.svelte';
-	import InteractiveGuide from '../lib/components/InteractiveGuide.svelte';
-	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
-	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
-	import { storage } from '../../lib/storage';
-	import type { Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl, copyToClipboard } from '../../lib/utils';
-	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
+	import Button from '@ui/components/Button.svelte';
+	import RadioCard from '@ui/components/RadioCard.svelte';
+	import SectionCard from '@ui/components/SectionCard.svelte';
+	import InteractiveGuide from '@ui/components/InteractiveGuide.svelte';
+	import AttributionFooter from '@ui/components/AttributionFooter.svelte';
+	import { runtimeGetURL, runtimeSendMessage } from '@lib/extension-api';
+	import { storage } from '@lib/storage';
+	import type { Settings, StoredProviderConfig } from '@lib/types';
+	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl, copyToClipboard } from '@lib/utils';
+	import { DEFAULT_SETTINGS } from '@lib/ui-config';
 
 	const pollingOptions = [
 		{ value: 0, label: 'Manual' },
