@@ -1,0 +1,32 @@
+/* Design tokens. Imported by the extension and by the website, which embeds the real popup
+   components — the two used to hold copies of this block and the copies had to be kept in step
+   by hand. Surface geometry that only one of them has stays in its own app.css. */
+
+:root {
+	color-scheme: dark;
+	--surface-radius: 10px;
+	--section-radius: 20px;
+	--field-radius: 6px;
+	--popup-width: 26.25rem;
+	--popup-height: 37.5rem;
+	--bg-base: #1e1e1e;
+	--bg-panel: #252526;
+	--bg-panel-strong: #2d2d30;
+	--bg-muted: #333337;
+	--border-soft: #3c3c3c;
+	--border-strong: #4f4f4f;
+	--text-strong: #cccccc;
+	--text-soft: #9da1a6;
+	--text-dim: #80868b;
+	--accent: #3794ff;
+	--accent-strong: #4da3ff;
+	--accent-muted: rgba(55, 148, 255, 0.14);
+	--accent-border: rgba(55, 148, 255, 0.26);
+	--success: #89d185;
+	--warning: #d7ba7d;
+	--warning-muted: rgba(215, 186, 125, 0.14);
+	--danger: #f14c4c;
+	--danger-muted: rgba(241, 76, 76, 0.14);
+	--danger-border: rgba(241, 76, 76, 0.26);
+	--shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.24);
+}

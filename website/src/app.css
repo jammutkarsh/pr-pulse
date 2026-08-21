@@ -5,42 +5,16 @@
 @source './';
 @source '../../extension';
 
-/* Reuse the extension's real stylesheets verbatim — this is what makes the
+/* Reuse the extension's real stylesheets verbatim — tokens.css included, so the design
+   tokens are shared rather than copied — this is what makes the
    embedded popup pixel-identical to the shipped extension. */
+@import '../../extension/src/styles/tokens.css';
 @import '../../extension/src/styles/theme.css';
 @import '../../extension/src/styles/utilities.css';
 @import '../../extension/src/styles/components/shared.css';
 @import '../../extension/src/styles/components/filters.css';
 
-/* Design tokens copied from extension/src/styles/app.css :root (theme.css only
-   defines component classes, not the tokens they reference). */
 :root {
-	color-scheme: dark;
-	--surface-radius: 10px;
-	--section-radius: 20px;
-	--field-radius: 6px;
-	--popup-width: 26.25rem;
-	--popup-height: 37.5rem;
-	--bg-base: #1e1e1e;
-	--bg-panel: #252526;
-	--bg-panel-strong: #2d2d30;
-	--bg-muted: #333337;
-	--border-soft: #3c3c3c;
-	--border-strong: #4f4f4f;
-	--text-strong: #cccccc;
-	--text-soft: #9da1a6;
-	--text-dim: #80868b;
-	--accent: #3794ff;
-	--accent-strong: #4da3ff;
-	--accent-muted: rgba(55, 148, 255, 0.14);
-	--accent-border: rgba(55, 148, 255, 0.26);
-	--success: #89d185;
-	--warning: #d7ba7d;
-	--warning-muted: rgba(215, 186, 125, 0.14);
-	--danger: #f14c4c;
-	--danger-muted: rgba(241, 76, 76, 0.14);
-	--danger-border: rgba(241, 76, 76, 0.26);
-	--shadow-soft: 0 14px 36px rgba(0, 0, 0, 0.24);
 	--font-sans: 'Segoe UI', 'Segoe UI Variable', 'SF Pro Text', system-ui, sans-serif;
 
 	/* Brand palette derived from the PR Pulse logo: a navy disc with a

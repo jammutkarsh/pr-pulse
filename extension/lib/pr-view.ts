@@ -1,4 +1,5 @@
 import Fuse from 'fuse.js';
+import { jiraTicketFor } from './jira';
 import type {
 	FiltersByTab,
 	PopupAuthorFilterOption,
@@ -167,7 +168,7 @@ function searchItems(items: PullRequest[], query: string): PullRequest[] {
 	// ponytail: index is rebuilt per keystroke; memoize if a popup ever holds thousands of PRs.
 	type Searchable = PullRequest & { _jiraTicket: string };
 	const index = new Fuse<Searchable>(
-		items.map((pr) => ({ ...pr, _jiraTicket: pr.branchName?.match(/([A-Z]+-\d+)/i)?.[1] || '' })),
+		items.map((pr) => ({ ...pr, _jiraTicket: jiraTicketFor(pr.branchName) })),
 		{ keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'], threshold: 0.3, ignoreLocation: true },
 	);
 

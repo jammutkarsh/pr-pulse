@@ -99,39 +99,6 @@
 		color: white;
 	}
 
-	/* ── Filter search input ── */
-
-	.filter-search-input {
-		width: 100%;
-		border: 1px solid var(--border-soft);
-		border-radius: var(--field-radius);
-		background: var(--bg-muted);
-		height: 2rem;
-		padding: 0.25rem 0.75rem;
-		font-size: 0.875rem;
-		line-height: 1.25rem;
-		color: white;
-		outline: none;
-		box-sizing: border-box;
-		appearance: none;
-		-webkit-appearance: none;
-		-moz-appearance: none;
-		transition:
-			border-color 0.2s ease,
-			box-shadow 0.2s ease,
-			background 0.2s ease;
-	}
-
-	.filter-search-input:focus {
-		border-color: var(--accent);
-		box-shadow: 0 0 0 2px rgba(55, 148, 255, 0.18);
-	}
-
-	.filter-search-input::placeholder {
-		color: var(--text-dim);
-		opacity: 1;
-	}
-
 	/* ── Filter text helpers ── */
 
 	.filter-label-text {
