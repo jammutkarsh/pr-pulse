@@ -4,7 +4,14 @@ All notable changes to PR Pulse are documented in this file.
 
 ## [2.0.0] – 2026-08-21
 
-- **GraphQL Migration**: Migrated GitHub data fetching from REST API to GraphQL, improving performance and reducing API calls.
+- **GraphQL Migration**: Migrated GitHub data fetching from REST API to GraphQL. A refresh now costs 4 requests at most instead of up to ~280, and each view's query is sized to a cheap count probe rather than a fixed page size.
+- **More than 30 PRs per view**: Views are no longer capped at 30 pull requests — up to 300 per view are fetched via pagination.
+- **Check status accuracy**: Check state now comes from GitHub's own status rollup instead of being folded from a capped list of individual checks, so a pull request with many checks can no longer report passing while one is failing.
+- **Unresolved comment counts**: "Changes Requested (N)" now counts unresolved review threads rather than every top-level review comment, so resolved and outdated threads no longer inflate the number. Counts above 25 are reported as 25.
+- **Author names**: Pull request cards show the author's profile name where they previously showed their login.
+- **Legacy commit statuses**: Checks reported through GitHub's older commit status API (used by some external CI providers) now feed the check indicator; previously these showed as "No Checks".
+- **Unreadable pull requests**: Pull requests in repositories the token cannot read (SSO-restricted, archived, or deleted) are dropped from the dashboard and reported in the extension console rather than failing the whole refresh.
+- **Code Quality & Architecture**: Collapsed the provider's three separate fetch methods into one, replaced blind string conversion of GitHub's API values with explicit maps that warn on anything unrecognised, and removed unused fields from the pull request model. Status indicators on the PR card now resolve their styling in one step instead of three. No visual change.
 
 ## [1.6.0] – 2026-07-04
 

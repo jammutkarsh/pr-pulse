@@ -52,13 +52,7 @@ class ProviderManager {
 	async fetchAllPullRequests(): Promise<PullRequestData> {
 		const provider = this.#ensureProvider();
 
-		// 3 parallel queries — the 3rd (reviewed-by) adds one extra GitHub search call per refresh.
-		// Gate behind a flag if rate limits ever matter.
-		const [myPRs, reviewRequests, reviewedPRs] = await Promise.all([
-			provider.getMyPullRequests(),
-			provider.getReviewRequests(),
-			provider.getReviewedPRs(),
-		]);
+		const { myPRs, reviewRequests, reviewedPRs } = await provider.getAllPullRequests();
 
 		const seen = new Set(reviewRequests.map((pr) => pr.id));
 		const mergedReviewRequests = [...reviewRequests];

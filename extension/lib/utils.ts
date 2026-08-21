@@ -31,31 +31,42 @@ export function getJiraUrl(ticketId: string, baseUrl: string): string {
 	return `${sanitizeJiraUrl(baseUrl)}/browse/${ticketId}`;
 }
 
-export function getReviewStatusDisplay(status: string, openThreadCount?: number) {
+// `tone` and `dot` are the CSS classes the card applies directly. They used to be derived from an
+// intermediate `className` ('checks-success', 'status-approved', …) that matched no stylesheet rule and
+// existed only to be switched on again at the call site.
+export interface StatusDisplay {
+	label: string;
+	tone: string;
+	dot: string;
+}
+
+export function getReviewStatusDisplay(status: string, openThreadCount?: number): StatusDisplay {
 	switch (status) {
 		case 'approved':
-			return { label: 'Approved', icon: '✓', className: 'status-approved' };
-		case 'changes_requested': {
-			const label = openThreadCount && openThreadCount > 0 ? `Changes Requested (${openThreadCount})` : 'Changes Requested';
-			return { label, icon: '✗', className: 'status-changes' };
-		}
+			return { label: 'Approved', tone: 'status-inline-success', dot: 'status-dot-success' };
+		case 'changes_requested':
+			return {
+				label: openThreadCount && openThreadCount > 0 ? `Changes Requested (${openThreadCount})` : 'Changes Requested',
+				tone: 'status-inline-danger',
+				dot: 'status-dot-danger',
+			};
 		case 'pending':
 		default:
-			return { label: 'Review Pending', icon: '⏳', className: 'status-pending' };
+			return { label: 'Review Pending', tone: 'status-inline-warning', dot: 'status-dot-warning' };
 	}
 }
 
-export function getCheckStatusDisplay(status: string) {
+export function getCheckStatusDisplay(status: string): StatusDisplay {
 	switch (status) {
 		case 'success':
-			return { label: 'Checks Passing', icon: '✓', className: 'checks-success' };
+			return { label: 'Checks Passing', tone: 'status-inline-success', dot: 'status-dot-success' };
 		case 'failure':
-			return { label: 'Checks Failing', icon: '✗', className: 'checks-failure' };
+			return { label: 'Checks Failing', tone: 'status-inline-danger', dot: 'status-dot-danger' };
 		case 'pending':
-			return { label: 'Checks Running', icon: '⏳', className: 'checks-pending' };
+			return { label: 'Checks Running', tone: 'status-inline-warning', dot: 'status-dot-warning' };
 		case 'unknown':
 		default:
-			return { label: 'No Checks', icon: '○', className: 'checks-unknown' };
+			return { label: 'No Checks', tone: 'status-inline-neutral', dot: 'status-dot-neutral' };
 	}
 }
 
