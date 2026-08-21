@@ -46,7 +46,7 @@ function toPr(item: SearchItem): PullRequest {
 		author: { login: item.user.login, name: item.user.login, avatarUrl: item.user.avatar_url },
 		state: 'open',
 		changes: { additions: 0, deletions: 0, filesChanged: 0 },
-		checks: { status: 'unknown', details: [] },
+		checks: { status: 'unknown' },
 		reviews: { status: 'pending', reviewers: [] },
 		createdAt: item.created_at,
 		updatedAt: item.updated_at,

@@ -10,6 +10,7 @@
 		ShieldCheck,
 		MousePointerClick,
 		CircleQuestionMark,
+		Gauge,
 	} from 'lucide-svelte';
 	import PopupDemo from './lib/PopupDemo.svelte';
 	import { fetchUserPrs, fetchStars, RateLimitError, type UserPrs } from './lib/github';
@@ -164,13 +165,21 @@
 		return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
 	}
 
-	const features = [
+	// `wide` cards take the full last row — 7 items in a 3-column grid would otherwise leave a hole.
+	const features: Array<{ tag: string; icon: typeof Zap; title: string; body: string; wide?: boolean }> = [
 		{ tag: 'Speed', icon: MousePointerClick, title: 'Single Click, every repo', body: 'Everything that needs you in a single popup. No repo-hopping, no tab switching, no waiting on page loads.' },
 		{ tag: 'Search', icon: SearchCode, title: 'Find it as you type', body: 'Fuzzy search across every repo by title, branch, author, or Jira ticket the moment you start typing.' },
 		{ tag: 'Filters', icon: SlidersHorizontal, title: 'Filters that stay put', body: 'By owner, repo, author, draft state, and review status — remembered per tab, exactly how you left them.' },
 		{ tag: 'Signal', icon: Zap, title: 'Status at a glance', body: 'CI checks and review state live on each card, color-coded. Know what to act on without opening anything.' },
 		{ tag: 'Privacy', icon: ShieldCheck, title: 'Local-first, always', body: 'Your token and data stay in browser storage. PR Pulse talks straight to GitHub — no third-party server.' },
 		{ tag: 'Reach', icon: Github, title: 'Chrome and Firefox', body: 'The same dashboard in both browsers. Free, open source, and shipped as a real extension.' },
+		{
+			tag: 'Scale',
+			icon: Gauge,
+			title: 'Built on GraphQL — 96 open PRs, 4 requests',
+			body: 'Your agents opened 96 pull requests overnight. The dashboard still refreshes in at most 4 calls — GraphQL hands back every pull request with its checks and reviews already attached, so more pull requests make the answer bigger, never the number of calls.',
+			wide: true,
+		},
 	];
 
 	const tax = ['open github', 'pick a repo', 'find pull requests', 'check status', 'go back', 'switch repo'];
@@ -187,6 +196,8 @@
 	let taxVisible = $state(false);
 	let popupSection: HTMLElement | undefined = $state();
 
+	// Every answer starts expanded — the page should read straight through without the visitor
+	// having to click anything open.
 	const faqs = [
 		{
 			q: 'Didn’t GitHub just ship this?',
@@ -195,6 +206,10 @@
 		{
 			q: 'Can I see private PRs?',
 			a: `Yes — <a href="${CHROME}" class="text-[color:var(--accent)] underline decoration-1 underline-offset-2">install PR Pulse</a> and connect a GitHub token during setup.`,
+		},
+		{
+			q: 'Will it burn through my GitHub rate limit?',
+			a: 'No. A refresh is 4 calls at most: a quick count first, then one each for the pull requests you opened, the ones waiting on your review, and the ones you already reviewed. <a href="https://docs.github.com/en/graphql" class="text-[color:var(--accent)] underline decoration-1 underline-offset-2">GraphQL</a> sends each list back complete — checks, reviewers and all — so 96 pull requests arrive in the same single call as 4.',
 		},
 		{ q: 'Which platforms do you support?', a: 'GitHub, right now. Feel free to raise a PR for others.' },
 		{
@@ -361,13 +376,13 @@
 			<h2 class="display text-3xl sm:text-4xl">Built to remove a ritual, not add a tool.</h2>
 			<div class="mt-9 grid gap-px overflow-hidden rounded-2xl border border-soft bg-(--border-soft) sm:grid-cols-2 lg:grid-cols-3">
 				{#each features as f (f.title)}
-					<div class="card-hover bg-(--bg-panel) p-6 sm:p-7">
+					<div class={`card-hover bg-(--bg-panel) p-6 sm:p-7 ${f.wide ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
 						<div class="flex items-center justify-between">
 							<f.icon class="h-5 w-5 text-(--accent)" />
 							<span class="eyebrow">{f.tag}</span>
 						</div>
 						<h3 class="mt-4 font-semibold text-white">{f.title}</h3>
-						<p class="mt-2 text-sm leading-relaxed text-soft">{f.body}</p>
+						<p class={`mt-2 text-sm leading-relaxed text-soft ${f.wide ? 'max-w-3xl' : ''}`}>{f.body}</p>
 					</div>
 				{/each}
 			</div>
@@ -377,8 +392,8 @@
 		<section class="py-14 sm:py-16">
 			<h2 class="display text-3xl sm:text-4xl">FAQ</h2>
 			<div class="mt-9 divide-y divide-(--border-soft) overflow-hidden rounded-2xl border border-soft bg-(--bg-panel)">
-				{#each faqs as f, i (f.q)}
-					<details class="faq-item group" open={i === 0}>
+				{#each faqs as f (f.q)}
+					<details class="faq-item group" open>
 						<summary class="flex cursor-pointer list-none items-center gap-4 p-6 font-semibold text-white marker:content-none sm:p-7">
 							<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-soft text-dim transition group-hover:border-(--border-strong) group-hover:text-white">
 								<CircleQuestionMark class="h-3.5 w-3.5" />
