@@ -4,7 +4,7 @@ import { storage } from '../../lib/storage';
 import { applyDocumentUiConfig } from '../../lib/ui-config';
 import App from './App.svelte';
 
-const bootstrapDataPromise = storage.getPopupBootstrapData();
+const bootstrapDataPromise = storage.getBootstrapData();
 const bootstrapData = await bootstrapDataPromise;
 const target = document.getElementById('app');
 

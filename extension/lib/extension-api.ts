@@ -6,6 +6,9 @@ type AsyncLike<T> = T | Promise<T>;
 
 const extensionBrowser = browser;
 
+/** False when this code runs outside an extension (the website demo), where storage APIs are absent. */
+export const isExtensionRuntime = typeof chrome !== 'undefined';
+
 export type StorageChangeMap = Record<string, browser.Storage.StorageChange>;
 export type StorageOnChangedListener = Parameters<typeof extensionBrowser.storage.onChanged.addListener>[0];
 export type RuntimeOnInstalledListener = Parameters<typeof extensionBrowser.runtime.onInstalled.addListener>[0];
@@ -142,24 +145,7 @@ export function runtimeOnStartupAddListener(listener: RuntimeOnStartupListener):
 }
 
 export function runtimeOnMessageAddListener(listener: RuntimeOnMessageListener): void {
-	const wrappedListener = (message: unknown, sender: browser.Runtime.MessageSender) => {
-		try {
-			const result = listener(message, sender);
-			if (result instanceof Promise) {
-				return result.catch((error) => {
-					logExtensionApiError('runtime.onMessage', error);
-					throw error;
-				});
-			}
-
-			return result;
-		} catch (error) {
-			logExtensionApiError('runtime.onMessage', error);
-			throw error;
-		}
-	};
-
-	extensionBrowser.runtime.onMessage.addListener(wrappedListener);
+	extensionBrowser.runtime.onMessage.addListener(wrapListener('runtime.onMessage', listener));
 }
 
 export function alarmsOnAlarmAddListener(listener: AlarmsOnAlarmListener): void {

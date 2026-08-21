@@ -60,10 +60,15 @@ export interface PullRequest {
 	isDraft: boolean;
 }
 
-export interface ProviderPullRequests {
+/** What every pull-request source hands back, whatever it reads from. */
+export interface PrSourceResult {
 	myPRs: PullRequest[];
 	reviewRequests: PullRequest[];
-	reviewedPRs: PullRequest[];
+}
+
+/** The seam: fetching pull requests. Token identity is a separate concern and deliberately absent. */
+export interface PrSource {
+	getAllPullRequests(): Promise<PrSourceResult>;
 }
 
 export interface ProviderConfig {
@@ -105,6 +110,10 @@ export interface PullRequestData {
 	lastFetched: number | null;
 }
 
+export type PopupTab = Settings['pinnedTab'];
+
+export type FiltersByTab = Record<PopupTab, PopupFilters>;
+
 export interface PopupFilters {
 	authors: string[];
 	owners: string[];
@@ -112,6 +121,14 @@ export interface PopupFilters {
 	ageRange: string;
 	drafts: 'only' | 'include' | 'exclude';
 	showReviewed: boolean;
+}
+
+export type StoredFilters = Partial<PopupFilters>;
+
+export interface StoredFilterState {
+	tabs?: Partial<Record<PopupTab, StoredFilters>>;
+	/** Pre-per-tab shape, still on disk for anyone who has not opened the popup since. */
+	activeFilters?: StoredFilters;
 }
 
 export interface PopupAuthorFilterOption {
@@ -135,8 +152,8 @@ export type RuntimeMessage =
 	| { type: 'PROVIDER_CONFIGURED' }
 	| { type: 'REFRESH_PRS' }
 	| { type: 'GET_PRS' }
-	| { type: 'UPDATE_SETTINGS'; settings: Partial<Settings> }
-	| { type: 'SETTINGS_UPDATED'; settings: Partial<Settings> }
+	/** Storage is already written by the sender; this only tells the worker which keys moved. */
+	| { type: 'SETTINGS_CHANGED'; settings: Partial<Settings> }
 	| { type: 'UPDATE_BADGE_COUNT'; count: number }
 	| { type: 'CLEAR_ALL' };
 

@@ -13,8 +13,9 @@
 		Gauge,
 	} from 'lucide-svelte';
 	import PopupDemo from './lib/PopupDemo.svelte';
-	import { fetchUserPrs, fetchStars, RateLimitError, type UserPrs } from './lib/github';
-	import { myPRs as sampleMy, reviewRequests as sampleReview } from './lib/mockData';
+	import { publicGitHubSource, fetchStars, RateLimitError } from './lib/github';
+	import type { PrSourceResult } from '../../extension/lib/types';
+	import { sampleSource } from './lib/mockData';
 	import type { PullRequest } from '../../extension/lib/types';
 
 	const logo = '/icon.png'; // served from website/public
@@ -47,17 +48,17 @@
 	// per-visitor GitHub rate limit) aren't burned on every reload. A manual
 	// refresh (force) always bypasses this.
 	const cacheKey = (name: string) => `prpulse:cache:${name}`;
-	function readCache(name: string): UserPrs | null {
+	function readCache(name: string): PrSourceResult | null {
 		try {
 			const raw = localStorage.getItem(cacheKey(name));
 			if (!raw) return null;
-			const { data, ts } = JSON.parse(raw) as { data: UserPrs; ts: number };
+			const { data, ts } = JSON.parse(raw) as { data: PrSourceResult; ts: number };
 			return Date.now() - ts > CACHE_TTL_MS ? null : data;
 		} catch {
 			return null;
 		}
 	}
-	function writeCache(name: string, data: UserPrs) {
+	function writeCache(name: string, data: PrSourceResult) {
 		try {
 			localStorage.setItem(cacheKey(name), JSON.stringify({ data, ts: Date.now() }));
 		} catch {
@@ -65,10 +66,11 @@
 		}
 	}
 
-	function useSample(rateLimited = false) {
+	async function useSample(rateLimited = false) {
+		const sample = await sampleSource.getAllPullRequests();
 		activeUsername = DEFAULT_USER;
-		myPRs = sampleMy;
-		reviewRequests = sampleReview;
+		myPRs = sample.myPRs;
+		reviewRequests = sample.reviewRequests;
 		isSample = true;
 		isRateLimited = rateLimited;
 		errorMessage = '';
@@ -97,11 +99,11 @@
 		errorMessage = '';
 		isRateLimited = false;
 		try {
-			const result = await fetchUserPrs(username);
+			const result = await publicGitHubSource(username).getAllPullRequests();
 			// On the default landing load, fall back to sample data if the account
 			// has nothing open — the hero should never look dead.
 			if (silent && result.myPRs.length === 0 && result.reviewRequests.length === 0) {
-				useSample();
+				await useSample();
 				return;
 			}
 			activeUsername = username;
@@ -115,7 +117,7 @@
 			// do anything about — show sample data instead of a dead end, same as
 			// the silent default-load fallback above.
 			if (silent || err instanceof RateLimitError) {
-				useSample(err instanceof RateLimitError);
+				await useSample(err instanceof RateLimitError);
 				return;
 			}
 			activeUsername = username;

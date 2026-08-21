@@ -4,7 +4,9 @@
 	import { storage } from '../../lib/storage';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl } from '../../lib/utils';
+	import { isValidHttpUrl, isValidTokenFormat } from '../../lib/utils';
+	import { sanitizeJiraUrl } from '../../lib/jira';
+	import { connectGithubToken } from '../../lib/github-connect';
 	import GithubStep from './steps/GithubStep.svelte';
 	import DefaultViewStep from './steps/DefaultViewStep.svelte';
 	import JiraStep from './steps/JiraStep.svelte';
@@ -85,15 +87,7 @@
 
 		testingConnection = true;
 		try {
-			const { GitHubProvider } = await import('../../lib/providers/github-provider');
-			const provider = new GitHubProvider({ token: normalizedToken });
-			const user = await provider.authenticate();
-			providerData = {
-				type: 'github',
-				token: normalizedToken,
-				baseUrl: 'https://api.github.com',
-				user,
-			};
+			providerData = await connectGithubToken(normalizedToken);
 		} catch (error) {
 			console.error('Failed to authenticate token:', error);
 			errorMessage = error instanceof Error ? error.message : 'Failed to connect. Check your token and try again.';
