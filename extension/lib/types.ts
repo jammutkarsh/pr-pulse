@@ -24,15 +24,8 @@ export interface PullRequestChanges {
 	filesChanged: number;
 }
 
-export interface PullRequestCheckDetail {
-	name: string;
-	status: string;
-	conclusion: string | null;
-}
-
 export interface PullRequestChecks {
 	status: 'success' | 'failure' | 'pending' | 'unknown';
-	details: PullRequestCheckDetail[];
 }
 
 export interface PullRequestReviewer {
@@ -65,8 +58,12 @@ export interface PullRequest {
 	createdAt: string;
 	updatedAt: string;
 	isDraft: boolean;
-	_prNumber?: number;
-	_repoFullName?: string;
+}
+
+export interface ProviderPullRequests {
+	myPRs: PullRequest[];
+	reviewRequests: PullRequest[];
+	reviewedPRs: PullRequest[];
 }
 
 export interface ProviderConfig {

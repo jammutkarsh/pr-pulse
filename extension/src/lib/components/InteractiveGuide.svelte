@@ -106,7 +106,7 @@
 		repoOwner: { login: 'jammutkarsh', type: 'user' },
 		branchName: 'feat/PULSE-1337/interactive-demo',
 		changes: { additions: 42, deletions: 12, filesChanged: 3 },
-		checks: { status: 'success', details: [] },
+		checks: { status: 'success' },
 		reviews: { status: 'approved', reviewers: [], openThreadCount: 0 },
 	};
 

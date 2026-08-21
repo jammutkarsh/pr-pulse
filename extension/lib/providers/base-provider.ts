@@ -1,4 +1,4 @@
-import type { ProviderConfig, PullRequest, PullRequestChecks, PullRequestReviews, User } from '../types';
+import type { ProviderConfig, ProviderPullRequests, User } from '../types';
 
 export abstract class BaseProvider {
 	name = 'base';
@@ -12,10 +12,7 @@ export abstract class BaseProvider {
 
 	abstract authenticate(): Promise<User>;
 	abstract getUser(): Promise<User>;
-	abstract getMyPullRequests(): Promise<PullRequest[]>;
-	abstract getReviewRequests(): Promise<PullRequest[]>;
-	abstract getReviewedPRs(): Promise<PullRequest[]>;
-	abstract getPullRequestDetails(repoFullName: string, prNumber: number): Promise<unknown>;
-	abstract getCheckStatus(repoFullName: string, commitSha: string): Promise<PullRequestChecks>;
-	abstract getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers?: string[]): Promise<PullRequestReviews>;
+	// One call, not three: the provider sizes each view's query from a shared count probe, so it needs
+	// to own the whole refresh rather than exposing three independently-callable fetches.
+	abstract getAllPullRequests(): Promise<ProviderPullRequests>;
 }

@@ -1,41 +1,167 @@
 import { ProviderError } from '../errors';
 import type {
+	ProviderPullRequests,
 	PullRequest,
-	PullRequestCheckDetail,
 	PullRequestChecks,
 	PullRequestRepoOwner,
+	PullRequestReviewer,
 	PullRequestReviews,
 	ProviderConfig,
 	User,
 } from '../types';
 import { BaseProvider } from './base-provider';
 
-type GitHubSearchIssue = {
-	id: number;
+type GraphQLReview = {
+	databaseId: number | null;
+	state: string;
+	author: { login: string; avatarUrl: string } | null;
+};
+
+type GraphQLPullRequest = {
+	id: string;
 	number: number;
 	title: string;
-	html_url: string;
-	repository_url?: string;
-	user?: { login?: string; avatar_url?: string };
+	url: string;
 	state: string;
-	created_at: string;
-	updated_at: string;
-	draft?: boolean;
+	isDraft: boolean;
+	createdAt: string;
+	updatedAt: string;
+	additions: number;
+	deletions: number;
+	changedFiles: number;
+	headRefName: string;
+	author: { login: string; avatarUrl: string; name?: string | null } | null;
+	repository: { nameWithOwner: string; owner: { login: string; __typename: string } } | null;
+	commits: { nodes: Array<{ commit: { statusCheckRollup: { state: string } | null } }> };
+	reviews: { nodes: GraphQLReview[] };
+	reviewRequests: { nodes: Array<{ requestedReviewer: { login?: string } | null }> };
+	reviewThreads: { nodes: Array<{ isResolved: boolean; isOutdated: boolean }> };
 };
 
-type PullRequestDetails = {
-	branchName: string;
-	changes: PullRequest['changes'];
-	repoOwner: PullRequest['repoOwner'];
-	requestedReviewers: string[];
-	isDraft: boolean;
-	_raw: { head?: { sha?: string }; draft?: boolean } & Record<string, unknown>;
+type RateLimit = { cost: number; remaining: number };
+
+type CountResponse = {
+	rateLimit: RateLimit | null;
+	myPRs: { issueCount: number } | null;
+	reviewRequests: { issueCount: number } | null;
+	reviewedPRs: { issueCount: number } | null;
 };
+
+type SearchResponse = {
+	rateLimit: RateLimit | null;
+	search: {
+		pageInfo: { hasNextPage: boolean; endCursor: string | null };
+		nodes: Array<GraphQLPullRequest | null>;
+	} | null;
+};
+
+// GraphQL point cost is charged on the nodes a query *requests*, not the ones it returns, and nested
+// connections multiply by their parent's page size. So each PR node here costs roughly
+// 1 + REVIEWS + REVIEW_REQUESTS + REVIEW_THREADS nodes, and the search page size multiplies all of it.
+const MAX_PAGE_SIZE = 100;
+const MAX_PAGES = 3;
+const REVIEWS_PAGE_SIZE = 50;
+const REVIEW_REQUESTS_PAGE_SIZE = 20;
+const REVIEW_THREADS_PAGE_SIZE = 25;
+
+const SEARCH_QUERIES = {
+	myPRs: 'author:@me type:pr state:open sort:updated-desc',
+	reviewRequests: 'review-requested:@me type:pr state:open sort:updated-desc',
+	reviewedPRs: 'reviewed-by:@me -author:@me type:pr state:open sort:updated-desc',
+};
+
+type SearchView = keyof typeof SEARCH_QUERIES;
+
+// issueCount is a scalar on the connection, so this whole probe costs 3 nodes — one point. Sizing the
+// real queries to the answer beats a fixed first: 100, which bills a 7-PR user the same as a 100-PR one.
+const COUNT_QUERY = `query($myPRs: String!, $reviewRequests: String!, $reviewedPRs: String!) {
+	rateLimit { cost remaining }
+	myPRs: search(query: $myPRs, type: ISSUE, first: 1) { issueCount }
+	reviewRequests: search(query: $reviewRequests, type: ISSUE, first: 1) { issueCount }
+	reviewedPRs: search(query: $reviewedPRs, type: ISSUE, first: 1) { issueCount }
+}`;
+
+const SEARCH_QUERY = `query($q: String!, $first: Int!, $after: String) {
+	rateLimit { cost remaining }
+	search(query: $q, type: ISSUE, first: $first, after: $after) {
+		pageInfo { hasNextPage endCursor }
+		nodes {
+			... on PullRequest {
+				id
+				number
+				title
+				url
+				state
+				isDraft
+				createdAt
+				updatedAt
+				additions
+				deletions
+				changedFiles
+				headRefName
+				author { login avatarUrl ... on User { name } }
+				repository { nameWithOwner owner { login __typename } }
+				commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+				reviews(last: ${REVIEWS_PAGE_SIZE}) { nodes { databaseId state author { login avatarUrl } } }
+				reviewRequests(first: ${REVIEW_REQUESTS_PAGE_SIZE}) { nodes { requestedReviewer { ... on User { login } } } }
+				reviewThreads(first: ${REVIEW_THREADS_PAGE_SIZE}) { nodes { isResolved isOutdated } }
+			}
+		}
+	}
+}`;
+
+// GraphQL enums are uppercase and closed sets. Map them explicitly so an enum GitHub adds later shows up
+// as a warning rather than silently lowercasing into a value nothing downstream handles.
+const CHECK_STATUS_BY_ROLLUP: Record<string, PullRequestChecks['status']> = {
+	SUCCESS: 'success',
+	FAILURE: 'failure',
+	ERROR: 'failure',
+	PENDING: 'pending',
+	EXPECTED: 'pending',
+};
+
+const PULL_REQUEST_STATE: Record<string, string> = {
+	OPEN: 'open',
+	CLOSED: 'closed',
+	MERGED: 'merged',
+};
+
+const OWNER_TYPE: Record<string, PullRequestRepoOwner['type']> = {
+	Organization: 'org',
+	User: 'user',
+};
+
+const REVIEW_STATE = {
+	approved: 'APPROVED',
+	changesRequested: 'CHANGES_REQUESTED',
+	dismissed: 'DISMISSED',
+	commented: 'COMMENTED',
+	pending: 'PENDING',
+} as const;
+
+const KNOWN_REVIEW_STATES: ReadonlySet<string> = new Set(Object.values(REVIEW_STATE));
+
+function mapEnum<T>(map: Record<string, T>, value: string | null | undefined, fallback: T, label: string): T {
+	if (value && value in map) {
+		return map[value];
+	}
+
+	if (value) {
+		console.warn(`GitHub GraphQL: unrecognized ${label} "${value}", falling back to "${fallback}"`);
+	}
+
+	return fallback;
+}
+
+/**
+ * Page size for the next request: whatever the count probe says is left, clamped to GitHub's max.
+ * Floors at 1 because GraphQL rejects `first: 0`, and the loop only gets here when more is expected.
+ */
+export function nextPageSize(issueCount: number, alreadySeen: number): number {
+	return Math.min(Math.max(issueCount - alreadySeen, 1), MAX_PAGE_SIZE);
+}
 
 export class GitHubProvider extends BaseProvider {
-	#etagCache = new Map<string, { etag: string; data: unknown }>();
-	#repoOwnerCache = new Map<string, PullRequest['repoOwner']>();
-
 	constructor(config: ProviderConfig = {}) {
 		super(config);
 		this.name = 'github';
@@ -43,61 +169,62 @@ export class GitHubProvider extends BaseProvider {
 		this.baseUrl = config.baseUrl || 'https://api.github.com';
 	}
 
-	#resolveOwnerType(rawType: string | undefined): PullRequestRepoOwner['type'] {
-		const normalized = (rawType || '').toLowerCase();
-		if (normalized === 'organization') return 'org';
-		if (normalized === 'user') return 'user';
-		return 'unknown';
-	}
-
-	async #throwApiError(response: Response): Promise<never> {
-		const error = await response.json().catch(() => ({}) as { message?: string });
-		const statusCode = response.status;
-		const retryable = statusCode === 429 || statusCode >= 500;
-		throw new ProviderError(error.message || `GitHub API error: ${statusCode}`, 'API_ERROR', {
-			statusCode,
-			retryable,
-			provider: 'github',
+	async #request(url: string, init: RequestInit = {}): Promise<Response> {
+		const response = await fetch(url, {
+			...init,
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${this.token}`,
+				...init.headers,
+			},
 		});
-	}
-
-	#cacheAndReturn<T>(url: string, response: Response, data: T): T {
-		const etag = response.headers.get('etag');
-		if (etag) {
-			this.#etagCache.set(url, { etag, data });
-		}
-		return data;
-	}
-
-	async #request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-		const url = `${this.baseUrl}${endpoint}`;
-		const cached = this.#etagCache.get(url);
-		const headers: Record<string, string> = {
-			Accept: 'application/vnd.github.v3+json',
-			Authorization: `Bearer ${this.token}`,
-			...(options.headers as Record<string, string>),
-		};
-		if (cached?.etag) {
-			headers['If-None-Match'] = cached.etag;
-		}
-
-		const response = await fetch(url, { ...options, headers });
-
-		if (response.status === 304 && cached) {
-			return cached.data as T;
-		}
 
 		if (!response.ok) {
-			return this.#throwApiError(response);
-		}
-
-		try {
-			const data = (await response.json()) as T;
-			return this.#cacheAndReturn(url, response, data);
-		} catch (error) {
-			throw new ProviderError(`Failed to parse GitHub API response: ${(error as Error).message}`, 'PARSE_ERROR', {
+			const error = await response.json().catch(() => ({}) as { message?: string });
+			const statusCode = response.status;
+			throw new ProviderError(error.message || `GitHub API error: ${statusCode}`, 'API_ERROR', {
+				statusCode,
+				retryable: statusCode === 429 || statusCode >= 500,
 				provider: 'github',
 			});
+		}
+
+		return response;
+	}
+
+	async #graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+		// GHES exposes GraphQL at /api/graphql while REST lives at /api/v3
+		const url = this.baseUrl.endsWith('/api/v3') ? `${this.baseUrl.slice(0, -3)}/graphql` : `${this.baseUrl}/graphql`;
+		const response = await this.#request(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ query, variables }),
+		});
+
+		const body = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+
+		// A single unreadable repo returns null for that node plus an error entry. Keep the rest
+		// of the refresh alive instead of failing every PR because of one.
+		if (body.errors?.length) {
+			if (!body.data) {
+				throw new ProviderError(body.errors[0].message, 'API_ERROR', { provider: 'github' });
+			}
+			console.warn(
+				'GitHub GraphQL returned partial data:',
+				body.errors.map((e) => e.message),
+			);
+		}
+
+		if (!body.data) {
+			throw new ProviderError('GitHub GraphQL response missing data', 'PARSE_ERROR', { provider: 'github' });
+		}
+
+		return body.data;
+	}
+
+	#logCost(label: string, rateLimit: RateLimit | null): void {
+		if (rateLimit) {
+			console.debug(`GitHub GraphQL ${label}: cost=${rateLimit.cost}, remaining=${rateLimit.remaining}`);
 		}
 	}
 
@@ -105,290 +232,185 @@ export class GitHubProvider extends BaseProvider {
 		return this.getUser();
 	}
 
+	// Stays on REST: the token expiry date is only exposed as a response header, and GraphQL has no
+	// equivalent field. Not on the refresh path, so it costs nothing per poll.
 	override async getUser(): Promise<User> {
-		const url = `${this.baseUrl}/user`;
-		const response = await fetch(url, {
-			headers: {
-				Accept: 'application/vnd.github.v3+json',
-				Authorization: `Bearer ${this.token}`,
-			},
+		const response = await this.#request(`${this.baseUrl}/user`, {
+			headers: { Accept: 'application/vnd.github.v3+json' },
 		});
 
-		if (!response.ok) {
-			return this.#throwApiError(response);
-		}
-
 		const data = await response.json();
-		const expirationDate = response.headers.get('github-authentication-token-expiration');
 
 		return {
 			login: data.login,
 			avatarUrl: data.avatar_url,
 			name: data.name || data.login,
-			tokenExpiration: expirationDate || null,
+			tokenExpiration: response.headers.get('github-authentication-token-expiration') || null,
 		};
 	}
 
-	#extractRepoFullName(repositoryUrl: string | undefined): string {
-		const match = repositoryUrl?.match(/repos\/(.+)$/);
-		return match ? match[1] : '';
-	}
-
-	#buildAuthor(issue: GitHubSearchIssue, authorName?: string): PullRequest['author'] {
-		const login = issue.user?.login || '';
-		return {
-			login,
-			avatarUrl: issue.user?.avatar_url || '',
-			name: authorName || login,
-		};
-	}
-
-	#transformPullRequest(issue: GitHubSearchIssue, prDetails: PullRequestDetails | null = null, authorName?: string): PullRequest {
-		const repoFullName = this.#extractRepoFullName(issue.repository_url);
-		const fallbackOwnerLogin = repoFullName.split('/')[0] || '';
-
-		return {
-			id: `github-${issue.id}`,
-			provider: 'github',
-			title: issue.title,
-			url: issue.html_url,
-			repoFullName,
-			repoOwner: prDetails?.repoOwner || { login: fallbackOwnerLogin, type: 'unknown' },
-			branchName: prDetails?.branchName || '',
-			author: this.#buildAuthor(issue, authorName),
-			state: issue.state,
-			changes: prDetails?.changes || { additions: 0, deletions: 0, filesChanged: 0 },
-			checks: { status: 'unknown', details: [] },
-			reviews: { status: 'pending', reviewers: [] },
-			createdAt: issue.created_at,
-			updatedAt: issue.updated_at,
-			isDraft: prDetails ? prDetails.isDraft : !!issue.draft,
-			_prNumber: issue.number,
-			_repoFullName: repoFullName,
-		};
-	}
-
-	async getRepoOwner(repoFullName: string): Promise<PullRequest['repoOwner']> {
-		if (!repoFullName) {
-			return { login: '', type: 'unknown' };
+	#buildChecks(pr: GraphQLPullRequest): PullRequestChecks {
+		// GitHub's own rollup verdict. Reading it instead of folding over a contexts connection means a PR
+		// with more checks than the page size can't report green by hiding the failing one past the cap.
+		const state = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
+		if (!state) {
+			return { status: 'unknown' };
 		}
 
-		const cached = this.#repoOwnerCache.get(repoFullName);
-		if (cached) {
-			return cached;
-		}
-
-		const data = await this.#request<{
-			owner?: {
-				login?: string;
-				type?: string;
-			};
-		}>(`/repos/${repoFullName}`);
-
-		const repoOwner: PullRequestRepoOwner = {
-			login: data.owner?.login || repoFullName.split('/')[0] || '',
-			type: this.#resolveOwnerType(data.owner?.type),
-		};
-
-		this.#repoOwnerCache.set(repoFullName, repoOwner);
-		return repoOwner;
+		return { status: mapEnum(CHECK_STATUS_BY_ROLLUP, state, 'unknown', 'statusCheckRollup state') };
 	}
 
-	async #fetchPRsWithQuery(query: string): Promise<PullRequest[]> {
-		const data = await this.#request<{ items?: GitHubSearchIssue[] }>(`/search/issues?q=${query}&sort=updated&order=desc`);
-		const items = data.items || [];
+	#buildReviews(pr: GraphQLPullRequest): PullRequestReviews {
+		const pendingReviewers = (pr.reviewRequests?.nodes || [])
+			.map((node) => node.requestedReviewer?.login)
+			.filter((login): login is string => !!login);
+		const reRequested = new Set(pendingReviewers);
+		const reviews = pr.reviews?.nodes || [];
+		const reviewerMap = new Map<string, PullRequestReviewer>();
 
-		return Promise.all(
-			items.map(async (issue) => {
-				const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
-				const repoFullName = repoMatch ? repoMatch[1] : '';
-				const authorLogin = issue.user?.login || '';
-
-				try {
-					const prDetails = await this.getPullRequestDetails(repoFullName, issue.number);
-					const sha = prDetails._raw?.head?.sha || '';
-					const [checks, reviews] = await Promise.all([
-						this.getCheckStatus(repoFullName, sha).catch((): PullRequestChecks => ({ status: 'unknown', details: [] })),
-						this.getReviewStatus(repoFullName, issue.number, prDetails.requestedReviewers).catch((): PullRequestReviews => ({
-							status: 'pending',
-							reviewers: [],
-						})),
-					]);
-
-					return {
-						...this.#transformPullRequest(issue, prDetails, authorLogin),
-						checks,
-						reviews,
-					};
-				} catch (error) {
-					console.warn(`Failed to get details for PR #${issue.number}:`, error);
-					const fallbackPullRequest = this.#transformPullRequest(issue, null, authorLogin);
-					const repoOwner = await this.getRepoOwner(repoFullName).catch(() => fallbackPullRequest.repoOwner);
-					return {
-						...fallbackPullRequest,
-						repoOwner,
-					};
-				}
-			}),
-		);
-	}
-
-	override getMyPullRequests(): Promise<PullRequest[]> {
-		return this.#fetchPRsWithQuery('author:@me+type:pr+state:open');
-	}
-
-	override getReviewRequests(): Promise<PullRequest[]> {
-		return this.#fetchPRsWithQuery('review-requested:@me+type:pr+state:open');
-	}
-
-	override getReviewedPRs(): Promise<PullRequest[]> {
-		return this.#fetchPRsWithQuery('reviewed-by:@me+-author:@me+type:pr+state:open');
-	}
-
-	override async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<PullRequestDetails> {
-		const data = await this.#request<{
-			head?: { ref?: string; sha?: string };
-			base?: {
-				repo?: {
-					owner?: {
-						login?: string;
-						type?: string;
-					};
-				};
-			};
-			additions?: number;
-			deletions?: number;
-			changed_files?: number;
-			requested_reviewers?: Array<{ login: string }>;
-			draft?: boolean;
-		}>(`/repos/${repoFullName}/pulls/${prNumber}`);
-
-		const repoOwnerLogin = data.base?.repo?.owner?.login || repoFullName.split('/')[0] || '';
-		const repoOwner: PullRequestRepoOwner = {
-			login: repoOwnerLogin,
-			type: this.#resolveOwnerType(data.base?.repo?.owner?.type),
-		};
-
-		this.#repoOwnerCache.set(repoFullName, repoOwner);
-
-		return {
-			branchName: data.head?.ref || '',
-			changes: {
-				additions: data.additions || 0,
-				deletions: data.deletions || 0,
-				filesChanged: data.changed_files || 0,
-			},
-			repoOwner: repoOwner,
-			requestedReviewers: (data.requested_reviewers || []).map((reviewer) => reviewer.login),
-			isDraft: !!data.draft,
-			_raw: data,
-		};
-	}
-
-	#resolveCheckVerdict(details: PullRequestCheckDetail[]): PullRequestChecks['status'] {
-		const failureConclusions = ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required'];
-		if (details.some((detail) => failureConclusions.includes(detail.conclusion || ''))) {
-			return 'failure';
-		}
-
-		const allComplete = details.every((detail) => detail.status === 'completed');
-		if (!allComplete) {
-			return 'pending';
-		}
-
-		const successConclusions = ['success', 'skipped', 'neutral'];
-		const allSuccess = details.every((detail) => successConclusions.includes(detail.conclusion || ''));
-		return allSuccess ? 'success' : 'pending';
-	}
-
-	override async getCheckStatus(repoFullName: string, sha: string): Promise<PullRequestChecks> {
-		if (!sha) {
-			return { status: 'unknown', details: [] };
-		}
-
-		const data = await this.#request<{ check_runs?: PullRequestCheckDetail[] }>(
-			`/repos/${repoFullName}/commits/${sha}/check-runs?per_page=100`,
-		);
-		const details = (data.check_runs || []).map((run) => ({
-			name: run.name,
-			status: run.status,
-			conclusion: run.conclusion,
-		}));
-
-		if (details.length === 0) {
-			return { status: 'unknown', details: [] };
-		}
-
-		return { status: this.#resolveCheckVerdict(details), details };
-	}
-
-	#resolveReviewVerdict(
-		reviewers: Array<{ login: string; avatarUrl: string; state: string }>,
-		hasPendingReviewers: boolean,
-	): PullRequestReviews['status'] {
-		const hasChangesRequested = reviewers.some((r) => r.state === 'CHANGES_REQUESTED');
-		if (hasChangesRequested) return 'changes_requested';
-		if (hasPendingReviewers) return 'pending';
-		if (reviewers.length === 0) return 'pending';
-
-		const allApproved = reviewers.every((r) => r.state === 'APPROVED');
-		return allApproved ? 'approved' : 'pending';
-	}
-
-	override async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
-		const data = await this.#request<Array<{ id: number; state: string; user: { login: string; avatar_url: string } }>>(
-			`/repos/${repoFullName}/pulls/${prNumber}/reviews`,
-		);
-		const reRequestedSet = new Set(requestedReviewers);
-		const reviewerMap = new Map<string, { login: string; avatarUrl: string; state: string }>();
-
-		for (const review of data) {
-			if (review.state === 'PENDING' || review.state === 'COMMENTED') {
+		for (const review of reviews) {
+			if (!review.author) {
 				continue;
 			}
 
-			if (reRequestedSet.has(review.user.login)) {
+			if (!KNOWN_REVIEW_STATES.has(review.state)) {
+				console.warn(`GitHub GraphQL: unrecognized review state "${review.state}", ignoring review`);
 				continue;
 			}
 
-			reviewerMap.set(review.user.login, {
-				login: review.user.login,
-				avatarUrl: review.user.avatar_url,
+			// PENDING and COMMENTED carry no verdict, and a re-requested reviewer's old verdict is stale.
+			if (review.state === REVIEW_STATE.pending || review.state === REVIEW_STATE.commented) {
+				continue;
+			}
+
+			if (reRequested.has(review.author.login)) {
+				continue;
+			}
+
+			reviewerMap.set(review.author.login, {
+				login: review.author.login,
+				avatarUrl: review.author.avatarUrl,
 				state: review.state,
 			});
 		}
 
 		const reviewers = Array.from(reviewerMap.values());
-		const status = this.#resolveReviewVerdict(reviewers, requestedReviewers.length > 0);
 
-		// Capture the most recent changes-requested review ID for deep-linking
+		let status: PullRequestReviews['status'];
+		if (reviewers.some((reviewer) => reviewer.state === REVIEW_STATE.changesRequested)) {
+			status = 'changes_requested';
+		} else if (pendingReviewers.length > 0 || reviewers.length === 0) {
+			status = 'pending';
+		} else {
+			status = reviewers.every((reviewer) => reviewer.state === REVIEW_STATE.approved) ? 'approved' : 'pending';
+		}
+
 		let changesRequestedReviewId: number | undefined;
 		let openThreadCount: number | undefined;
 		if (status === 'changes_requested') {
-			const changesRequestedReviews = data.filter((r) => r.state === 'CHANGES_REQUESTED');
-			if (changesRequestedReviews.length > 0) {
-				changesRequestedReviewId = changesRequestedReviews[changesRequestedReviews.length - 1].id;
-				console.debug(
-					`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`,
-				);
-			} else {
-				console.warn(
-					`PR #${prNumber}: status=changes_requested but no CHANGES_REQUESTED reviews in data. Review states:`,
-					data.map((r) => `${r.id}:${r.state}`),
-				);
+			// Reviews come back oldest-first; the last one is the most recent, for deep-linking.
+			const changesRequested = reviews.filter((review) => review.state === REVIEW_STATE.changesRequested);
+			changesRequestedReviewId = changesRequested[changesRequested.length - 1]?.databaseId ?? undefined;
+
+			// Only GraphQL exposes thread resolution state; REST review comments have no
+			// isResolved/isOutdated, which is why resolved threads used to be counted as open.
+			// Caps at REVIEW_THREADS_PAGE_SIZE — a busier PR under-reports rather than costing every PR more.
+			const threads = pr.reviewThreads?.nodes || [];
+			openThreadCount = threads.filter((thread) => !thread.isResolved && !thread.isOutdated).length;
+		}
+
+		return { status, reviewers, pendingReviewers, openThreadCount, changesRequestedReviewId };
+	}
+
+	#transformPullRequest(pr: GraphQLPullRequest): PullRequest {
+		const repoFullName = pr.repository?.nameWithOwner || '';
+		const authorLogin = pr.author?.login || '';
+
+		return {
+			id: `github-${pr.id}`,
+			provider: 'github',
+			title: pr.title,
+			url: pr.url,
+			repoFullName,
+			repoOwner: {
+				login: pr.repository?.owner?.login || repoFullName.split('/')[0] || '',
+				type: mapEnum(OWNER_TYPE, pr.repository?.owner?.__typename, 'unknown', 'repository owner type'),
+			},
+			branchName: pr.headRefName || '',
+			author: {
+				login: authorLogin,
+				avatarUrl: pr.author?.avatarUrl || '',
+				name: pr.author?.name || authorLogin,
+			},
+			state: mapEnum(PULL_REQUEST_STATE, pr.state, 'open', 'pull request state'),
+			changes: {
+				additions: pr.additions,
+				deletions: pr.deletions,
+				filesChanged: pr.changedFiles,
+			},
+			checks: this.#buildChecks(pr),
+			reviews: this.#buildReviews(pr),
+			createdAt: pr.createdAt,
+			updatedAt: pr.updatedAt,
+			isDraft: pr.isDraft,
+		};
+	}
+
+	async #fetchView(view: SearchView, issueCount: number): Promise<PullRequest[]> {
+		const pullRequests: PullRequest[] = [];
+		let cursor: string | null = null;
+		let dropped = 0;
+
+		for (let page = 1; page <= MAX_PAGES; page++) {
+			const first = nextPageSize(issueCount, pullRequests.length + dropped);
+			const data = await this.#graphql<SearchResponse>(SEARCH_QUERY, { q: SEARCH_QUERIES[view], first, after: cursor });
+			this.#logCost(`${view} page ${page} (first: ${first})`, data.rateLimit);
+
+			for (const node of data.search?.nodes || []) {
+				if (!node?.id) {
+					dropped++;
+					continue;
+				}
+
+				pullRequests.push(this.#transformPullRequest(node));
 			}
 
-			try {
-				// REST API doesn't expose resolved/unresolved, so we count top-level review comments as a proxy for open threads
-				const comments = await this.#request<Array<{ in_reply_to_id?: number }>>(
-					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`,
+			// issueCount is a snapshot from the probe, so hasNextPage — not the count — ends the loop.
+			// A PR opened between the probe and this request still gets picked up.
+			if (!data.search?.pageInfo?.hasNextPage) {
+				break;
+			}
+
+			cursor = data.search.pageInfo.endCursor;
+
+			if (page === MAX_PAGES) {
+				console.warn(
+					`GitHub GraphQL ${view}: stopped at the ${MAX_PAGES}-page cap with ${pullRequests.length} PRs; more are available`,
 				);
-				openThreadCount = comments.filter((c) => !c.in_reply_to_id).length;
-			} catch (error) {
-				console.warn(`Failed to count open threads for PR #${prNumber}:`, error);
 			}
 		}
 
-		return { status, reviewers, pendingReviewers: requestedReviewers, openThreadCount, changesRequestedReviewId };
+		if (dropped > 0) {
+			// Null nodes are PRs in repos the token can't read — SSO-restricted, archived, or since deleted.
+			// They are dropped from the view, so say so rather than letting them vanish silently.
+			console.warn(`GitHub GraphQL ${view}: dropped ${dropped} unreadable PR node(s); they will not appear in the dashboard`);
+		}
+
+		return pullRequests;
+	}
+
+	override async getAllPullRequests(): Promise<ProviderPullRequests> {
+		const counts = await this.#graphql<CountResponse>(COUNT_QUERY, SEARCH_QUERIES);
+		this.#logCost('count probe', counts.rateLimit);
+
+		const [myPRs, reviewRequests, reviewedPRs] = await Promise.all(
+			(['myPRs', 'reviewRequests', 'reviewedPRs'] as const).map((view) => {
+				const issueCount = counts[view]?.issueCount ?? 0;
+				// Nothing to fetch: skip the request entirely rather than paying for an empty page.
+				return issueCount === 0 ? Promise.resolve([]) : this.#fetchView(view, issueCount);
+			}),
+		);
+
+		return { myPRs, reviewRequests, reviewedPRs };
 	}
 }

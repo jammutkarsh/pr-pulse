@@ -42,46 +42,6 @@
 		onCopy = () => {}
 	}: Props = $props();
 
-	function getCheckToneClass(className: string) {
-		switch (className) {
-			case 'checks-success':
-				return 'status-inline-success';
-			case 'checks-failure':
-				return 'status-inline-danger';
-			case 'checks-pending':
-				return 'status-inline-warning';
-			default:
-				return 'status-inline-neutral';
-		}
-	}
-
-	function getReviewToneClass(className: string) {
-		switch (className) {
-			case 'status-approved':
-				return 'status-inline-success';
-			case 'status-changes':
-				return 'status-inline-danger';
-			default:
-				return 'status-inline-warning';
-		}
-	}
-
-	function getDotToneClass(className: string) {
-		switch (className) {
-			case 'checks-success':
-			case 'status-approved':
-				return 'status-dot-success';
-			case 'checks-failure':
-			case 'status-changes':
-				return 'status-dot-danger';
-			case 'checks-pending':
-			case 'status-pending':
-				return 'status-dot-warning';
-			default:
-				return 'status-dot-neutral';
-		}
-	}
-
 	function getBranchUrl(pr: PullRequest) {
 		if (!pr?.repoFullName || !pr?.branchName) {
 			return null;
@@ -220,20 +180,20 @@
 		<div class="border-t border-soft pt-2.5">
 			<div class={statusRowClasses}>
 				<button
-					class={`${checkStatusClasses} ${getCheckToneClass(checkDisplay.className)}`}
+					class={`${checkStatusClasses} ${checkDisplay.tone}`}
 					onclick={() => onOpenUrl(`${pr.url}/checks`)}
 					data-guide-id="statusChecks"
 				>
-					<span class={`status-dot ${getDotToneClass(checkDisplay.className)}`}></span>
+					<span class={`status-dot ${checkDisplay.dot}`}></span>
 					<span class="status-inline-label">{checkDisplay.label}</span>
 					<ExternalLink class="status-link-icon" />
 				</button>
 				<button
-				class={`unstyled-button status-inline min-w-0 group ${getReviewToneClass(reviewDisplay.className)}`}
+					class={`unstyled-button status-inline min-w-0 group ${reviewDisplay.tone}`}
 					onclick={() => onOpenUrl(reviewUrl)}
 					data-guide-id="statusReview"
 				>
-					<span class={`status-dot ${getDotToneClass(reviewDisplay.className)}`}></span>
+					<span class={`status-dot ${reviewDisplay.dot}`}></span>
 					<span class="status-inline-label">{reviewDisplay.label}</span>
 					<ExternalLink class="status-link-icon" />
 				</button>
