@@ -1,4 +1,4 @@
-import type { ProviderConfig, PullRequest, PullRequestChecks, PullRequestReviews, User } from '../types';
+import type { ProviderConfig, PullRequest, User } from '../types';
 
 export abstract class BaseProvider {
 	name = 'base';
@@ -15,7 +15,4 @@ export abstract class BaseProvider {
 	abstract getMyPullRequests(): Promise<PullRequest[]>;
 	abstract getReviewRequests(): Promise<PullRequest[]>;
 	abstract getReviewedPRs(): Promise<PullRequest[]>;
-	abstract getPullRequestDetails(repoFullName: string, prNumber: number): Promise<unknown>;
-	abstract getCheckStatus(repoFullName: string, commitSha: string): Promise<PullRequestChecks>;
-	abstract getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers?: string[]): Promise<PullRequestReviews>;
 }

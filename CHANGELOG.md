@@ -2,6 +2,10 @@
 
 All notable changes to PR Pulse are documented in this file.
 
+## [2.0.0] – 2026-08-21
+
+- **GraphQL Migration**: Migrated GitHub data fetching from REST API to GraphQL, improving performance and reducing API calls.
+
 ## [1.6.0] – 2026-07-04
 
 - **Token Expiration Handling**: Inline red banner when your GitHub token expires or is revoked, graceful degradation that preserves cached PRs on refresh failure, and auto-revalidation on settings tab focus — replacing the previous silent-fail and full-error-screen behaviour.

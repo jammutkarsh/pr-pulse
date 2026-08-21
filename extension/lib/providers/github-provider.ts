@@ -10,32 +10,87 @@ import type {
 } from '../types';
 import { BaseProvider } from './base-provider';
 
-type GitHubSearchIssue = {
-	id: number;
+type GraphQLCheckContext =
+	| { __typename: 'CheckRun'; name: string; status: string; conclusion: string | null }
+	| { __typename: 'StatusContext'; context: string; state: string };
+
+type GraphQLReview = {
+	databaseId: number | null;
+	state: string;
+	author: { login: string; avatarUrl: string } | null;
+};
+
+type GraphQLPullRequest = {
+	id: string;
 	number: number;
 	title: string;
-	html_url: string;
-	repository_url?: string;
-	user?: { login?: string; avatar_url?: string };
+	url: string;
 	state: string;
-	created_at: string;
-	updated_at: string;
-	draft?: boolean;
+	isDraft: boolean;
+	createdAt: string;
+	updatedAt: string;
+	additions: number;
+	deletions: number;
+	changedFiles: number;
+	headRefName: string;
+	author: { login: string; avatarUrl: string; name?: string | null } | null;
+	repository: { nameWithOwner: string; owner: { login: string; __typename: string } } | null;
+	commits: { nodes: Array<{ commit: { statusCheckRollup: { contexts: { nodes: GraphQLCheckContext[] } } | null } }> };
+	reviews: { nodes: GraphQLReview[] };
+	reviewRequests: { nodes: Array<{ requestedReviewer: { login?: string } | null }> };
+	reviewThreads: { nodes: Array<{ isResolved: boolean; isOutdated: boolean }> };
 };
 
-type PullRequestDetails = {
-	branchName: string;
-	changes: PullRequest['changes'];
-	repoOwner: PullRequest['repoOwner'];
-	requestedReviewers: string[];
-	isDraft: boolean;
-	_raw: { head?: { sha?: string }; draft?: boolean } & Record<string, unknown>;
+type SearchResponse = {
+	rateLimit: { cost: number; remaining: number } | null;
+	search: { nodes: Array<GraphQLPullRequest | null> };
 };
+
+// One query per view replaces the old 1 + 3N REST fan-out. Connection page sizes drive
+// the GraphQL point cost (cost ~= total nodes / 100), so keep them as small as the UI allows.
+const SEARCH_QUERY = `query($q: String!) {
+	rateLimit { cost remaining }
+	search(query: $q, type: ISSUE, first: 30) {
+		nodes {
+			... on PullRequest {
+				id
+				number
+				title
+				url
+				state
+				isDraft
+				createdAt
+				updatedAt
+				additions
+				deletions
+				changedFiles
+				headRefName
+				author { login avatarUrl ... on User { name } }
+				repository { nameWithOwner owner { login __typename } }
+				commits(last: 1) {
+					nodes {
+						commit {
+							statusCheckRollup {
+								contexts(first: 20) {
+									nodes {
+										__typename
+										... on CheckRun { name status conclusion }
+										... on StatusContext { context state }
+									}
+								}
+							}
+						}
+					}
+				}
+				reviews(first: 50) { nodes { databaseId state author { login avatarUrl } } }
+				reviewRequests(first: 20) { nodes { requestedReviewer { ... on User { login } } } }
+				reviewThreads(first: 100) { nodes { isResolved isOutdated } }
+			}
+		}
+	}
+}`;
 
 export class GitHubProvider extends BaseProvider {
-	#etagCache = new Map<string, { etag: string; data: unknown }>();
-	#repoOwnerCache = new Map<string, PullRequest['repoOwner']>();
-
 	constructor(config: ProviderConfig = {}) {
 		super(config);
 		this.name = 'github';
@@ -61,50 +116,50 @@ export class GitHubProvider extends BaseProvider {
 		});
 	}
 
-	#cacheAndReturn<T>(url: string, response: Response, data: T): T {
-		const etag = response.headers.get('etag');
-		if (etag) {
-			this.#etagCache.set(url, { etag, data });
-		}
-		return data;
-	}
-
-	async #request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-		const url = `${this.baseUrl}${endpoint}`;
-		const cached = this.#etagCache.get(url);
-		const headers: Record<string, string> = {
-			Accept: 'application/vnd.github.v3+json',
-			Authorization: `Bearer ${this.token}`,
-			...(options.headers as Record<string, string>),
-		};
-		if (cached?.etag) {
-			headers['If-None-Match'] = cached.etag;
-		}
-
-		const response = await fetch(url, { ...options, headers });
-
-		if (response.status === 304 && cached) {
-			return cached.data as T;
-		}
+	async #graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+		// GHES exposes GraphQL at /api/graphql while REST lives at /api/v3
+		const url = this.baseUrl.endsWith('/api/v3') ? `${this.baseUrl.slice(0, -3)}/graphql` : `${this.baseUrl}/graphql`;
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${this.token}`,
+			},
+			body: JSON.stringify({ query, variables }),
+		});
 
 		if (!response.ok) {
 			return this.#throwApiError(response);
 		}
 
-		try {
-			const data = (await response.json()) as T;
-			return this.#cacheAndReturn(url, response, data);
-		} catch (error) {
-			throw new ProviderError(`Failed to parse GitHub API response: ${(error as Error).message}`, 'PARSE_ERROR', {
-				provider: 'github',
-			});
+		const body = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+
+		// A single unreadable repo returns null for that node plus an error entry. Keep the rest
+		// of the refresh alive instead of failing every PR because of one.
+		if (body.errors?.length) {
+			if (!body.data) {
+				throw new ProviderError(body.errors[0].message, 'API_ERROR', { provider: 'github' });
+			}
+			console.warn(
+				'GitHub GraphQL returned partial data:',
+				body.errors.map((e) => e.message),
+			);
 		}
+
+		if (!body.data) {
+			throw new ProviderError('GitHub GraphQL response missing data', 'PARSE_ERROR', { provider: 'github' });
+		}
+
+		return body.data;
 	}
 
 	override authenticate(): Promise<User> {
 		return this.getUser();
 	}
 
+	// Stays on REST: the token expiry date is only exposed as a response header, and GraphQL has no
+	// equivalent field. Not on the refresh path, so it costs nothing per poll.
 	override async getUser(): Promise<User> {
 		const url = `${this.baseUrl}/user`;
 		const response = await fetch(url, {
@@ -129,164 +184,8 @@ export class GitHubProvider extends BaseProvider {
 		};
 	}
 
-	#extractRepoFullName(repositoryUrl: string | undefined): string {
-		const match = repositoryUrl?.match(/repos\/(.+)$/);
-		return match ? match[1] : '';
-	}
-
-	#buildAuthor(issue: GitHubSearchIssue, authorName?: string): PullRequest['author'] {
-		const login = issue.user?.login || '';
-		return {
-			login,
-			avatarUrl: issue.user?.avatar_url || '',
-			name: authorName || login,
-		};
-	}
-
-	#transformPullRequest(issue: GitHubSearchIssue, prDetails: PullRequestDetails | null = null, authorName?: string): PullRequest {
-		const repoFullName = this.#extractRepoFullName(issue.repository_url);
-		const fallbackOwnerLogin = repoFullName.split('/')[0] || '';
-
-		return {
-			id: `github-${issue.id}`,
-			provider: 'github',
-			title: issue.title,
-			url: issue.html_url,
-			repoFullName,
-			repoOwner: prDetails?.repoOwner || { login: fallbackOwnerLogin, type: 'unknown' },
-			branchName: prDetails?.branchName || '',
-			author: this.#buildAuthor(issue, authorName),
-			state: issue.state,
-			changes: prDetails?.changes || { additions: 0, deletions: 0, filesChanged: 0 },
-			checks: { status: 'unknown', details: [] },
-			reviews: { status: 'pending', reviewers: [] },
-			createdAt: issue.created_at,
-			updatedAt: issue.updated_at,
-			isDraft: prDetails ? prDetails.isDraft : !!issue.draft,
-			_prNumber: issue.number,
-			_repoFullName: repoFullName,
-		};
-	}
-
-	async getRepoOwner(repoFullName: string): Promise<PullRequest['repoOwner']> {
-		if (!repoFullName) {
-			return { login: '', type: 'unknown' };
-		}
-
-		const cached = this.#repoOwnerCache.get(repoFullName);
-		if (cached) {
-			return cached;
-		}
-
-		const data = await this.#request<{
-			owner?: {
-				login?: string;
-				type?: string;
-			};
-		}>(`/repos/${repoFullName}`);
-
-		const repoOwner: PullRequestRepoOwner = {
-			login: data.owner?.login || repoFullName.split('/')[0] || '',
-			type: this.#resolveOwnerType(data.owner?.type),
-		};
-
-		this.#repoOwnerCache.set(repoFullName, repoOwner);
-		return repoOwner;
-	}
-
-	async #fetchPRsWithQuery(query: string): Promise<PullRequest[]> {
-		const data = await this.#request<{ items?: GitHubSearchIssue[] }>(`/search/issues?q=${query}&sort=updated&order=desc`);
-		const items = data.items || [];
-
-		return Promise.all(
-			items.map(async (issue) => {
-				const repoMatch = issue.repository_url?.match(/repos\/(.+)$/);
-				const repoFullName = repoMatch ? repoMatch[1] : '';
-				const authorLogin = issue.user?.login || '';
-
-				try {
-					const prDetails = await this.getPullRequestDetails(repoFullName, issue.number);
-					const sha = prDetails._raw?.head?.sha || '';
-					const [checks, reviews] = await Promise.all([
-						this.getCheckStatus(repoFullName, sha).catch((): PullRequestChecks => ({ status: 'unknown', details: [] })),
-						this.getReviewStatus(repoFullName, issue.number, prDetails.requestedReviewers).catch((): PullRequestReviews => ({
-							status: 'pending',
-							reviewers: [],
-						})),
-					]);
-
-					return {
-						...this.#transformPullRequest(issue, prDetails, authorLogin),
-						checks,
-						reviews,
-					};
-				} catch (error) {
-					console.warn(`Failed to get details for PR #${issue.number}:`, error);
-					const fallbackPullRequest = this.#transformPullRequest(issue, null, authorLogin);
-					const repoOwner = await this.getRepoOwner(repoFullName).catch(() => fallbackPullRequest.repoOwner);
-					return {
-						...fallbackPullRequest,
-						repoOwner,
-					};
-				}
-			}),
-		);
-	}
-
-	override getMyPullRequests(): Promise<PullRequest[]> {
-		return this.#fetchPRsWithQuery('author:@me+type:pr+state:open');
-	}
-
-	override getReviewRequests(): Promise<PullRequest[]> {
-		return this.#fetchPRsWithQuery('review-requested:@me+type:pr+state:open');
-	}
-
-	override getReviewedPRs(): Promise<PullRequest[]> {
-		return this.#fetchPRsWithQuery('reviewed-by:@me+-author:@me+type:pr+state:open');
-	}
-
-	override async getPullRequestDetails(repoFullName: string, prNumber: number): Promise<PullRequestDetails> {
-		const data = await this.#request<{
-			head?: { ref?: string; sha?: string };
-			base?: {
-				repo?: {
-					owner?: {
-						login?: string;
-						type?: string;
-					};
-				};
-			};
-			additions?: number;
-			deletions?: number;
-			changed_files?: number;
-			requested_reviewers?: Array<{ login: string }>;
-			draft?: boolean;
-		}>(`/repos/${repoFullName}/pulls/${prNumber}`);
-
-		const repoOwnerLogin = data.base?.repo?.owner?.login || repoFullName.split('/')[0] || '';
-		const repoOwner: PullRequestRepoOwner = {
-			login: repoOwnerLogin,
-			type: this.#resolveOwnerType(data.base?.repo?.owner?.type),
-		};
-
-		this.#repoOwnerCache.set(repoFullName, repoOwner);
-
-		return {
-			branchName: data.head?.ref || '',
-			changes: {
-				additions: data.additions || 0,
-				deletions: data.deletions || 0,
-				filesChanged: data.changed_files || 0,
-			},
-			repoOwner: repoOwner,
-			requestedReviewers: (data.requested_reviewers || []).map((reviewer) => reviewer.login),
-			isDraft: !!data.draft,
-			_raw: data,
-		};
-	}
-
 	#resolveCheckVerdict(details: PullRequestCheckDetail[]): PullRequestChecks['status'] {
-		const failureConclusions = ['failure', 'timed_out', 'cancelled', 'startup_failure', 'action_required'];
+		const failureConclusions = ['failure', 'error', 'timed_out', 'cancelled', 'startup_failure', 'action_required'];
 		if (details.some((detail) => failureConclusions.includes(detail.conclusion || ''))) {
 			return 'failure';
 		}
@@ -301,19 +200,18 @@ export class GitHubProvider extends BaseProvider {
 		return allSuccess ? 'success' : 'pending';
 	}
 
-	override async getCheckStatus(repoFullName: string, sha: string): Promise<PullRequestChecks> {
-		if (!sha) {
-			return { status: 'unknown', details: [] };
-		}
-
-		const data = await this.#request<{ check_runs?: PullRequestCheckDetail[] }>(
-			`/repos/${repoFullName}/commits/${sha}/check-runs?per_page=100`,
+	#buildChecks(pr: GraphQLPullRequest): PullRequestChecks {
+		const contexts = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes || [];
+		// GraphQL enums are uppercase; the verdict helper compares against REST's lowercase values.
+		const details: PullRequestCheckDetail[] = contexts.map((context) =>
+			context.__typename === 'CheckRun'
+				? {
+						name: context.name,
+						status: context.status.toLowerCase(),
+						conclusion: context.conclusion ? context.conclusion.toLowerCase() : null,
+					}
+				: { name: context.context, status: 'completed', conclusion: context.state.toLowerCase() },
 		);
-		const details = (data.check_runs || []).map((run) => ({
-			name: run.name,
-			status: run.status,
-			conclusion: run.conclusion,
-		}));
 
 		if (details.length === 0) {
 			return { status: 'unknown', details: [] };
@@ -335,25 +233,26 @@ export class GitHubProvider extends BaseProvider {
 		return allApproved ? 'approved' : 'pending';
 	}
 
-	override async getReviewStatus(repoFullName: string, prNumber: number, requestedReviewers: string[] = []): Promise<PullRequestReviews> {
-		const data = await this.#request<Array<{ id: number; state: string; user: { login: string; avatar_url: string } }>>(
-			`/repos/${repoFullName}/pulls/${prNumber}/reviews`,
-		);
+	#buildReviews(pr: GraphQLPullRequest): PullRequestReviews {
+		const requestedReviewers = (pr.reviewRequests?.nodes || [])
+			.map((node) => node.requestedReviewer?.login)
+			.filter((login): login is string => !!login);
 		const reRequestedSet = new Set(requestedReviewers);
+		const reviews = pr.reviews?.nodes || [];
 		const reviewerMap = new Map<string, { login: string; avatarUrl: string; state: string }>();
 
-		for (const review of data) {
-			if (review.state === 'PENDING' || review.state === 'COMMENTED') {
+		for (const review of reviews) {
+			if (!review.author || review.state === 'PENDING' || review.state === 'COMMENTED') {
 				continue;
 			}
 
-			if (reRequestedSet.has(review.user.login)) {
+			if (reRequestedSet.has(review.author.login)) {
 				continue;
 			}
 
-			reviewerMap.set(review.user.login, {
-				login: review.user.login,
-				avatarUrl: review.user.avatar_url,
+			reviewerMap.set(review.author.login, {
+				login: review.author.login,
+				avatarUrl: review.author.avatarUrl,
 				state: review.state,
 			});
 		}
@@ -361,34 +260,79 @@ export class GitHubProvider extends BaseProvider {
 		const reviewers = Array.from(reviewerMap.values());
 		const status = this.#resolveReviewVerdict(reviewers, requestedReviewers.length > 0);
 
-		// Capture the most recent changes-requested review ID for deep-linking
 		let changesRequestedReviewId: number | undefined;
 		let openThreadCount: number | undefined;
 		if (status === 'changes_requested') {
-			const changesRequestedReviews = data.filter((r) => r.state === 'CHANGES_REQUESTED');
-			if (changesRequestedReviews.length > 0) {
-				changesRequestedReviewId = changesRequestedReviews[changesRequestedReviews.length - 1].id;
-				console.debug(
-					`PR #${prNumber}: found ${changesRequestedReviews.length} CHANGES_REQUESTED review(s), latest ID=${changesRequestedReviewId}`,
-				);
-			} else {
-				console.warn(
-					`PR #${prNumber}: status=changes_requested but no CHANGES_REQUESTED reviews in data. Review states:`,
-					data.map((r) => `${r.id}:${r.state}`),
-				);
-			}
+			// Reviews come back oldest-first; the last one is the most recent, for deep-linking.
+			const changesRequested = reviews.filter((r) => r.state === 'CHANGES_REQUESTED');
+			changesRequestedReviewId = changesRequested[changesRequested.length - 1]?.databaseId ?? undefined;
 
-			try {
-				// REST API doesn't expose resolved/unresolved, so we count top-level review comments as a proxy for open threads
-				const comments = await this.#request<Array<{ in_reply_to_id?: number }>>(
-					`/repos/${repoFullName}/pulls/${prNumber}/comments?per_page=100&sort=created&direction=desc`,
-				);
-				openThreadCount = comments.filter((c) => !c.in_reply_to_id).length;
-			} catch (error) {
-				console.warn(`Failed to count open threads for PR #${prNumber}:`, error);
-			}
+			// Only GraphQL exposes thread resolution state; REST review comments have no
+			// isResolved/isOutdated, which is why resolved threads used to be counted as open.
+			const threads = pr.reviewThreads?.nodes || [];
+			openThreadCount = threads.filter((thread) => !thread.isResolved && !thread.isOutdated).length;
 		}
 
 		return { status, reviewers, pendingReviewers: requestedReviewers, openThreadCount, changesRequestedReviewId };
+	}
+
+	#transformPullRequest(pr: GraphQLPullRequest): PullRequest {
+		const repoFullName = pr.repository?.nameWithOwner || '';
+		const authorLogin = pr.author?.login || '';
+
+		return {
+			id: `github-${pr.id}`,
+			provider: 'github',
+			title: pr.title,
+			url: pr.url,
+			repoFullName,
+			repoOwner: {
+				login: pr.repository?.owner?.login || repoFullName.split('/')[0] || '',
+				type: this.#resolveOwnerType(pr.repository?.owner?.__typename?.toLowerCase()),
+			},
+			branchName: pr.headRefName || '',
+			author: {
+				login: authorLogin,
+				avatarUrl: pr.author?.avatarUrl || '',
+				name: pr.author?.name || authorLogin,
+			},
+			state: pr.state.toLowerCase(),
+			changes: {
+				additions: pr.additions,
+				deletions: pr.deletions,
+				filesChanged: pr.changedFiles,
+			},
+			checks: this.#buildChecks(pr),
+			reviews: this.#buildReviews(pr),
+			createdAt: pr.createdAt,
+			updatedAt: pr.updatedAt,
+			isDraft: pr.isDraft,
+			_prNumber: pr.number,
+			_repoFullName: repoFullName,
+		};
+	}
+
+	async #fetchPRsWithQuery(query: string): Promise<PullRequest[]> {
+		const data = await this.#graphql<SearchResponse>(SEARCH_QUERY, { q: `${query} sort:updated-desc` });
+
+		if (data.rateLimit) {
+			console.debug(`GitHub GraphQL: cost=${data.rateLimit.cost}, remaining=${data.rateLimit.remaining}`);
+		}
+
+		return (data.search?.nodes || [])
+			.filter((node): node is GraphQLPullRequest => !!node?.id)
+			.map((node) => this.#transformPullRequest(node));
+	}
+
+	override getMyPullRequests(): Promise<PullRequest[]> {
+		return this.#fetchPRsWithQuery('author:@me type:pr state:open');
+	}
+
+	override getReviewRequests(): Promise<PullRequest[]> {
+		return this.#fetchPRsWithQuery('review-requested:@me type:pr state:open');
+	}
+
+	override getReviewedPRs(): Promise<PullRequest[]> {
+		return this.#fetchPRsWithQuery('reviewed-by:@me -author:@me type:pr state:open');
 	}
 }
