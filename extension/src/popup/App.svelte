@@ -6,199 +6,32 @@
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import {
+		isExtensionRuntime,
 		runtimeGetURL,
 		storageOnChangedAddListener,
 		storageOnChangedRemoveListener,
 		runtimeSendMessage,
-		storageLocalGet,
-		storageLocalRemove,
-		storageLocalSet,
 		tabsCreate,
 		type StorageChangeMap,
 	} from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
-	import Fuse from 'fuse.js';
-	import type { PullRequest, PullRequestData, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption, Settings, StoredProviderConfig } from '../../lib/types';
+	import type { FiltersByTab, PopupFilters, PopupTab, PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
+		cloneFilters,
+		createDefaultFilters,
+		createDefaultFiltersByTab,
+		createPrView,
+	} from '../../lib/pr-view';
+	import {
 		copyToClipboard,
-		filterPullRequests,
 		formatRelativeTime,
 		isValidHttpUrl,
 	} from '../../lib/utils';
 
 	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getPopupBootstrapData>>;
-	type SearchablePullRequest = PullRequest & { _jiraTicket: string };
-	type AuthorFilterOption = PopupAuthorFilterOption;
-	type OwnerFilterOption = PopupOwnerFilterOption;
-	type RepoFilterOption = PopupRepoFilterOption;
-	type PopupTab = Settings['pinnedTab'];
-	type StoredFilters = Partial<PopupFilters>;
-	type StoredFilterState = {
-		tabs?: Partial<Record<PopupTab, StoredFilters>>;
-		activeFilters?: StoredFilters;
-	};
-	type FiltersByTab = Record<PopupTab, PopupFilters>;
 
 	const tokenExpired = 'Token expired or revoked; Connect a new one.';
-
-	function createDefaultFilters(): PopupFilters {
-		return {
-			authors: [],
-			owners: [],
-			repos: [],
-			ageRange: '',
-			drafts: 'exclude',
-			showReviewed: false,
-		};
-	}
-
-	function createDefaultFiltersByTab(): FiltersByTab {
-		return {
-			myPRs: createDefaultFilters(),
-			toReview: createDefaultFilters(),
-		};
-	}
-
-	function cloneFilters(filters: PopupFilters): PopupFilters {
-		return {
-			authors: [...filters.authors],
-			owners: [...filters.owners],
-			repos: [...filters.repos],
-			ageRange: filters.ageRange,
-			drafts: filters.drafts,
-			showReviewed: filters.showReviewed,
-		};
-	}
-
-	function getOwnersFromItems(items: PullRequest[]): OwnerFilterOption[] {
-		// 1. Extract owner configurations from items
-		const mappedOwners = items.map((pr) => {
-			const ownerLogin = pr.repoOwner?.login || pr.repoFullName?.split('/')[0] || '';
-			const ownerType = pr.repoOwner?.type || 'unknown';
-			return [ownerLogin.toLowerCase(), { login: ownerLogin, type: ownerType }] as const;
-		});
-
-		// 2. Filter out items with empty or invalid owner login
-		const validOwners = mappedOwners.filter(([login]) => Boolean(login));
-
-		// 3. De-duplicate owners using a Map
-		const uniqueOwnersMap = new Map<string, OwnerFilterOption>(validOwners);
-		const uniqueOwnersList = Array.from(uniqueOwnersMap.values());
-
-		// 4. Sort the result alphabetically by login name
-		uniqueOwnersList.sort((left, right) => left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }));
-
-		return uniqueOwnersList;
-	}
-
-	function getAuthorsFromItems(items: PullRequest[], isToReview: boolean): AuthorFilterOption[] {
-		if (!isToReview) {
-			return [];
-		}
-
-		// 1. Map items to author tuples
-		const mappedAuthors = items.map((pr) => {
-			const login = pr.author?.login || '';
-			const name = pr.author?.name || login;
-			return [login.toLowerCase(), { login, name }] as const;
-		});
-
-		// 2. Filter out empty/invalid author logins
-		const validAuthors = mappedAuthors.filter(([login]) => Boolean(login));
-
-		// 3. De-duplicate authors using a Map
-		const uniqueAuthorsMap = new Map<string, AuthorFilterOption>(validAuthors);
-		const uniqueAuthorsList = Array.from(uniqueAuthorsMap.values());
-
-		// 4. Sort alphabetically by login, then name
-		uniqueAuthorsList.sort((left, right) =>
-			left.login.localeCompare(right.login, undefined, { sensitivity: 'base' }) ||
-			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
-		);
-
-		return uniqueAuthorsList;
-	}
-
-	function getReposFromItems(items: PullRequest[]): RepoFilterOption[] {
-		// 1. Filter out PRs that don't have a repoFullName
-		const prsWithRepos = items.filter((pr) => pr.repoFullName);
-
-		// 2. Map PRs to repo tuple entries
-		const mappedRepos = prsWithRepos.map((pr) => {
-			const [owner = '', name = pr.repoFullName] = pr.repoFullName.split('/');
-			const repoOption: RepoFilterOption = {
-				fullName: pr.repoFullName,
-				owner,
-				ownerType: pr.repoOwner?.type || 'unknown',
-				name,
-			};
-			return [pr.repoFullName, repoOption] as const;
-		});
-
-		// 3. De-duplicate repos using a Map
-		const uniqueReposMap = new Map<string, RepoFilterOption>(mappedRepos);
-		const uniqueReposList = Array.from(uniqueReposMap.values());
-
-		// 4. Sort alphabetically by name, then owner
-		uniqueReposList.sort((left, right) =>
-			left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }) ||
-			left.owner.localeCompare(right.owner, undefined, { sensitivity: 'base' })
-		);
-
-		return uniqueReposList;
-	}
-
-	function toStringArray(value: unknown): string[] {
-		if (!Array.isArray(value)) {
-			return [];
-		}
-
-		return value.filter((entry): entry is string => typeof entry === 'string');
-	}
-
-	function normalizeStoredFilters(value: StoredFilters | undefined): PopupFilters {
-		const storedFilters = value ?? {};
-		const authors = toStringArray(storedFilters.authors);
-		const owners = toStringArray(storedFilters.owners);
-		const repos = toStringArray(storedFilters.repos);
-		const ageRange = typeof storedFilters.ageRange === 'string' ? storedFilters.ageRange : '';
-		const drafts = storedFilters.drafts === 'only' || storedFilters.drafts === 'include' ? storedFilters.drafts : 'exclude';
-		const showReviewed = typeof storedFilters.showReviewed === 'boolean' ? storedFilters.showReviewed : false;
-
-		return {
-			...DEFAULT_FILTERS,
-			authors,
-			repos,
-			owners,
-			ageRange,
-			drafts,
-			showReviewed,
-		};
-	}
-
-	function normalizeStoredFilterState(value: StoredFilterState | undefined, fallbackTab: PopupTab): FiltersByTab {
-		const defaultState = createDefaultFiltersByTab();
-		const storedTabs = value?.tabs;
-
-		if (storedTabs) {
-			return {
-				myPRs: normalizeStoredFilters(storedTabs.myPRs),
-				toReview: normalizeStoredFilters(storedTabs.toReview),
-			};
-		}
-
-		if (value?.activeFilters) {
-			return {
-				...defaultState,
-				[fallbackTab]: normalizeStoredFilters(value.activeFilters),
-			};
-		}
-
-		return defaultState;
-	}
-
-	const DEFAULT_FILTERS = createDefaultFilters();
 
 	interface Props {
 		bootstrapDataPromise?: Promise<PopupBootstrapData> | null;
@@ -224,7 +57,7 @@
 	let isSearchOpen = $state(false);
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
-	let activeFilters = $state<PopupFilters>({ ...DEFAULT_FILTERS });
+	let activeFilters = $state<PopupFilters>(createDefaultFilters());
 	let filtersByTab = $state<FiltersByTab>(createDefaultFiltersByTab());
 	let filterPersistenceReady = $state(false);
 
@@ -280,11 +113,10 @@
 		viewedPrIds = new Set(allPrs.map((pr) => pr.id));
 
 		if (settings.persistFilters) {
-			const initialFilters = (await storageLocalGet<StoredFilterState | undefined>(['searchFilters'])).searchFilters;
-			filtersByTab = normalizeStoredFilterState(initialFilters, currentTab);
+			filtersByTab = await storage.getFilters(currentTab);
 			activeFilters = cloneFilters(filtersByTab[currentTab]);
 		} else {
-			await storageLocalRemove(['searchFilters']);
+			await storage.clearFilters();
 		}
 	}
 
@@ -424,15 +256,16 @@
 	let lastUpdatedText = $derived(prData.lastFetched ? `Updated ${formatRelativeTime(prData.lastFetched)}` : 'Waiting for first sync');
 	let fullpageShellClasses = $derived(isFullpageMode ? 'w-full max-w-[80rem]' : 'h-full');
 	let cardListClasses = $derived(isFullpageMode ? 'grid gap-3 xl:grid-cols-2' : 'flex flex-col gap-3 pr-1 scroll-thin');
-	let allAvailableOwners = $derived(getOwnersFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts })));
-	let allAvailableAuthors = $derived(getAuthorsFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts }), currentTab === 'toReview'));
-	let allAvailableRepos = $derived(getReposFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts })));
-	let itemsForAuthorOptions = $derived(filterPullRequests(currentItems, { owners: activeFilters.owners, repos: activeFilters.repos, drafts: activeFilters.drafts }));
-	let itemsForOwnerOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, repos: activeFilters.repos, drafts: activeFilters.drafts }));
-	let itemsForRepoOptions = $derived(filterPullRequests(currentItems, { authors: activeFilters.authors, owners: activeFilters.owners, drafts: activeFilters.drafts }));
-	let availableOwners = $derived(getOwnersFromItems(itemsForOwnerOptions));
-	let availableAuthors = $derived(getAuthorsFromItems(itemsForAuthorOptions, currentTab === 'toReview'));
-	let availableRepos = $derived(getReposFromItems(itemsForRepoOptions));
+	let view = $derived(createPrView(currentItems, activeFilters, searchQuery, currentTab));
+	let filteredItems = $derived(view.items);
+	let filterCount = $derived(view.filterCount);
+	let filterActive = $derived(filterCount > 0);
+	let allAvailableOwners = $derived(view.options.owners.all);
+	let allAvailableAuthors = $derived(view.options.authors.all);
+	let allAvailableRepos = $derived(view.options.repos.all);
+	let availableOwners = $derived(view.options.owners.available);
+	let availableAuthors = $derived(view.options.authors.available);
+	let availableRepos = $derived(view.options.repos.available);
 	let showSearchControls = $derived(!loading && !setupRequired && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired);
 	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
@@ -440,41 +273,9 @@
 	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
 	let hasMeaningfulFilters = true; // Always true because Draft filter is always available
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
-	// Age filter is temporarily disabled. Restore the commented ageRange count when re-enabling it.
-	// let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + Number(Boolean(activeFilters.ageRange)));
-	let filterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed && currentTab === 'toReview' ? 1 : 0));
-	let filterActive = $derived(filterCount > 0);
-	let preSearchItems = $derived(filterPullRequests(currentItems, {
-		authors: activeFilters.authors,
-		owners: activeFilters.owners,
-		repos: activeFilters.repos,
-		drafts: activeFilters.drafts,
-		showReviewed: currentTab === 'toReview' ? activeFilters.showReviewed : undefined,
-	}));
-	let fuseIndex = $derived.by(() => {
-		const searchInput: SearchablePullRequest[] = preSearchItems.map((pr) => ({
-			...pr,
-			_jiraTicket: pr.branchName ? (pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '') : '',
-		}));
-		return new Fuse<SearchablePullRequest>(searchInput, {
-			keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'],
-			threshold: 0.3,
-			ignoreLocation: true,
-		});
-	});
-	let filteredItems = $derived.by(() => {
-		if (!searchQuery.trim()) {
-			return preSearchItems;
-		}
-		return fuseIndex.search(searchQuery).map(({ item }) => {
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			const { _jiraTicket, ...pr } = item;
-			return pr;
-		});
-	});
 
 	$effect(() => {
-		if (!filterPersistenceReady || typeof chrome === 'undefined') {
+		if (!filterPersistenceReady || !isExtensionRuntime) {
 			return;
 		}
 
@@ -483,20 +284,13 @@
 				...filtersByTab,
 				[currentTab]: cloneFilters(activeFilters),
 			};
-			void storageLocalSet({
-				searchFilters: {
-					tabs: {
-						myPRs: nextFiltersByTab.myPRs,
-						toReview: nextFiltersByTab.toReview,
-					},
-				},
-			}).catch((error) => {
+			void storage.setFilters(nextFiltersByTab).catch((error) => {
 				console.error('Failed to persist filter state:', error);
 			});
 			return;
 		}
 
-		void storageLocalRemove(['searchFilters']).catch((error) => {
+		void storage.clearFilters().catch((error) => {
 			console.error('Failed to clear persisted filter state:', error);
 		});
 	});
@@ -505,20 +299,8 @@
 	// Always use the pinned (default) tab's data — never the current popup tab
 	let pinnedTabItems = $derived(settings.pinnedTab === 'myPRs' ? (prData.myPRs || []) : (prData.reviewRequests || []));
 	let pinnedTabFilters = $derived(currentTab === settings.pinnedTab ? activeFilters : filtersByTab[settings.pinnedTab]);
-	let pinnedTabFilterActive = $derived(
-		pinnedTabFilters.authors.length +
-		pinnedTabFilters.owners.length +
-		pinnedTabFilters.repos.length +
-		(pinnedTabFilters.drafts !== 'exclude' ? 1 : 0) +
-		(pinnedTabFilters.showReviewed && settings.pinnedTab === 'toReview' ? 1 : 0) > 0
-	);
-	let pinnedTabFilteredItems = $derived(filterPullRequests(pinnedTabItems, {
-		authors: pinnedTabFilters.authors,
-		owners: pinnedTabFilters.owners,
-		repos: pinnedTabFilters.repos,
-		drafts: pinnedTabFilters.drafts,
-		showReviewed: settings.pinnedTab === 'toReview' ? pinnedTabFilters.showReviewed : undefined,
-	}));
+	let pinnedTabView = $derived(createPrView(pinnedTabItems, pinnedTabFilters, '', settings.pinnedTab));
+	let pinnedTabFilterActive = $derived(pinnedTabView.filterCount > 0);
 	let totalCount = $derived(settings.pinnedTab === 'myPRs' ? myPrCount : reviewCount);
 
 	$effect(() => {
@@ -526,7 +308,7 @@
 			return;
 		}
 
-		const targetCount = pinnedTabFilterActive ? pinnedTabFilteredItems.length : totalCount;
+		const targetCount = pinnedTabFilterActive ? pinnedTabView.items.length : totalCount;
 		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
 			console.error('Failed to update badge count:', error);
 		});
@@ -602,7 +384,7 @@
 					{#if filteredItems.length === 0}
 						<div class="py-8 text-center text-soft">
 							<p>No PRs match your filters.</p>
-							<button class="mt-2 text-sm text-(--accent) hover:underline" onclick={() => { searchQuery = ''; activeFilters = { ...DEFAULT_FILTERS }; }}>Clear filters</button>
+							<button class="mt-2 text-sm text-(--accent) hover:underline" onclick={() => { searchQuery = ''; activeFilters = createDefaultFilters(); }}>Clear filters</button>
 						</div>
 					{:else}
 						<div class={cardListClasses}>

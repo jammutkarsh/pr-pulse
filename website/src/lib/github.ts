@@ -1,4 +1,4 @@
-import type { PullRequest } from '../../../extension/lib/types';
+import type { PrSourceResult, PullRequest } from '../../../extension/lib/types';
 
 // Live, unauthenticated GitHub reads. Public data only — no token ships to the
 // browser. Unauthenticated limit is 60 req/hr PER visitor IP, so a handful of
@@ -91,12 +91,8 @@ export async function fetchStars(repo = 'jammutkarsh/pr-pulse'): Promise<number 
 	}
 }
 
-export interface UserPrs {
-	myPRs: PullRequest[];
-	reviewRequests: PullRequest[];
-}
-
-export async function fetchUserPrs(rawUsername: string): Promise<UserPrs> {
+// The second PR source: unauthenticated REST instead of the extension's GraphQL, same seam.
+export async function fetchUserPrs(rawUsername: string): Promise<PrSourceResult> {
 	const username = rawUsername.trim().replace(/^@/, '');
 	if (!/^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(username)) {
 		throw new Error('That does not look like a GitHub username.');

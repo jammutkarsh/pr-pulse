@@ -1,0 +1,132 @@
+import assert from 'node:assert/strict';
+import { countActiveFilters, createDefaultFilters, createPrView, normalizeFilterState } from './pr-view';
+import type { PullRequest } from './types';
+
+// This module is the one place the popup, the website demo and the badge agree on what "shown" and
+// "filtered" mean. When they each had their own copy the counts diverged, so the rules get a check.
+// Run with: npm test
+
+function pr(overrides: Partial<PullRequest> & { id: string }): PullRequest {
+	return {
+		provider: 'github',
+		title: 'title',
+		url: 'https://example.test/pr',
+		repoFullName: 'acme/api',
+		repoOwner: { login: 'acme', type: 'org' },
+		branchName: 'feat/ABC-123-thing',
+		author: { login: 'ada', name: 'Ada', avatarUrl: '' },
+		state: 'open',
+		changes: { additions: 0, deletions: 0, filesChanged: 0 },
+		checks: { status: 'unknown' },
+		reviews: { status: 'pending', reviewers: [] },
+		createdAt: '2026-01-01T00:00:00Z',
+		updatedAt: '2026-01-01T00:00:00Z',
+		isDraft: false,
+		...overrides,
+	};
+}
+
+const items = [
+	pr({ id: '1' }),
+	pr({ id: '2', isDraft: true }),
+	pr({
+		id: '3',
+		repoFullName: 'globex/web',
+		repoOwner: { login: 'globex', type: 'org' },
+		author: { login: 'bob', name: 'Bob', avatarUrl: '' },
+	}),
+	pr({ id: '4', reviews: { status: 'approved', reviewers: [] } }),
+];
+
+function ids(list: PullRequest[]): string[] {
+	return list.map((item) => item.id);
+}
+
+function testDraftsGateEverything(): void {
+	const filters = createDefaultFilters();
+
+	// Default hides drafts, and the option lists are drawn from what is left.
+	const view = createPrView(items, filters, '', 'myPRs');
+	assert.deepEqual(ids(view.items), ['1', '3', '4']);
+	assert.deepEqual(
+		view.options.owners.all.map((owner) => owner.login),
+		['acme', 'globex'],
+	);
+
+	assert.deepEqual(ids(createPrView(items, { ...filters, drafts: 'only' }, '', 'myPRs').items), ['2']);
+	assert.deepEqual(ids(createPrView(items, { ...filters, drafts: 'include' }, '', 'myPRs').items), ['1', '2', '3', '4']);
+}
+
+function testTabConditionals(): void {
+	const filters = createDefaultFilters();
+
+	// Authors are only a meaningful filter on the review tab, and only there does showReviewed apply.
+	assert.equal(createPrView(items, filters, '', 'myPRs').options.authors.all.length, 0);
+	assert.deepEqual(
+		createPrView(items, filters, '', 'toReview').options.authors.all.map((a) => a.login),
+		['ada', 'bob'],
+	);
+
+	// showReviewed false drops the approved PR — on the review tab only.
+	assert.deepEqual(ids(createPrView(items, filters, '', 'toReview').items), ['1', '3']);
+	assert.deepEqual(ids(createPrView(items, { ...filters, showReviewed: true }, '', 'toReview').items), ['1', '3', '4']);
+	assert.deepEqual(ids(createPrView(items, { ...filters, showReviewed: true }, '', 'myPRs').items), ['1', '3', '4']);
+}
+
+function testAvailableOptionsExcludeOwnAxis(): void {
+	// Picking a repo must not shrink the repo list itself, or you could never switch selection.
+	const view = createPrView(items, { ...createDefaultFilters(), repos: ['acme/api'] }, '', 'toReview');
+	assert.deepEqual(
+		view.options.repos.available.map((repo) => repo.fullName),
+		['acme/api', 'globex/web'],
+	);
+	assert.deepEqual(
+		view.options.authors.available.map((author) => author.login),
+		['ada'],
+	);
+}
+
+function testFilterCount(): void {
+	const filters = createDefaultFilters();
+
+	// The default state is zero active filters, drafts:'exclude' included.
+	assert.equal(countActiveFilters(filters, 'myPRs'), 0);
+	assert.equal(countActiveFilters({ ...filters, drafts: 'include' }, 'myPRs'), 1);
+	assert.equal(countActiveFilters({ ...filters, authors: ['ada'], repos: ['acme/api'] }, 'toReview'), 2);
+
+	// showReviewed counts only where it has an effect.
+	assert.equal(countActiveFilters({ ...filters, showReviewed: true }, 'toReview'), 1);
+	assert.equal(countActiveFilters({ ...filters, showReviewed: true }, 'myPRs'), 0);
+}
+
+function testSearch(): void {
+	const filters = createDefaultFilters();
+
+	// Branch names carry the Jira ticket, so the ticket id has to be searchable.
+	assert.deepEqual(ids(createPrView(items, filters, 'ABC-123', 'myPRs').items), ['1', '3', '4']);
+	assert.deepEqual(ids(createPrView(items, filters, 'globex', 'myPRs').items), ['3']);
+
+	// A whitespace-only query is not a search.
+	assert.deepEqual(ids(createPrView(items, filters, '   ', 'myPRs').items), ['1', '3', '4']);
+}
+
+function testNormalizeFilterState(): void {
+	// The legacy single-blob shape must land on the fallback tab, not be ignored — the badge used to
+	// read this raw and silently fall back to the total count.
+	const legacy = normalizeFilterState({ activeFilters: { repos: ['acme/api'] } }, 'toReview');
+	assert.deepEqual(legacy.toReview.repos, ['acme/api']);
+	assert.deepEqual(legacy.myPRs, createDefaultFilters());
+
+	// Garbage on disk normalizes to defaults rather than crashing a reader.
+	const junk = normalizeFilterState({ tabs: { myPRs: { repos: 'nope' as unknown as string[], drafts: 'bogus' as never } } }, 'myPRs');
+	assert.deepEqual(junk.myPRs, createDefaultFilters());
+	assert.deepEqual(normalizeFilterState(undefined, 'myPRs').myPRs, createDefaultFilters());
+}
+
+testDraftsGateEverything();
+testTabConditionals();
+testAvailableOptionsExcludeOwnAxis();
+testFilterCount();
+testSearch();
+testNormalizeFilterState();
+console.log('pr-view: all checks passed');

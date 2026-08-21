@@ -1,19 +1,16 @@
 <script lang="ts">
 	import { Minimize2, Loader } from 'lucide-svelte';
-	import Fuse from 'fuse.js';
 	import PopupHeader from '../../../extension/src/popup/PopupHeader.svelte';
 	import PrCard from '../../../extension/src/popup/PrCard.svelte';
 	import SearchFilter from '../../../extension/src/popup/SearchFilter.svelte';
 	import AttributionFooter from '../../../extension/src/lib/components/AttributionFooter.svelte';
-	import { filterPullRequests } from '../../../extension/lib/utils';
-	import type { PullRequest, PopupFilters, Settings, StoredProviderConfig } from '../../../extension/lib/types';
+	import type { PullRequest, PopupFilters, PopupTab, StoredProviderConfig } from '../../../extension/lib/types';
 	import {
-		createDefaultFilters,
 		cloneFilters,
-		getOwnersFromItems,
-		getAuthorsFromItems,
-		getReposFromItems,
-	} from './popup-filters';
+		createDefaultFilters,
+		createDefaultFiltersByTab,
+		createPrView,
+	} from '../../../extension/lib/pr-view';
 
 	interface Props {
 		username: string;
@@ -39,18 +36,14 @@
 		onRefresh = () => {},
 	}: Props = $props();
 
-	type Tab = Settings['pinnedTab'];
-	type SearchablePr = PullRequest & { _jiraTicket: string };
+	type Tab = PopupTab;
 
 	let fullpage = $state(false);
 	let currentTab = $state<Tab>('myPRs');
 	let isSearchOpen = $state(false);
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
-	let filtersByTab = $state<Record<Tab, PopupFilters>>({
-		myPRs: createDefaultFilters(),
-		toReview: createDefaultFilters(),
-	});
+	let filtersByTab = $state(createDefaultFiltersByTab());
 	let activeFilters = $state<PopupFilters>(createDefaultFilters());
 
 	const settings = { jiraBaseUrl: '' };
@@ -69,61 +62,27 @@
 	$effect(() => {
 		if (dataKey !== lastDataKey) {
 			lastDataKey = dataKey;
-			filtersByTab = { myPRs: createDefaultFilters(), toReview: createDefaultFilters() };
+			filtersByTab = createDefaultFiltersByTab();
 			activeFilters = createDefaultFilters();
 			searchQuery = '';
 		}
 	});
 
-	// Filter-option derivations — same wiring as the extension popup.
-	let allAvailableOwners = $derived(getOwnersFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts })));
-	let allAvailableAuthors = $derived(getAuthorsFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts }), currentTab === 'toReview'));
-	let allAvailableRepos = $derived(getReposFromItems(filterPullRequests(currentItems, { drafts: activeFilters.drafts })));
-	let availableOwners = $derived(getOwnersFromItems(filterPullRequests(currentItems, { authors: activeFilters.authors, repos: activeFilters.repos, drafts: activeFilters.drafts })));
-	let availableAuthors = $derived(getAuthorsFromItems(filterPullRequests(currentItems, { owners: activeFilters.owners, repos: activeFilters.repos, drafts: activeFilters.drafts }), currentTab === 'toReview'));
-	let availableRepos = $derived(getReposFromItems(filterPullRequests(currentItems, { authors: activeFilters.authors, owners: activeFilters.owners, drafts: activeFilters.drafts })));
+	// One view module, shared with the extension popup — no second copy to drift from.
+	let view = $derived(createPrView(currentItems, activeFilters, searchQuery, currentTab));
+	let filteredItems = $derived(view.items);
+	let allAvailableOwners = $derived(view.options.owners.all);
+	let allAvailableAuthors = $derived(view.options.authors.all);
+	let allAvailableRepos = $derived(view.options.repos.all);
+	let availableOwners = $derived(view.options.owners.available);
+	let availableAuthors = $derived(view.options.authors.available);
+	let availableRepos = $derived(view.options.repos.available);
 
 	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
 	let hasOwnerFilter = $derived(allAvailableOwners.length > 1);
 	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
-	let filterCount = $derived(
-		activeFilters.authors.length +
-			activeFilters.owners.length +
-			activeFilters.repos.length +
-			(activeFilters.drafts !== 'include' ? 1 : 0) +
-			(activeFilters.showReviewed && currentTab === 'toReview' ? 1 : 0),
-	);
-	let filterActive = $derived(filterCount > 0);
-
-	let preSearchItems = $derived(
-		filterPullRequests(currentItems, {
-			authors: activeFilters.authors,
-			owners: activeFilters.owners,
-			repos: activeFilters.repos,
-			drafts: activeFilters.drafts,
-			showReviewed: currentTab === 'toReview' ? activeFilters.showReviewed : undefined,
-		}),
-	);
-	let fuseIndex = $derived.by(() => {
-		const input: SearchablePr[] = preSearchItems.map((pr) => ({
-			...pr,
-			_jiraTicket: pr.branchName ? pr.branchName.match(/([A-Z]+-\d+)/i)?.[1] || '' : '',
-		}));
-		return new Fuse<SearchablePr>(input, {
-			keys: ['title', 'branchName', 'repoFullName', '_jiraTicket'],
-			threshold: 0.3,
-			ignoreLocation: true,
-		});
-	});
-	let filteredItems = $derived.by(() => {
-		if (!searchQuery.trim()) return preSearchItems;
-		return fuseIndex.search(searchQuery).map(({ item }) => {
-			const { _jiraTicket, ...pr } = item;
-			void _jiraTicket;
-			return pr as PullRequest;
-		});
-	});
+	let filterActive = $derived(view.filterCount > 0);
 
 	let showSearchControls = $derived(!loading && !errorMessage);
 

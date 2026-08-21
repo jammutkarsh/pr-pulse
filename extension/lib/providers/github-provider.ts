@@ -1,6 +1,7 @@
 import { ProviderError } from '../errors';
 import type {
-	ProviderPullRequests,
+	PrSource,
+	PrSourceResult,
 	PullRequest,
 	PullRequestChecks,
 	PullRequestRepoOwner,
@@ -9,7 +10,6 @@ import type {
 	ProviderConfig,
 	User,
 } from '../types';
-import { BaseProvider } from './base-provider';
 
 type GraphQLReview = {
 	databaseId: number | null;
@@ -161,11 +161,12 @@ export function nextPageSize(issueCount: number, alreadySeen: number): number {
 	return Math.min(Math.max(issueCount - alreadySeen, 1), MAX_PAGE_SIZE);
 }
 
-export class GitHubProvider extends BaseProvider {
+export class GitHubProvider implements PrSource {
+	baseUrl: string;
+	token: string;
+
 	constructor(config: ProviderConfig = {}) {
-		super(config);
-		this.name = 'github';
-		this.displayName = 'GitHub';
+		this.token = config.token || '';
 		this.baseUrl = config.baseUrl || 'https://api.github.com';
 	}
 
@@ -228,13 +229,9 @@ export class GitHubProvider extends BaseProvider {
 		}
 	}
 
-	override authenticate(): Promise<User> {
-		return this.getUser();
-	}
-
 	// Stays on REST: the token expiry date is only exposed as a response header, and GraphQL has no
 	// equivalent field. Not on the refresh path, so it costs nothing per poll.
-	override async getUser(): Promise<User> {
+	async getUser(): Promise<User> {
 		const response = await this.#request(`${this.baseUrl}/user`, {
 			headers: { Accept: 'application/vnd.github.v3+json' },
 		});
@@ -399,7 +396,7 @@ export class GitHubProvider extends BaseProvider {
 		return pullRequests;
 	}
 
-	override async getAllPullRequests(): Promise<ProviderPullRequests> {
+	async getAllPullRequests(): Promise<PrSourceResult> {
 		const counts = await this.#graphql<CountResponse>(COUNT_QUERY, SEARCH_QUERIES);
 		this.#logCost('count probe', counts.rateLimit);
 
@@ -411,6 +408,16 @@ export class GitHubProvider extends BaseProvider {
 			}),
 		);
 
-		return { myPRs, reviewRequests, reviewedPRs };
+		// Already-reviewed PRs belong in the same list as pending review requests, minus the overlap.
+		const seen = new Set(reviewRequests.map((pr) => pr.id));
+		const merged = [...reviewRequests];
+		for (const pr of reviewedPRs) {
+			if (!seen.has(pr.id)) {
+				seen.add(pr.id);
+				merged.push(pr);
+			}
+		}
+
+		return { myPRs, reviewRequests: merged };
 	}
 }

@@ -1,11 +1,13 @@
-import type { PullRequestData, Settings, StoredProviderConfig } from './types';
-import { storageLocalClear, storageLocalGet, storageLocalSet } from './extension-api';
+import type { FiltersByTab, PopupTab, PullRequestData, Settings, StoredFilterState, StoredProviderConfig } from './types';
+import { storageLocalClear, storageLocalGet, storageLocalRemove, storageLocalSet } from './extension-api';
+import { normalizeFilterState } from './pr-view';
 import { normalizeSettings } from './ui-config';
 
 const STORAGE_KEYS = {
 	PROVIDER: 'provider',
 	PULL_REQUESTS: 'pullRequests',
 	SETTINGS: 'settings',
+	FILTERS: 'searchFilters',
 } as const;
 
 async function get<T>(key: string): Promise<T | undefined> {
@@ -91,6 +93,19 @@ async function updateSetting<K extends keyof Settings>(key: K, value: Settings[K
 	return set(STORAGE_KEYS.SETTINGS, settings);
 }
 
+/** Both readers — popup and badge — go through this, so both see normalized, legacy-aware filters. */
+async function getFilters(fallbackTab: PopupTab): Promise<FiltersByTab> {
+	return normalizeFilterState(await get<StoredFilterState>(STORAGE_KEYS.FILTERS), fallbackTab);
+}
+
+async function setFilters(filters: FiltersByTab): Promise<void> {
+	return set(STORAGE_KEYS.FILTERS, { tabs: filters } satisfies StoredFilterState);
+}
+
+async function clearFilters(): Promise<void> {
+	return storageLocalRemove([STORAGE_KEYS.FILTERS]);
+}
+
 async function isAuthenticated(): Promise<boolean> {
 	const provider = await get<StoredProviderConfig>(STORAGE_KEYS.PROVIDER);
 	return !!(provider && provider.token && provider.user);
@@ -110,6 +125,9 @@ export const storage = {
 	getBackgroundBootstrapData,
 	setSettings,
 	updateSetting,
+	getFilters,
+	setFilters,
+	clearFilters,
 	isAuthenticated,
 	clearAll,
 };

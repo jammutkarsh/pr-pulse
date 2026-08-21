@@ -11,16 +11,49 @@
 	} from 'lucide-svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
 	import {
-		extractJiraTicket,
-		getCheckStatusDisplay,
-		getJiraUrl,
-		getReviewStatusDisplay,
 		isValidHttpUrl,
-		safeParseInt,
 		formatLocalDateTime,
 		formatPrAge,
 	} from '../../lib/utils';
+	import { jiraLinkFor } from '../../lib/jira';
 	import type { PullRequest, Settings } from '../../lib/types';
+
+	// `tone` and `dot` are the CSS classes this card applies directly, so the maps live beside it.
+	interface StatusDisplay {
+		label: string;
+		tone: string;
+		dot: string;
+	}
+
+	function getReviewStatusDisplay(status: string, openThreadCount?: number): StatusDisplay {
+		switch (status) {
+			case 'approved':
+				return { label: 'Approved', tone: 'status-inline-success', dot: 'status-dot-success' };
+			case 'changes_requested':
+				return {
+					label: openThreadCount && openThreadCount > 0 ? `Changes Requested (${openThreadCount})` : 'Changes Requested',
+					tone: 'status-inline-danger',
+					dot: 'status-dot-danger',
+				};
+			case 'pending':
+			default:
+				return { label: 'Review Pending', tone: 'status-inline-warning', dot: 'status-dot-warning' };
+		}
+	}
+
+	function getCheckStatusDisplay(status: string): StatusDisplay {
+		switch (status) {
+			case 'success':
+				return { label: 'Checks Passing', tone: 'status-inline-success', dot: 'status-dot-success' };
+			case 'failure':
+				return { label: 'Checks Failing', tone: 'status-inline-danger', dot: 'status-dot-danger' };
+			case 'pending':
+				return { label: 'Checks Running', tone: 'status-inline-warning', dot: 'status-dot-warning' };
+			case 'unknown':
+			default:
+				return { label: 'No Checks', tone: 'status-inline-neutral', dot: 'status-dot-neutral' };
+		}
+	}
 
 	type PullRequestCardSettings = Pick<Settings, 'jiraBaseUrl'>;
 
@@ -51,17 +84,8 @@
 	}
 
 	function getJiraLink(pr: PullRequest) {
-		const jiraTicket = extractJiraTicket(pr.branchName);
-		if (!jiraTicket || !settings.jiraBaseUrl) {
-			return null;
-		}
-
-		const jiraUrl = getJiraUrl(jiraTicket, settings.jiraBaseUrl);
-		if (!isValidHttpUrl(jiraUrl)) {
-			return null;
-		}
-
-		return { ticket: jiraTicket, url: jiraUrl };
+		const link = jiraLinkFor(pr.branchName, settings.jiraBaseUrl);
+		return link && isValidHttpUrl(link.url) ? link : null;
 	}
 
 	function getCardStatusClass(pr: PullRequest) {
@@ -142,8 +166,8 @@
 			<button class="unstyled-button action-chip" onclick={() => onOpenUrl(`${pr.url}/changes`)} data-guide-id="diff">
 				<FileDiff class="metadata-diff-icon" />
 				<span class="metadata-diff">
-					<span class="metadata-diff-add">+{safeParseInt(pr.changes?.additions, 0)}</span>
-					<span class="metadata-diff-del">-{safeParseInt(pr.changes?.deletions, 0)}</span>
+					<span class="metadata-diff-add">+{pr.changes?.additions ?? 0}</span>
+					<span class="metadata-diff-del">-{pr.changes?.deletions ?? 0}</span>
 				</span>
 			</button>
 		</div>

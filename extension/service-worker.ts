@@ -1,4 +1,4 @@
-import { providerManager } from './lib/provider-manager';
+import { GitHubProvider } from './lib/providers/github-provider';
 import {
 	actionSetBadgeBackgroundColor,
 	actionSetBadgeText,
@@ -10,14 +10,14 @@ import {
 	runtimeOnInstalledAddListener,
 	runtimeOnMessageAddListener,
 	runtimeOnStartupAddListener,
-	storageLocalGet,
 	tabsCreate,
 } from './lib/extension-api';
 import { storage } from './lib/storage';
-import { filterPullRequests } from './lib/utils';
-import type { PullRequestData, PopupFilters, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
+import { createPrView } from './lib/pr-view';
+import type { PrSource, PrSourceResult, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
 
 const ALARM_NAME = 'pr-poll';
+let prSource: PrSource | null = null;
 let cachedSettings: Settings | null = null;
 let cachedProviderConfig: StoredProviderConfig | undefined;
 
@@ -35,18 +35,11 @@ async function getRuntimeConfig(forceRefresh = false): Promise<{ settings: Setti
 	return runtimeConfig;
 }
 
-async function initializeProvider(forceRefresh = false): Promise<boolean> {
+async function initializeProvider(forceRefresh = false): Promise<PrSource | null> {
 	const { provider: providerConfig } = await getRuntimeConfig(forceRefresh);
-	if (providerConfig) {
-		const provider = providerManager.createProvider(providerConfig.type, {
-			token: providerConfig.token,
-			baseUrl: providerConfig.baseUrl,
-		});
-		providerManager.setProvider(provider);
-		return true;
-	}
+	prSource = providerConfig ? new GitHubProvider({ token: providerConfig.token, baseUrl: providerConfig.baseUrl }) : null;
 
-	return false;
+	return prSource;
 }
 
 async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -70,17 +63,15 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<
 
 async function fetchAndCachePRs(throwError = false): Promise<void> {
 	try {
-		if (!providerManager.hasProvider()) {
-			const initialized = await initializeProvider(true);
-			if (!initialized) {
-				console.log('No provider configured, skipping fetch');
-				if (throwError) throw new Error('No provider configured');
-				return;
-			}
+		const source = prSource ?? (await initializeProvider(true));
+		if (!source) {
+			console.log('No provider configured, skipping fetch');
+			if (throwError) throw new Error('No provider configured');
+			return;
 		}
 
 		console.log('Fetching PR data...');
-		const data = await fetchWithRetry(() => providerManager.fetchAllPullRequests());
+		const data = await fetchWithRetry(() => source.getAllPullRequests());
 		await storage.setPullRequests(data);
 		await updateBadgeFromSettings(data);
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
@@ -103,30 +94,21 @@ async function restoreBadgeFromStorage(): Promise<void> {
 	await updateBadgeFromSettings(data);
 }
 
-async function updateBadgeFromSettings(data: PullRequestData): Promise<void> {
+async function updateBadgeFromSettings(data: PrSourceResult): Promise<void> {
 	const { settings } = await getRuntimeConfig();
-	const totalCount = settings.pinnedTab === 'myPRs' ? data.myPRs.length : data.reviewRequests.length;
+	const items = settings.pinnedTab === 'myPRs' ? data.myPRs : data.reviewRequests;
 
 	if (settings.badgeCountMode === 'filters') {
-		const persisted = await storageLocalGet<{ tabs?: Record<string, PopupFilters> }>(['searchFilters']);
-		const tabs = persisted.searchFilters?.tabs;
-		const filters = tabs?.[settings.pinnedTab];
-
-		if (filters) {
-			const items = settings.pinnedTab === 'myPRs' ? data.myPRs : data.reviewRequests;
-			const filtered = filterPullRequests(items, {
-				authors: filters.authors,
-				owners: filters.owners,
-				repos: filters.repos,
-				drafts: filters.drafts,
-				showReviewed: settings.pinnedTab === 'toReview' ? filters.showReviewed : undefined,
-			});
-			await updateBadge(filtered.length);
+		const filters = (await storage.getFilters(settings.pinnedTab))[settings.pinnedTab];
+		// Same view the popup builds, same empty-query path; only an active filter narrows the badge.
+		const view = createPrView(items, filters, '', settings.pinnedTab);
+		if (view.filterCount > 0) {
+			await updateBadge(view.items.length);
 			return;
 		}
 	}
 
-	await updateBadge(totalCount);
+	await updateBadge(items.length);
 }
 
 async function updateBadge(count: number): Promise<void> {
@@ -245,7 +227,7 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 	CLEAR_ALL: async () => {
-		providerManager.setProvider(null);
+		prSource = null;
 		cachedSettings = null;
 		cachedProviderConfig = undefined;
 		await alarmsClear(ALARM_NAME);

@@ -13,7 +13,8 @@
 		Gauge,
 	} from 'lucide-svelte';
 	import PopupDemo from './lib/PopupDemo.svelte';
-	import { fetchUserPrs, fetchStars, RateLimitError, type UserPrs } from './lib/github';
+	import { fetchUserPrs, fetchStars, RateLimitError } from './lib/github';
+	import type { PrSourceResult } from '../../extension/lib/types';
 	import { myPRs as sampleMy, reviewRequests as sampleReview } from './lib/mockData';
 	import type { PullRequest } from '../../extension/lib/types';
 
@@ -47,17 +48,17 @@
 	// per-visitor GitHub rate limit) aren't burned on every reload. A manual
 	// refresh (force) always bypasses this.
 	const cacheKey = (name: string) => `prpulse:cache:${name}`;
-	function readCache(name: string): UserPrs | null {
+	function readCache(name: string): PrSourceResult | null {
 		try {
 			const raw = localStorage.getItem(cacheKey(name));
 			if (!raw) return null;
-			const { data, ts } = JSON.parse(raw) as { data: UserPrs; ts: number };
+			const { data, ts } = JSON.parse(raw) as { data: PrSourceResult; ts: number };
 			return Date.now() - ts > CACHE_TTL_MS ? null : data;
 		} catch {
 			return null;
 		}
 	}
-	function writeCache(name: string, data: UserPrs) {
+	function writeCache(name: string, data: PrSourceResult) {
 		try {
 			localStorage.setItem(cacheKey(name), JSON.stringify({ data, ts: Date.now() }));
 		} catch {

@@ -9,7 +9,9 @@
 	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, sanitizeJiraUrl, copyToClipboard } from '../../lib/utils';
+	import { isValidHttpUrl, isValidTokenFormat, copyToClipboard } from '../../lib/utils';
+	import { sanitizeJiraUrl } from '../../lib/jira';
+	import { connectGithubToken } from '../../lib/github-connect';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 
 	const pollingOptions = [
@@ -105,11 +107,9 @@
 	async function fetchTokenExpiration() {
 		if (!provider || !provider.user) return;
 		try {
-			const { GitHubProvider } = await import('../../lib/providers/github-provider');
-			const github = new GitHubProvider({ token: provider.token });
-			const user = await github.getUser();
+			const { user } = await connectGithubToken(provider.token ?? '');
 			isTokenInvalid = false;
-			if (user.tokenExpiration !== undefined && provider.user) {
+			if (user?.tokenExpiration !== undefined && provider.user) {
 				provider.user.tokenExpiration = user.tokenExpiration;
 				await storage.setProvider(provider);
 			}
@@ -220,19 +220,10 @@
 		validatingToken = true;
 
 		try {
-			const { GitHubProvider } = await import('../../lib/providers/github-provider');
-			const github = new GitHubProvider({ token: token.trim() });
-			const user = await github.getUser();
-			provider = {
-				type: 'github',
-				token: token.trim(),
-				baseUrl: 'https://api.github.com',
-				user,
-			};
-
+			provider = await connectGithubToken(token.trim());
 			await storage.setProvider(provider);
 			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
-			tokenSuccess = `Connected as ${user.name || user.login}`;
+			tokenSuccess = `Connected as ${provider.user?.name || provider.user?.login}`;
 			reconnecting = false;
 			isTokenInvalid = false;
 			token = '';

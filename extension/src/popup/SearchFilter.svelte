@@ -3,6 +3,7 @@
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, Trash2, X } from 'lucide-svelte';
     import type { PullRequestRepoOwner, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
+    import { countActiveFilters, createDefaultFilters } from '../../lib/pr-view';
     import Button from '../lib/components/Button.svelte';
 
     type AuthorFilterOption = PopupAuthorFilterOption;
@@ -14,15 +15,6 @@
         label: string;
         value: string;
         onRemove: () => void;
-    };
-
-    const EMPTY_FILTERS: PopupFilters = {
-        authors: [],
-        owners: [],
-        repos: [],
-        ageRange: '',
-        drafts: 'exclude',
-        showReviewed: false,
     };
 
     const LAYOUT = {
@@ -75,7 +67,7 @@
 
     let {
         query = $bindable(''),
-        activeFilters = $bindable({ ...EMPTY_FILTERS }),
+        activeFilters = $bindable(createDefaultFilters()),
         allAuthors = [] as AuthorFilterOption[],
         allRepos = [] as RepoFilterOption[],
         allOwners = [] as OwnerFilterOption[],
@@ -198,7 +190,7 @@
 
     function clearAllFilters() {
         query = '';
-        activeFilters = { ...EMPTY_FILTERS };
+        activeFilters = createDefaultFilters();
     }
 
     function closeSearchSurface() {
@@ -301,7 +293,7 @@
         };
     })());
     let hasMeaningfulFilters = true; // Always true because Draft filter is always available
-    let activeFilterCount = $derived(activeFilters.authors.length + activeFilters.owners.length + activeFilters.repos.length + (activeFilters.drafts !== 'exclude' ? 1 : 0) + (activeFilters.showReviewed && isToReviewTab ? 1 : 0));
+    let activeFilterCount = $derived(countActiveFilters(activeFilters, isToReviewTab ? 'toReview' : 'myPRs'));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let layout = $derived(fullpageMode ? LAYOUT.full : LAYOUT.compact);
     let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
