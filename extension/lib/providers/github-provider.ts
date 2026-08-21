@@ -1,4 +1,4 @@
-import { ProviderError } from '../errors';
+import { AUTH_ERROR_CODE, ProviderError } from '../errors';
 import type {
 	PrSource,
 	PrSourceResult,
@@ -183,11 +183,16 @@ export class GitHubProvider implements PrSource {
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({}) as { message?: string });
 			const statusCode = response.status;
-			throw new ProviderError(error.message || `GitHub API error: ${statusCode}`, 'API_ERROR', {
-				statusCode,
-				retryable: statusCode === 429 || statusCode >= 500,
-				provider: 'github',
-			});
+			// Tagged here so no caller has to recognise a dead token by its status code or message text.
+			throw new ProviderError(
+				error.message || `GitHub API error: ${statusCode}`,
+				statusCode === 401 ? AUTH_ERROR_CODE : 'API_ERROR',
+				{
+					statusCode,
+					retryable: statusCode === 429 || statusCode >= 500,
+					provider: 'github',
+				},
+			);
 		}
 
 		return response;

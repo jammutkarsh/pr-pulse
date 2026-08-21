@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
-import { countActiveFilters, createDefaultFilters, createPrView, normalizeFilterState } from './pr-view';
+import {
+	badgeCount,
+	countActiveFilters,
+	createDefaultFilters,
+	createDefaultFiltersByTab,
+	createPrView,
+	normalizeFilterState,
+	switchTab,
+} from './pr-view';
 import type { PullRequest } from './types';
 
 // This module is the one place the popup, the website demo and the badge agree on what "shown" and
@@ -123,10 +131,62 @@ function testNormalizeFilterState(): void {
 	assert.deepEqual(normalizeFilterState(undefined, 'myPRs').myPRs, createDefaultFilters());
 }
 
+function testBadgeCount(): void {
+	const data = { myPRs: [pr({ id: '1' }), pr({ id: '2' })], reviewRequests: [pr({ id: '3' })] };
+	const filters = createDefaultFiltersByTab();
+
+	// 'total' mode ignores filters entirely, even active ones.
+	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'total' }, filters), 2);
+	assert.equal(
+		badgeCount(
+			data,
+			{ pinnedTab: 'myPRs', badgeCountMode: 'total' },
+			{ ...filters, myPRs: { ...filters.myPRs, repos: ['nope/nope'] } },
+		),
+		2,
+	);
+
+	// The pinned tab decides the list, never the tab the popup is showing.
+	assert.equal(badgeCount(data, { pinnedTab: 'toReview', badgeCountMode: 'total' }, filters), 1);
+
+	// 'filters' mode with nothing active is still the total — this is the point the two hand-written
+	// copies used to disagree on.
+	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, filters), 2);
+
+	// An active filter narrows it.
+	const narrowed = { ...filters, myPRs: { ...filters.myPRs, repos: ['acme/api'] } };
+	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, narrowed), 2);
+	const excluded = { ...filters, myPRs: { ...filters.myPRs, repos: ['globex/web'] } };
+	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, excluded), 0);
+
+	// Missing lists are empty lists, not a crash — storage can hold a half-written blob.
+	assert.equal(badgeCount({}, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, filters), 0);
+}
+
+function testSwitchTab(): void {
+	const stash = createDefaultFiltersByTab();
+	const active = { ...createDefaultFilters(), repos: ['acme/api'] };
+
+	// Leaving stashes what you were using; arriving restores the target tab's own set.
+	const away = switchTab(stash, 'myPRs', active, 'toReview');
+	assert.deepEqual(away.stash.myPRs.repos, ['acme/api']);
+	assert.deepEqual(away.filters, createDefaultFilters());
+
+	// Coming back returns the stashed set.
+	const back = switchTab(away.stash, 'toReview', away.filters, 'myPRs');
+	assert.deepEqual(back.filters.repos, ['acme/api']);
+
+	// Stashed filters are copies: mutating the live set afterwards must not reach into the stash.
+	active.repos.push('globex/web');
+	assert.deepEqual(away.stash.myPRs.repos, ['acme/api']);
+}
+
 testDraftsGateEverything();
 testTabConditionals();
 testAvailableOptionsExcludeOwnAxis();
 testFilterCount();
 testSearch();
 testNormalizeFilterState();
+testBadgeCount();
+testSwitchTab();
 console.log('pr-view: all checks passed');

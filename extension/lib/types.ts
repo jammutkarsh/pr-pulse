@@ -152,8 +152,8 @@ export type RuntimeMessage =
 	| { type: 'PROVIDER_CONFIGURED' }
 	| { type: 'REFRESH_PRS' }
 	| { type: 'GET_PRS' }
-	| { type: 'UPDATE_SETTINGS'; settings: Partial<Settings> }
-	| { type: 'SETTINGS_UPDATED'; settings: Partial<Settings> }
+	/** Storage is already written by the sender; this only tells the worker which keys moved. */
+	| { type: 'SETTINGS_CHANGED'; settings: Partial<Settings> }
 	| { type: 'UPDATE_BADGE_COUNT'; count: number }
 	| { type: 'CLEAR_ALL' };
 

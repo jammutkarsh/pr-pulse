@@ -2,13 +2,9 @@
     import { tick } from 'svelte';
     import { onDestroy, onMount } from 'svelte';
     import { ChevronDown, ChevronRight, ListFilter, Search, Trash2, X } from 'lucide-svelte';
-    import type { PullRequestRepoOwner, PopupAuthorFilterOption, PopupFilters, PopupOwnerFilterOption, PopupRepoFilterOption } from '../../lib/types';
-    import { countActiveFilters, createDefaultFilters } from '../../lib/pr-view';
+    import type { PullRequestRepoOwner, PopupFilters } from '../../lib/types';
+    import { countActiveFilters, createDefaultFilters, type PrViewOptions } from '../../lib/pr-view';
     import Button from '../lib/components/Button.svelte';
-
-    type AuthorFilterOption = PopupAuthorFilterOption;
-    type RepoFilterOption = PopupRepoFilterOption;
-    type OwnerFilterOption = PopupOwnerFilterOption;
 
     type FilterChip = {
         key: string;
@@ -49,15 +45,8 @@
     interface Props {
         query?: string;
         activeFilters?: PopupFilters;
-        allAuthors?: AuthorFilterOption[];
-        allRepos?: RepoFilterOption[];
-        allOwners?: OwnerFilterOption[];
-        availableAuthors?: AuthorFilterOption[];
-        availableRepos?: RepoFilterOption[];
-        availableOwners?: OwnerFilterOption[];
-        hasAuthorFilter?: boolean;
-        hasOwnerFilter?: boolean;
-        hasRepoFilter?: boolean;
+        /** The view's option lists, whole. Callers used to take this apart into nine props each. */
+        options: PrViewOptions;
         isToReviewTab?: boolean;
         isSearchOpen?: boolean;
         isFilterOpen?: boolean;
@@ -68,21 +57,25 @@
     let {
         query = $bindable(''),
         activeFilters = $bindable(createDefaultFilters()),
-        allAuthors = [] as AuthorFilterOption[],
-        allRepos = [] as RepoFilterOption[],
-        allOwners = [] as OwnerFilterOption[],
-        availableAuthors = [] as AuthorFilterOption[],
-        availableRepos = [] as RepoFilterOption[],
-        availableOwners = [] as OwnerFilterOption[],
-        hasAuthorFilter = false,
-        hasOwnerFilter = false,
-        hasRepoFilter = false,
+        options,
         isToReviewTab = false,
         isSearchOpen = $bindable(false),
         isFilterOpen = $bindable(false),
         embedded = false,
         fullpageMode = false,
     }: Props = $props();
+
+    // Unpacked here rather than by every caller: `has*Filter` is a property of the option list,
+    // not something a parent should work out and pass back in.
+    let allAuthors = $derived(options.authors.all);
+    let allOwners = $derived(options.owners.all);
+    let allRepos = $derived(options.repos.all);
+    let availableAuthors = $derived(options.authors.available);
+    let availableOwners = $derived(options.owners.available);
+    let availableRepos = $derived(options.repos.available);
+    let hasAuthorFilter = $derived(allAuthors.length > 1);
+    let hasOwnerFilter = $derived(allOwners.length > 1);
+    let hasRepoFilter = $derived(allRepos.length > 1);
 
     let expandedSections = $state({
         authors: false,

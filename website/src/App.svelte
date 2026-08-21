@@ -13,9 +13,9 @@
 		Gauge,
 	} from 'lucide-svelte';
 	import PopupDemo from './lib/PopupDemo.svelte';
-	import { fetchUserPrs, fetchStars, RateLimitError } from './lib/github';
+	import { publicGitHubSource, fetchStars, RateLimitError } from './lib/github';
 	import type { PrSourceResult } from '../../extension/lib/types';
-	import { myPRs as sampleMy, reviewRequests as sampleReview } from './lib/mockData';
+	import { sampleSource } from './lib/mockData';
 	import type { PullRequest } from '../../extension/lib/types';
 
 	const logo = '/icon.png'; // served from website/public
@@ -66,10 +66,11 @@
 		}
 	}
 
-	function useSample(rateLimited = false) {
+	async function useSample(rateLimited = false) {
+		const sample = await sampleSource.getAllPullRequests();
 		activeUsername = DEFAULT_USER;
-		myPRs = sampleMy;
-		reviewRequests = sampleReview;
+		myPRs = sample.myPRs;
+		reviewRequests = sample.reviewRequests;
 		isSample = true;
 		isRateLimited = rateLimited;
 		errorMessage = '';
@@ -98,11 +99,11 @@
 		errorMessage = '';
 		isRateLimited = false;
 		try {
-			const result = await fetchUserPrs(username);
+			const result = await publicGitHubSource(username).getAllPullRequests();
 			// On the default landing load, fall back to sample data if the account
 			// has nothing open — the hero should never look dead.
 			if (silent && result.myPRs.length === 0 && result.reviewRequests.length === 0) {
-				useSample();
+				await useSample();
 				return;
 			}
 			activeUsername = username;
@@ -116,7 +117,7 @@
 			// do anything about — show sample data instead of a dead end, same as
 			// the silent default-load fallback above.
 			if (silent || err instanceof RateLimitError) {
-				useSample(err instanceof RateLimitError);
+				await useSample(err instanceof RateLimitError);
 				return;
 			}
 			activeUsername = username;

@@ -6,10 +6,10 @@
 	import AttributionFooter from '../../../extension/src/lib/components/AttributionFooter.svelte';
 	import type { PullRequest, PopupFilters, PopupTab, StoredProviderConfig } from '../../../extension/lib/types';
 	import {
-		cloneFilters,
 		createDefaultFilters,
 		createDefaultFiltersByTab,
 		createPrView,
+		switchTab,
 	} from '../../../extension/lib/pr-view';
 
 	interface Props {
@@ -71,16 +71,6 @@
 	// One view module, shared with the extension popup — no second copy to drift from.
 	let view = $derived(createPrView(currentItems, activeFilters, searchQuery, currentTab));
 	let filteredItems = $derived(view.items);
-	let allAvailableOwners = $derived(view.options.owners.all);
-	let allAvailableAuthors = $derived(view.options.authors.all);
-	let allAvailableRepos = $derived(view.options.repos.all);
-	let availableOwners = $derived(view.options.owners.available);
-	let availableAuthors = $derived(view.options.authors.available);
-	let availableRepos = $derived(view.options.repos.available);
-
-	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
-	let hasOwnerFilter = $derived(allAvailableOwners.length > 1);
-	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 	let filterActive = $derived(view.filterCount > 0);
 
@@ -96,9 +86,10 @@
 	}
 	function handleTabChange(tab: Tab) {
 		if (tab === currentTab) return;
-		filtersByTab = { ...filtersByTab, [currentTab]: cloneFilters(activeFilters) };
+		const switched = switchTab(filtersByTab, currentTab, activeFilters, tab);
+		filtersByTab = switched.stash;
+		activeFilters = switched.filters;
 		currentTab = tab;
-		activeFilters = cloneFilters(filtersByTab[tab]);
 		isFilterOpen = false;
 	}
 	function openUrl(url: string) {
@@ -144,20 +135,12 @@
 				<SearchFilter
 					embedded={true}
 					fullpageMode={fullpage}
-					{hasAuthorFilter}
-					{hasOwnerFilter}
-					{hasRepoFilter}
+					options={view.options}
 					isToReviewTab={currentTab === 'toReview'}
 					bind:query={searchQuery}
 					bind:activeFilters
 					bind:isSearchOpen
 					bind:isFilterOpen
-					allAuthors={allAvailableAuthors}
-					allRepos={allAvailableRepos}
-					allOwners={allAvailableOwners}
-					{availableAuthors}
-					{availableRepos}
-					{availableOwners}
 				/>
 			</div>
 		{/if}

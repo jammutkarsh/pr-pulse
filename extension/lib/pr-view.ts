@@ -7,6 +7,7 @@ import type {
 	PopupRepoFilterOption,
 	PopupTab,
 	PullRequest,
+	Settings,
 	StoredFilterState,
 	StoredFilters,
 } from './types';
@@ -22,13 +23,15 @@ export interface FilterOptions<T> {
 	available: T[];
 }
 
+export interface PrViewOptions {
+	authors: FilterOptions<PopupAuthorFilterOption>;
+	owners: FilterOptions<PopupOwnerFilterOption>;
+	repos: FilterOptions<PopupRepoFilterOption>;
+}
+
 export interface PrView {
 	items: PullRequest[];
-	options: {
-		authors: FilterOptions<PopupAuthorFilterOption>;
-		owners: FilterOptions<PopupOwnerFilterOption>;
-		repos: FilterOptions<PopupRepoFilterOption>;
-	};
+	options: PrViewOptions;
 	filterCount: number;
 }
 
@@ -58,6 +61,20 @@ export function cloneFilters(filters: PopupFilters): PopupFilters {
 		drafts: filters.drafts,
 		showReviewed: filters.showReviewed,
 	};
+}
+
+/**
+ * Leaving a tab stashes the filters you were using there; arriving restores the target tab's.
+ * Both surfaces switch tabs, so the stash rule is here rather than written out at each of them.
+ */
+export function switchTab(
+	stash: FiltersByTab,
+	from: PopupTab,
+	active: PopupFilters,
+	to: PopupTab,
+): { stash: FiltersByTab; filters: PopupFilters } {
+	const next: FiltersByTab = { ...stash, [from]: cloneFilters(active) };
+	return { stash: next, filters: cloneFilters(next[to]) };
 }
 
 type FilterSubset = Partial<Pick<PopupFilters, 'authors' | 'owners' | 'repos' | 'drafts' | 'showReviewed'>>;
@@ -196,6 +213,28 @@ export function createPrView(items: PullRequest[], filters: PopupFilters, query:
 		},
 		filterCount: countActiveFilters(filters, tab),
 	};
+}
+
+/**
+ * What number goes on the badge. The pinned tab decides the list — never the tab the popup happens to
+ * be showing — and an active filter narrows it; no active filter means the total, even in filters mode.
+ *
+ * Both the service worker and the popup need this answer, from different filter sources: the worker
+ * reads what is on disk, the popup holds filters that may never be persisted. Same rule, one place;
+ * the two hand-written copies had already drifted apart on that last point.
+ */
+export function badgeCount(
+	data: { myPRs?: PullRequest[]; reviewRequests?: PullRequest[] },
+	settings: Pick<Settings, 'pinnedTab' | 'badgeCountMode'>,
+	filters: FiltersByTab,
+): number {
+	const items = (settings.pinnedTab === 'myPRs' ? data.myPRs : data.reviewRequests) || [];
+	if (settings.badgeCountMode !== 'filters') {
+		return items.length;
+	}
+
+	const view = createPrView(items, filters[settings.pinnedTab], '', settings.pinnedTab);
+	return view.filterCount > 0 ? view.items.length : items.length;
 }
 
 function toStringArray(value: unknown): string[] {

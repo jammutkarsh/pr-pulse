@@ -18,10 +18,12 @@
 	import type { FiltersByTab, PopupFilters, PopupTab, PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import {
+		badgeCount,
 		cloneFilters,
 		createDefaultFilters,
 		createDefaultFiltersByTab,
 		createPrView,
+		switchTab,
 	} from '../../lib/pr-view';
 	import {
 		copyToClipboard,
@@ -29,7 +31,7 @@
 		isValidHttpUrl,
 	} from '../../lib/utils';
 
-	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getPopupBootstrapData>>;
+	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getBootstrapData>>;
 
 	const tokenExpired = 'Token expired or revoked; Connect a new one.';
 
@@ -122,7 +124,7 @@
 
 	async function init() {
 		filterPersistenceReady = false;
-		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getPopupBootstrapData();
+		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getBootstrapData();
 		settings = bootstrapData.settings;
 
 		const redirected = await initDisplayMode(settings);
@@ -223,12 +225,10 @@
 			return;
 		}
 
-		filtersByTab = {
-			...filtersByTab,
-			[currentTab]: cloneFilters(activeFilters),
-		};
+		const switched = switchTab(filtersByTab, currentTab, activeFilters, tab);
+		filtersByTab = switched.stash;
+		activeFilters = switched.filters;
 		currentTab = tab;
-		activeFilters = cloneFilters(filtersByTab[tab]);
 		isFilterOpen = false;
 	}
 
@@ -260,17 +260,8 @@
 	let filteredItems = $derived(view.items);
 	let filterCount = $derived(view.filterCount);
 	let filterActive = $derived(filterCount > 0);
-	let allAvailableOwners = $derived(view.options.owners.all);
-	let allAvailableAuthors = $derived(view.options.authors.all);
-	let allAvailableRepos = $derived(view.options.repos.all);
-	let availableOwners = $derived(view.options.owners.available);
-	let availableAuthors = $derived(view.options.authors.available);
-	let availableRepos = $derived(view.options.repos.available);
 	let showSearchControls = $derived(!loading && !setupRequired && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired);
-	let hasAuthorFilter = $derived(allAvailableAuthors.length > 1);
-	let hasOwnerFilter = $derived(allAvailableOwners.length > 1);
-	let hasRepoFilter = $derived(allAvailableRepos.length > 1);
 	let hasMeaningfulFilters = true; // Always true because Draft filter is always available
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 
@@ -295,21 +286,16 @@
 		});
 	});
 
-	// Sync filtered count to badge when badgeCountMode is 'filters'
-	// Always use the pinned (default) tab's data — never the current popup tab
-	let pinnedTabItems = $derived(settings.pinnedTab === 'myPRs' ? (prData.myPRs || []) : (prData.reviewRequests || []));
-	let pinnedTabFilters = $derived(currentTab === settings.pinnedTab ? activeFilters : filtersByTab[settings.pinnedTab]);
-	let pinnedTabView = $derived(createPrView(pinnedTabItems, pinnedTabFilters, '', settings.pinnedTab));
-	let pinnedTabFilterActive = $derived(pinnedTabView.filterCount > 0);
-	let totalCount = $derived(settings.pinnedTab === 'myPRs' ? myPrCount : reviewCount);
+	// The popup's filters may never reach disk, so the worker cannot always compute this itself.
+	// The rule is still badgeCount()'s — this only supplies the in-memory filters as the input.
+	let liveFilters = $derived({ ...filtersByTab, [currentTab]: activeFilters } as FiltersByTab);
 
 	$effect(() => {
 		if (settings.badgeCountMode !== 'filters') {
 			return;
 		}
 
-		const targetCount = pinnedTabFilterActive ? pinnedTabView.items.length : totalCount;
-		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: targetCount }).catch((error) => {
+		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: badgeCount(prData, settings, liveFilters) }).catch((error) => {
 			console.error('Failed to update badge count:', error);
 		});
 	});
@@ -345,20 +331,12 @@
 					<SearchFilter
 						embedded={true}
 						fullpageMode={isFullpageMode}
-						hasAuthorFilter={hasAuthorFilter}
-						hasOwnerFilter={hasOwnerFilter}
-						hasRepoFilter={hasRepoFilter}
+						options={view.options}
 						isToReviewTab={currentTab === 'toReview'}
 						bind:query={searchQuery}
 						bind:activeFilters={activeFilters}
 						bind:isSearchOpen={isSearchOpen}
 						bind:isFilterOpen={isFilterOpen}
-						allAuthors={allAvailableAuthors}
-						allRepos={allAvailableRepos}
-						allOwners={allAvailableOwners}
-						{availableAuthors}
-						{availableRepos}
-						{availableOwners}
 					/>
 				</div>
 			{/if}

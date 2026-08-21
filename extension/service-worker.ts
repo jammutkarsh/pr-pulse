@@ -13,33 +13,19 @@ import {
 	tabsCreate,
 } from './lib/extension-api';
 import { storage } from './lib/storage';
-import { createPrView } from './lib/pr-view';
-import type { PrSource, PrSourceResult, RuntimeMessage, Settings, StoredProviderConfig } from './lib/types';
+import { badgeCount } from './lib/pr-view';
+import { isAuthError } from './lib/errors';
+import type { PrSource, RuntimeMessage } from './lib/types';
 
 const ALARM_NAME = 'pr-poll';
-let prSource: PrSource | null = null;
-let cachedSettings: Settings | null = null;
-let cachedProviderConfig: StoredProviderConfig | undefined;
 
-async function getRuntimeConfig(forceRefresh = false): Promise<{ settings: Settings; provider: StoredProviderConfig | undefined }> {
-	if (!forceRefresh && cachedSettings) {
-		return {
-			settings: cachedSettings,
-			provider: cachedProviderConfig,
-		};
-	}
+// No settings cache. MV3 tears this worker down between events, so a cache guards a local storage
+// read that is already cheap, at the cost of three module-level variables five handlers had to
+// invalidate by hand. Read on demand instead; storage is the single source.
 
-	const runtimeConfig = await storage.getBackgroundBootstrapData();
-	cachedSettings = runtimeConfig.settings;
-	cachedProviderConfig = runtimeConfig.provider;
-	return runtimeConfig;
-}
-
-async function initializeProvider(forceRefresh = false): Promise<PrSource | null> {
-	const { provider: providerConfig } = await getRuntimeConfig(forceRefresh);
-	prSource = providerConfig ? new GitHubProvider({ token: providerConfig.token, baseUrl: providerConfig.baseUrl }) : null;
-
-	return prSource;
+async function currentSource(): Promise<PrSource | null> {
+	const provider = await storage.getProvider();
+	return provider ? new GitHubProvider({ token: provider.token, baseUrl: provider.baseUrl }) : null;
 }
 
 async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -63,7 +49,7 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<
 
 async function fetchAndCachePRs(throwError = false): Promise<void> {
 	try {
-		const source = prSource ?? (await initializeProvider(true));
+		const source = await currentSource();
 		if (!source) {
 			console.log('No provider configured, skipping fetch');
 			if (throwError) throw new Error('No provider configured');
@@ -73,12 +59,11 @@ async function fetchAndCachePRs(throwError = false): Promise<void> {
 		console.log('Fetching PR data...');
 		const data = await fetchWithRetry(() => source.getAllPullRequests());
 		await storage.setPullRequests(data);
-		await updateBadgeFromSettings(data);
+		await refreshBadge();
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
 	} catch (error) {
 		console.error('Failed to fetch PR data:', error);
-		const err = error as Error & { details?: { statusCode?: number } };
-		if (err?.details?.statusCode === 401 || (err?.message && err.message.includes('401'))) {
+		if (isAuthError(error)) {
 			const config = await storage.getProvider();
 			if (config) {
 				config.isTokenInvalid = true;
@@ -89,26 +74,11 @@ async function fetchAndCachePRs(throwError = false): Promise<void> {
 	}
 }
 
-async function restoreBadgeFromStorage(): Promise<void> {
-	const data = await storage.getPullRequests();
-	await updateBadgeFromSettings(data);
-}
-
-async function updateBadgeFromSettings(data: PrSourceResult): Promise<void> {
-	const { settings } = await getRuntimeConfig();
-	const items = settings.pinnedTab === 'myPRs' ? data.myPRs : data.reviewRequests;
-
-	if (settings.badgeCountMode === 'filters') {
-		const filters = (await storage.getFilters(settings.pinnedTab))[settings.pinnedTab];
-		// Same view the popup builds, same empty-query path; only an active filter narrows the badge.
-		const view = createPrView(items, filters, '', settings.pinnedTab);
-		if (view.filterCount > 0) {
-			await updateBadge(view.items.length);
-			return;
-		}
-	}
-
-	await updateBadge(items.length);
+/** The count itself is decided by the view module, so the popup and the badge cannot disagree. */
+async function refreshBadge(): Promise<void> {
+	const { settings, pullRequests } = await storage.getBootstrapData();
+	const filters = await storage.getFilters(settings.pinnedTab);
+	await updateBadge(badgeCount(pullRequests, settings, filters));
 }
 
 async function updateBadge(count: number): Promise<void> {
@@ -117,7 +87,7 @@ async function updateBadge(count: number): Promise<void> {
 }
 
 async function setupPollingAlarm(forceRecreate = false): Promise<void> {
-	const { settings } = await getRuntimeConfig();
+	const settings = await storage.getSettings();
 
 	// Manual refresh mode — clear any existing alarm and stop
 	if (!settings.pollingIntervalMs) {
@@ -151,14 +121,12 @@ runtimeOnInstalledAddListener(async (details) => {
 		return;
 	}
 
-	await initializeProvider(true);
 	await fetchAndCachePRs();
 	await setupPollingAlarm(true);
 });
 
 runtimeOnStartupAddListener(async () => {
-	await initializeProvider(true);
-	await restoreBadgeFromStorage();
+	await refreshBadge();
 	await fetchAndCachePRs();
 	await setupPollingAlarm(true);
 });
@@ -182,7 +150,6 @@ runtimeOnMessageAddListener(async (message) => {
 
 const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) => Promise<unknown>> = {
 	PROVIDER_CONFIGURED: async () => {
-		await initializeProvider(true);
 		await fetchAndCachePRs();
 		await setupPollingAlarm(true);
 		return { success: true };
@@ -191,35 +158,31 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		try {
 			await fetchAndCachePRs(true);
 			return { success: true };
-		} catch (err) {
-			const error = err as Error & { details?: { statusCode?: number } };
-			if (error?.details?.statusCode === 401 || (error?.message && error.message.includes('401'))) {
+		} catch (error) {
+			if (isAuthError(error)) {
 				return { success: false, error: 'TOKEN_INVALID' };
 			}
-			return { success: false, error: error?.message || 'Failed to refresh PRs' };
+			return { success: false, error: (error as Error)?.message || 'Failed to refresh PRs' };
 		}
 	},
 	GET_PRS: async () => storage.getPullRequests(),
-	UPDATE_SETTINGS: async (message) => {
+	// The page that changed a setting has already written it. This says which keys moved so the worker
+	// can react — it is not a second write, which is what the old UPDATE_SETTINGS/SETTINGS_UPDATED pair
+	// ended up doing to the same value.
+	SETTINGS_CHANGED: async (message) => {
 		if ('settings' in message) {
-			await storage.setSettings(message.settings);
-			cachedSettings = cachedSettings ? { ...cachedSettings, ...message.settings } : await storage.getSettings();
 			if ('pollingIntervalMs' in message.settings) {
 				await setupPollingAlarm(true);
 			}
-		}
-		return { success: true };
-	},
-	SETTINGS_UPDATED: async (message) => {
-		if ('settings' in message) {
-			cachedSettings = cachedSettings ? { ...cachedSettings, ...message.settings } : await storage.getSettings();
-			if (message.settings.pinnedTab || message.settings.badgeCountMode) {
-				const data = await storage.getPullRequests();
-				await updateBadgeFromSettings(data);
+
+			if ('pinnedTab' in message.settings || 'badgeCountMode' in message.settings) {
+				await refreshBadge();
 			}
 		}
 		return { success: true };
 	},
+	// The popup's filters may never reach disk (persistFilters off), so it pushes the number it computed
+	// from the same badgeCount() the worker uses.
 	UPDATE_BADGE_COUNT: async (message) => {
 		if ('count' in message) {
 			await updateBadge(message.count);
@@ -227,9 +190,6 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 	CLEAR_ALL: async () => {
-		prSource = null;
-		cachedSettings = null;
-		cachedProviderConfig = undefined;
 		await alarmsClear(ALARM_NAME);
 		await actionSetBadgeText({ text: '' });
 		return { success: true };

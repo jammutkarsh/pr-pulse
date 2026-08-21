@@ -1,4 +1,4 @@
-import type { PullRequest } from '../../../extension/lib/types';
+import type { PrSource, PullRequest } from '../../../extension/lib/types';
 
 // Static demo data shaped as real PullRequest objects so the actual extension
 // components (PopupHeader, PrCard) render them exactly as they would in-browser.
@@ -102,3 +102,8 @@ export const reviewRequests: PullRequest[] = [
 		createdAt: hoursAgo(6),
 	}),
 ];
+
+/** The third adapter at the PrSource seam, so the demo's fallback is not a separate code path. */
+export const sampleSource: PrSource = {
+	getAllPullRequests: async () => ({ myPRs, reviewRequests }),
+};

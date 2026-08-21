@@ -11,6 +11,7 @@
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
 	import { isValidHttpUrl, isValidTokenFormat, copyToClipboard } from '../../lib/utils';
 	import { sanitizeJiraUrl } from '../../lib/jira';
+	import { isAuthError } from '../../lib/errors';
 	import { connectGithubToken } from '../../lib/github-connect';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 
@@ -113,10 +114,9 @@
 				provider.user.tokenExpiration = user.tokenExpiration;
 				await storage.setProvider(provider);
 			}
-		} catch (err) {
-			const e = err as Error & { details?: { statusCode?: number } };
-			console.error('Failed to validate token:', e);
-			if (e.details?.statusCode === 401 || (e.message && e.message.includes('401'))) {
+		} catch (error) {
+			console.error('Failed to validate token:', error);
+			if (isAuthError(error)) {
 				isTokenInvalid = true;
 				reconnecting = true;
 			}
@@ -145,13 +145,13 @@
 
 	async function updateSetting<K extends keyof Settings>(name: K, value: Settings[K]) {
 		currentSettings = { ...currentSettings, [name]: value };
-		await storage.updateSetting(name, value);
+		await storage.setSettings({ [name]: value } as Partial<Settings>);
 		flashSaved();
 	}
 
 	async function updatePinnedTab(value: Settings['pinnedTab']) {
 		await updateSetting('pinnedTab', value);
-		await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { pinnedTab: value } });
+		await runtimeSendMessage({ type: 'SETTINGS_CHANGED', settings: { pinnedTab: value } });
 	}
 
 	async function updateDisplayMode(value: Settings['displayMode']) {
@@ -176,7 +176,7 @@
 
 		pollingIntervalMs = value;
 		await updateSetting('pollingIntervalMs', value);
-		await runtimeSendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: value } });
+		await runtimeSendMessage({ type: 'SETTINGS_CHANGED', settings: { pollingIntervalMs: value } });
 	}
 
 	async function applyCustomInterval() {
@@ -194,7 +194,7 @@
 
 		pollingIntervalMs = ms;
 		await updateSetting('pollingIntervalMs', ms);
-		await runtimeSendMessage({ type: 'UPDATE_SETTINGS', settings: { pollingIntervalMs: ms } });
+		await runtimeSendMessage({ type: 'SETTINGS_CHANGED', settings: { pollingIntervalMs: ms } });
 	}
 
 	async function saveJiraUrl() {
@@ -483,8 +483,8 @@
 				</div>
 			</div>
 			<div class="grid-2">
-				<RadioCard name="badgeCountMode" value="total" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Total PRs" description="Show the total number of pull requests in the pinned tab." iconComponent={GitPullRequest} onchange={async () => { await updateSetting('badgeCountMode', 'total'); await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { badgeCountMode: 'total' } }); }} />
-				<RadioCard name="badgeCountMode" value="filters" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Filtered PRs" description="Show the count matching your active filters and search." iconComponent={ListFilter} onchange={async () => { await updateSetting('badgeCountMode', 'filters'); await runtimeSendMessage({ type: 'SETTINGS_UPDATED', settings: { badgeCountMode: 'filters' } }); }} />
+				<RadioCard name="badgeCountMode" value="total" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Total PRs" description="Show the total number of pull requests in the pinned tab." iconComponent={GitPullRequest} onchange={async () => { await updateSetting('badgeCountMode', 'total'); await runtimeSendMessage({ type: 'SETTINGS_CHANGED', settings: { badgeCountMode: 'total' } }); }} />
+				<RadioCard name="badgeCountMode" value="filters" currentValue={currentSettings.badgeCountMode ?? 'total'} title="Filtered PRs" description="Show the count matching your active filters and search." iconComponent={ListFilter} onchange={async () => { await updateSetting('badgeCountMode', 'filters'); await runtimeSendMessage({ type: 'SETTINGS_CHANGED', settings: { badgeCountMode: 'filters' } }); }} />
 			</div>
 		</SectionCard>
 
