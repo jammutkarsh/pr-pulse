@@ -40,6 +40,7 @@ export interface PullRequestReviews {
 	pendingReviewers?: string[];
 	openThreadCount?: number;
 	changesRequestedReviewId?: number;
+	firstUnresolvedThreadUrl?: string;
 }
 
 export interface PullRequest {

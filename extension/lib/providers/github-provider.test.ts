@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { nextPageSize } from './github-provider';
+import { firstUnresolvedThreadUrl, nextPageSize } from './github-provider';
 
 // Sizing the request to the count probe is what keeps a 7-PR user from being billed like a 100-PR one,
 // so the arithmetic gets a check. Run with: npm test
@@ -22,4 +22,33 @@ function testNextPageSize(): void {
 }
 
 testNextPageSize();
+
+// The "Changes Requested (N)" link must land on a thread the count actually includes — resolved and
+// outdated threads must never win, even when they come first. Run with: npm test
+function testFirstUnresolvedThreadUrl(): void {
+	const resolved = { isResolved: true, isOutdated: false, comments: { nodes: [{ url: 'resolved', createdAt: '2026-01-01T00:00:00Z' }] } };
+	const outdated = { isResolved: false, isOutdated: true, comments: { nodes: [{ url: 'outdated', createdAt: '2026-01-02T00:00:00Z' }] } };
+	const open = { isResolved: false, isOutdated: false, comments: { nodes: [{ url: 'open', createdAt: '2026-01-03T00:00:00Z' }] } };
+
+	// Resolved and outdated threads are skipped even when listed before the open one.
+	assert.equal(firstUnresolvedThreadUrl([resolved, outdated, open]), 'open');
+
+	// No open thread: nothing to link to.
+	assert.equal(firstUnresolvedThreadUrl([resolved, outdated]), undefined);
+
+	// GitHub's array order isn't chronological: the later-created open thread appears first in the
+	// array, but the earlier-created one must still win.
+	const openLater = { isResolved: false, isOutdated: false, comments: { nodes: [{ url: 'later', createdAt: '2026-01-05T00:00:00Z' }] } };
+	const openEarlier = {
+		isResolved: false,
+		isOutdated: false,
+		comments: { nodes: [{ url: 'earlier', createdAt: '2026-01-04T00:00:00Z' }] },
+	};
+	assert.equal(firstUnresolvedThreadUrl([openLater, openEarlier]), 'earlier');
+
+	// Empty thread list.
+	assert.equal(firstUnresolvedThreadUrl([]), undefined);
+}
+
+testFirstUnresolvedThreadUrl();
 console.log('github-provider: all checks passed');

@@ -35,7 +35,9 @@ type GraphQLPullRequest = {
 	commits: { nodes: Array<{ commit: { statusCheckRollup: { state: string } | null } }> };
 	reviews: { nodes: GraphQLReview[] };
 	reviewRequests: { nodes: Array<{ requestedReviewer: { login?: string } | null }> };
-	reviewThreads: { nodes: Array<{ isResolved: boolean; isOutdated: boolean }> };
+	reviewThreads: {
+		nodes: Array<{ isResolved: boolean; isOutdated: boolean; comments: { nodes: Array<{ url: string; createdAt: string }> } }>;
+	};
 };
 
 type RateLimit = { cost: number; remaining: number };
@@ -104,7 +106,7 @@ const SEARCH_QUERY = `query($q: String!, $first: Int!, $after: String) {
 				commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
 				reviews(last: ${REVIEWS_PAGE_SIZE}) { nodes { databaseId state author { login avatarUrl } } }
 				reviewRequests(first: ${REVIEW_REQUESTS_PAGE_SIZE}) { nodes { requestedReviewer { ... on User { login } } } }
-				reviewThreads(first: ${REVIEW_THREADS_PAGE_SIZE}) { nodes { isResolved isOutdated } }
+				reviewThreads(first: ${REVIEW_THREADS_PAGE_SIZE}) { nodes { isResolved isOutdated comments(first: 1) { nodes { url createdAt } } } }
 			}
 		}
 	}
@@ -157,6 +159,18 @@ function mapEnum<T>(map: Record<string, T>, value: string | null | undefined, fa
  * Page size for the next request: whatever the count probe says is left, clamped to GitHub's max.
  * Floors at 1 because GraphQL rejects `first: 0`, and the loop only gets here when more is expected.
  */
+// The count and the click-through target must agree: both read the same isResolved/isOutdated filter,
+// so a link never points at a thread the badge doesn't count as open. GitHub's reviewThreads connection
+// order isn't documented as chronological, so "first" is decided here by comment createdAt rather than
+// trusting array position — ISO 8601 strings sort correctly with plain string comparison.
+export function firstUnresolvedThreadUrl(
+	threads: Array<{ isResolved: boolean; isOutdated: boolean; comments: { nodes: Array<{ url: string; createdAt: string }> } }>,
+): string | undefined {
+	const open = threads.filter((thread) => !thread.isResolved && !thread.isOutdated && thread.comments.nodes[0]);
+	open.sort((a, b) => (a.comments.nodes[0].createdAt < b.comments.nodes[0].createdAt ? -1 : 1));
+	return open[0]?.comments.nodes[0]?.url;
+}
+
 export function nextPageSize(issueCount: number, alreadySeen: number): number {
 	return Math.min(Math.max(issueCount - alreadySeen, 1), MAX_PAGE_SIZE);
 }
@@ -309,6 +323,7 @@ export class GitHubProvider implements PrSource {
 
 		let changesRequestedReviewId: number | undefined;
 		let openThreadCount: number | undefined;
+		let unresolvedThreadUrl: string | undefined;
 		if (status === 'changes_requested') {
 			// Reviews come back oldest-first; the last one is the most recent, for deep-linking.
 			const changesRequested = reviews.filter((review) => review.state === REVIEW_STATE.changesRequested);
@@ -319,9 +334,17 @@ export class GitHubProvider implements PrSource {
 			// Caps at REVIEW_THREADS_PAGE_SIZE — a busier PR under-reports rather than costing every PR more.
 			const threads = pr.reviewThreads?.nodes || [];
 			openThreadCount = threads.filter((thread) => !thread.isResolved && !thread.isOutdated).length;
+			unresolvedThreadUrl = firstUnresolvedThreadUrl(threads);
 		}
 
-		return { status, reviewers, pendingReviewers, openThreadCount, changesRequestedReviewId };
+		return {
+			status,
+			reviewers,
+			pendingReviewers,
+			openThreadCount,
+			changesRequestedReviewId,
+			firstUnresolvedThreadUrl: unresolvedThreadUrl,
+		};
 	}
 
 	#transformPullRequest(pr: GraphQLPullRequest): PullRequest {

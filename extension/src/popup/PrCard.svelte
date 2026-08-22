@@ -127,9 +127,10 @@
 		: 'unstyled-button status-inline min-w-0 group');
 	let reviewUrl = $derived(
 		pr.reviews?.status === 'changes_requested'
-			? (pr.reviews?.changesRequestedReviewId
-				? `${pr.url}#pullrequestreview-${pr.reviews.changesRequestedReviewId}`
-				: `${pr.url}/files`)
+			? (pr.reviews?.firstUnresolvedThreadUrl
+				?? (pr.reviews?.changesRequestedReviewId
+					? `${pr.url}#pullrequestreview-${pr.reviews.changesRequestedReviewId}`
+					: `${pr.url}/files`))
 			: pr.url
 	);
 </script>

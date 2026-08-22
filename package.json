@@ -1,6 +1,6 @@
 {
 	"name": "pr-pulse",
-	"version": "2.1.0",
+	"version": "2.1.1",
 	"description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
 	"main": "extension/service-worker.ts",
 	"workspaces": [
