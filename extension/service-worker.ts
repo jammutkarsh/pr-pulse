@@ -12,7 +12,7 @@ import {
 	runtimeOnStartupAddListener,
 	tabsCreate,
 } from './lib/extension-api';
-import { storage } from './lib/storage';
+import { onFiltersChanged, storage } from './lib/storage';
 import { badgeCount } from './lib/pr-view';
 import { isAuthError } from './lib/errors';
 import type { PrSource, RuntimeMessage } from './lib/types';
@@ -131,6 +131,12 @@ runtimeOnStartupAddListener(async () => {
 	await setupPollingAlarm(true);
 });
 
+// The popup writes its filters on every change, so watching the key keeps the badge in step with an
+// open popup. One writer, one input — the popup no longer pushes a count of its own.
+onFiltersChanged(() => {
+	void refreshBadge();
+});
+
 alarmsOnAlarmAddListener(async (alarm) => {
 	if (alarm.name === ALARM_NAME) {
 		console.log('Polling alarm triggered');
@@ -178,14 +184,6 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 			if ('pinnedTab' in message.settings || 'badgeCountMode' in message.settings) {
 				await refreshBadge();
 			}
-		}
-		return { success: true };
-	},
-	// The popup's filters may never reach disk (persistFilters off), so it pushes the number it computed
-	// from the same badgeCount() the worker uses.
-	UPDATE_BADGE_COUNT: async (message) => {
-		if ('count' in message) {
-			await updateBadge(message.count);
 		}
 		return { success: true };
 	},

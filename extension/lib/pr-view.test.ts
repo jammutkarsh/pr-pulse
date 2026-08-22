@@ -6,6 +6,7 @@ import {
 	createDefaultFiltersByTab,
 	createPrView,
 	normalizeFilterState,
+	sameFilters,
 	switchTab,
 } from './pr-view';
 import type { PullRequest } from './types';
@@ -156,8 +157,15 @@ function testBadgeCount(): void {
 	// An active filter narrows it.
 	const narrowed = { ...filters, myPRs: { ...filters.myPRs, repos: ['acme/api'] } };
 	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, narrowed), 2);
-	const excluded = { ...filters, myPRs: { ...filters.myPRs, repos: ['globex/web'] } };
-	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, excluded), 0);
+
+	// A repo that is not in the data at all is a selection the popup itself would drop, so the badge
+	// drops it too and falls back to the total. The badge showing 0 against a full list was the drift.
+	const gone = { ...filters, myPRs: { ...filters.myPRs, repos: ['globex/web'] } };
+	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, gone), 2);
+
+	// A filter that is still selectable and still excludes everything counts what it excludes: zero.
+	const noDrafts = { ...filters, myPRs: { ...filters.myPRs, drafts: 'only' as const } };
+	assert.equal(badgeCount(data, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, noDrafts), 0);
 
 	// Missing lists are empty lists, not a crash — storage can hold a half-written blob.
 	assert.equal(badgeCount({}, { pinnedTab: 'myPRs', badgeCountMode: 'filters' }, filters), 0);
@@ -181,7 +189,47 @@ function testSwitchTab(): void {
 	assert.deepEqual(away.stash.myPRs.repos, ['acme/api']);
 }
 
+function testPrunesUnselectableFilters(): void {
+	// bob only ever authors globex/web, so acme/api + bob is a pair that can never match together.
+	// Each axis is judged against the others, so both go — one pass, the same rule the surface used.
+	const stale = { ...createDefaultFilters(), repos: ['acme/api'], authors: ['bob'] };
+	const view = createPrView(items, stale, '', 'toReview');
+
+	assert.deepEqual(view.filters.authors, []);
+	assert.deepEqual(view.filters.repos, []);
+	// Pruned before filtering, so the tab shows its PRs instead of an empty list under dead filters.
+	assert.deepEqual(ids(view.items), ['1', '3']);
+	// And the count follows what was applied, not what was asked for.
+	assert.equal(view.filterCount, 0);
+
+	// Drafts gate the option lists, so flipping to drafts-only drops a selection they no longer offer —
+	// and leaves the axis that is still live alone.
+	const draftsOnly = createPrView(items, { ...createDefaultFilters(), drafts: 'only', repos: ['globex/web'] }, '', 'myPRs');
+	assert.deepEqual(draftsOnly.filters.repos, []);
+	assert.equal(draftsOnly.filters.drafts, 'only');
+	assert.deepEqual(ids(draftsOnly.items), ['2']);
+
+	// Author filters mean nothing on the "my PRs" tab, so a stashed one does not leak into it.
+	assert.deepEqual(createPrView(items, { ...createDefaultFilters(), authors: ['bob'] }, '', 'myPRs').filters.authors, []);
+
+	// A selection that still matches is left exactly as it was — pruning is idempotent.
+	const live = { ...createDefaultFilters(), repos: ['globex/web'] };
+	const applied = createPrView(items, live, '', 'toReview').filters;
+	assert.equal(sameFilters(applied, live), true);
+	assert.equal(sameFilters(createPrView(items, applied, '', 'toReview').filters, applied), true);
+}
+
+function testSameFilters(): void {
+	const base = createDefaultFilters();
+	assert.equal(sameFilters(base, createDefaultFilters()), true);
+	assert.equal(sameFilters(base, { ...base, drafts: 'include' }), false);
+	assert.equal(sameFilters({ ...base, repos: ['a'] }, { ...base, repos: ['a'] }), true);
+	assert.equal(sameFilters({ ...base, repos: ['a'] }, { ...base, repos: ['a', 'b'] }), false);
+}
+
 testDraftsGateEverything();
+testPrunesUnselectableFilters();
+testSameFilters();
 testTabConditionals();
 testAvailableOptionsExcludeOwnAxis();
 testFilterCount();

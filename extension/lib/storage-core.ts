@@ -6,7 +6,7 @@ import type { FiltersByTab, PopupTab, PullRequestData, Settings, StoredFilterSta
 import { normalizeFilterState } from './pr-view';
 import { normalizeSettings } from './ui-config';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
 	PROVIDER: 'provider',
 	PULL_REQUESTS: 'pullRequests',
 	SETTINGS: 'settings',
@@ -23,6 +23,39 @@ export interface KeyValueStore {
 	set(items: Record<string, unknown>): Promise<void>;
 	remove(keys: string[]): Promise<void>;
 	clear(): Promise<void>;
+}
+
+/**
+ * The in-memory adapter at the seam. Lives beside the interface rather than inside a test file so the
+ * storage and popup-session checks can share one, and so the seam ships with both of its adapters.
+ */
+export function createMemoryStore(seed: Record<string, unknown> = {}): KeyValueStore {
+	const map = new Map(Object.entries(seed));
+
+	return {
+		async get(keys) {
+			const result: Record<string, unknown> = {};
+			for (const key of keys) {
+				if (map.has(key)) {
+					result[key] = map.get(key);
+				}
+			}
+			return result;
+		},
+		async set(items) {
+			for (const [key, value] of Object.entries(items)) {
+				map.set(key, value);
+			}
+		},
+		async remove(keys) {
+			for (const key of keys) {
+				map.delete(key);
+			}
+		},
+		async clear() {
+			map.clear();
+		},
+	};
 }
 
 function emptyPullRequestData(): PullRequestData {

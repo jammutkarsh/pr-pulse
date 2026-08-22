@@ -9,10 +9,9 @@
 	import { runtimeGetURL, runtimeSendMessage } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import type { Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat, copyToClipboard } from '../../lib/utils';
+	import { isValidHttpUrl, copyToClipboard } from '../../lib/utils';
 	import { sanitizeJiraUrl } from '../../lib/jira';
-	import { isAuthError } from '../../lib/errors';
-	import { connectGithubToken } from '../../lib/github-connect';
+	import { commitProvider, connectGithubToken, refreshTokenExpiration } from '../../lib/github-connect';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 
 	const pollingOptions = [
@@ -107,19 +106,16 @@
 
 	async function fetchTokenExpiration() {
 		if (!provider || !provider.user) return;
-		try {
-			const { user } = await connectGithubToken(provider.token ?? '');
-			isTokenInvalid = false;
-			if (user?.tokenExpiration !== undefined && provider.user) {
-				provider.user.tokenExpiration = user.tokenExpiration;
-				await storage.setProvider(provider);
-			}
-		} catch (error) {
-			console.error('Failed to validate token:', error);
-			if (isAuthError(error)) {
-				isTokenInvalid = true;
-				reconnecting = true;
-			}
+
+		const { status, provider: refreshed } = await refreshTokenExpiration(provider);
+		provider = refreshed;
+
+		// `unreachable` leaves the flag as the worker last set it — only GitHub's own 401 clears or sets it.
+		if (status === 'unreachable') return;
+
+		isTokenInvalid = status === 'invalid';
+		if (isTokenInvalid) {
+			reconnecting = true;
 		}
 	}
 
@@ -206,31 +202,21 @@
 	async function validateAndSaveToken() {
 		tokenError = '';
 		tokenSuccess = '';
-
-		if (!token.trim()) {
-			tokenError = 'Please enter a token';
-			return;
-		}
-
-		if (!isValidTokenFormat(token.trim())) {
-			tokenError = 'Invalid token format. Use a valid GitHub personal access token.';
-			return;
-		}
-
 		validatingToken = true;
 
 		try {
-			provider = await connectGithubToken(token.trim());
-			await storage.setProvider(provider);
-			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
+			const result = await connectGithubToken(token);
+			if (result.status === 'rejected') {
+				tokenError = result.error;
+				return;
+			}
+
+			provider = await commitProvider(result.provider);
 			tokenSuccess = `Connected as ${provider.user?.name || provider.user?.login}`;
 			reconnecting = false;
 			isTokenInvalid = false;
 			token = '';
 			flashSaved();
-		} catch (error) {
-			console.error('Token validation failed:', error);
-			tokenError = `Failed: ${error instanceof Error ? error.message : 'Token validation failed.'}`;
 		} finally {
 			validatingToken = false;
 		}

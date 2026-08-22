@@ -9,6 +9,7 @@
 		createDefaultFilters,
 		createDefaultFiltersByTab,
 		createPrView,
+		sameFilters,
 		switchTab,
 	} from '../../../extension/lib/pr-view';
 
@@ -98,6 +99,13 @@
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') fullpage = false;
 	}
+	// The view prunes selections its own option lists no longer offer; take back what it applied.
+	$effect(() => {
+		if (!sameFilters(activeFilters, view.filters)) {
+			activeFilters = view.filters;
+		}
+	});
+
 	let emptyText = $derived(
 		currentTab === 'myPRs'
 			? `No open pull requests authored by @${username}.`

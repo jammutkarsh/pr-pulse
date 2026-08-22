@@ -181,10 +181,6 @@
     }
 
     function toggleFilterPanel() {
-        if (!hasMeaningfulFilters) {
-            return;
-        }
-
         isFilterOpen = !isFilterOpen;
     }
 
@@ -350,11 +346,10 @@
             },
         ];
     });
-    let hasMeaningfulFilters = true; // Always true because Draft filter is always available
     let activeFilterCount = $derived(countActiveFilters(activeFilters, isToReviewTab ? 'toReview' : 'myPRs'));
     let hasActiveFilters = $derived(activeFilterCount > 0);
     let layout = $derived(fullpageMode ? LAYOUT.full : LAYOUT.compact);
-    let filterButtonLabel = $derived(hasMeaningfulFilters ? 'Toggle filters' : 'No additional filters available');
+    const filterButtonLabel = 'Toggle filters';
     let draftFilterLabel = $derived(
         activeFilters.drafts === 'only' ? 'Only drafts' :
         activeFilters.drafts === 'include' ? 'Included' :
@@ -393,27 +388,6 @@
 
     $effect(() => {
         syncSearchSurfaceState(isSearchOpen);
-    });
-
-    // A selection that is no longer selectable — its section hidden, or the option gone from the
-    // other filters' results — is dropped, or it would narrow the list with nothing on screen to undo.
-    $effect(() => {
-        const pruned: Record<CheckboxAxis, string[]> = { authors: [], owners: [], repos: [] };
-        let changed = false;
-
-        for (const filterSection of filterSections) {
-            const selected = activeFilters[filterSection.key];
-            pruned[filterSection.key] = filterSection.show ? selected.filter((id) => filterSection.availableSet.has(id)) : [];
-            changed ||= pruned[filterSection.key].length !== selected.length;
-        }
-
-        if (changed) {
-            activeFilters = { ...activeFilters, ...pruned };
-        }
-
-        if (!hasMeaningfulFilters && isFilterOpen) {
-            isFilterOpen = false;
-        }
     });
 
     // A section that no longer offers a search box must not keep filtering by a stale query.
@@ -494,7 +468,6 @@
                     size="icon"
                     variant="ghost"
                     onclick={toggleFilterPanel}
-                    disabled={!hasMeaningfulFilters}
                     aria-label={filterButtonLabel}
                     title={filterButtonLabel}
                 >
@@ -514,7 +487,7 @@
                 {/if}
             </div>
 
-        {#if isFilterOpen && hasMeaningfulFilters}
+        {#if isFilterOpen}
             {#if hasVisibleChips}
                 <div class="flex items-center gap-3">
                     <div class="min-w-0 flex-1 overflow-x-auto scroll-thin">

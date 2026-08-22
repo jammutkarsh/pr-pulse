@@ -154,7 +154,6 @@ export type RuntimeMessage =
 	| { type: 'GET_PRS' }
 	/** Storage is already written by the sender; this only tells the worker which keys moved. */
 	| { type: 'SETTINGS_CHANGED'; settings: Partial<Settings> }
-	| { type: 'UPDATE_BADGE_COUNT'; count: number }
 	| { type: 'CLEAR_ALL' };
 
 export interface ProviderErrorDetails {

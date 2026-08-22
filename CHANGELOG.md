@@ -2,6 +2,10 @@
 
 All notable changes to PR Pulse are documented in this file.
 
+## [2.1.0] – 2026-08-22
+
+- **Code Quality & Architecture**: Extracted the popup's non-visual state (bootstrap order, filter restore/commit, new-PR counting) into a testable `popup-session` module, so the popup shell only owns surface UI state. Unified token intake across onboarding and settings in `github-connect` — one validation path, one commit order (`connectGithubToken` + `commitProvider`) — and split token-expiry refresh into its own `refreshTokenExpiration` path so a failed refresh no longer looks like a failed connection. Badge count now syncs through a storage watcher in the service worker instead of the popup pushing `UPDATE_BADGE_COUNT` messages. Added test suites for popup-session, pr-view, storage, and jira. No user-facing change.
+
 ## [2.0.0] – 2026-08-21
 
 - **GraphQL Migration**: Migrated GitHub data fetching from REST API to GraphQL. A refresh now costs 4 requests at most instead of up to ~280, and each view's query is sized to a cheap count probe rather than a fixed page size.

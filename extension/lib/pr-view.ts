@@ -34,6 +34,8 @@ export interface PrView {
 	items: PullRequest[];
 	options: PrViewOptions;
 	filterCount: number;
+	/** The filters that were actually applied: the caller's, minus selections nothing can match. */
+	filters: PopupFilters;
 }
 
 const DEFAULT_FILTERS: Readonly<PopupFilters> = Object.freeze({
@@ -62,6 +64,22 @@ export function cloneFilters(filters: PopupFilters): PopupFilters {
 		drafts: filters.drafts,
 		showReviewed: filters.showReviewed,
 	};
+}
+
+function sameList(left: string[], right: string[]): boolean {
+	return left.length === right.length && left.every((entry, index) => entry === right[index]);
+}
+
+/** Whether two filter sets would produce the same view. Callers use it to skip redundant writes. */
+export function sameFilters(left: PopupFilters, right: PopupFilters): boolean {
+	return (
+		left.ageRange === right.ageRange &&
+		left.drafts === right.drafts &&
+		left.showReviewed === right.showReviewed &&
+		sameList(left.authors, right.authors) &&
+		sameList(left.owners, right.owners) &&
+		sameList(left.repos, right.repos)
+	);
 }
 
 /**
@@ -187,32 +205,63 @@ export function countActiveFilters(filters: PopupFilters, tab: PopupTab): number
 	);
 }
 
+/**
+ * An option list is built from the *other* axes' filters, so anything missing from `available` is a
+ * choice the rest of the filter set has already ruled out — selecting it can only ever match nothing.
+ * Dropping those here, rather than in the surface that draws the checkboxes, is what stops a stale
+ * selection from emptying the list with no visible row left to untick.
+ */
+function keepSelectable<T>(selected: string[], available: T[], idOf: (option: T) => string): string[] {
+	if (selected.length === 0) {
+		return selected;
+	}
+
+	const ids = new Set(available.map(idOf));
+	const kept = selected.filter((id) => ids.has(id));
+	return kept.length === selected.length ? selected : kept;
+}
+
 export function createPrView(items: PullRequest[], filters: PopupFilters, query: string, tab: PopupTab): PrView {
 	const isToReview = tab === 'toReview';
 	// Drafts are decided first: every option list is drawn from what the draft filter leaves behind.
 	const pool = applyFilters(items, { drafts: filters.drafts });
 	const { authors, owners, repos } = filters;
-	const showReviewed = isToReview ? filters.showReviewed : undefined;
 
-	const filtered = applyFilters(pool, { authors, owners, repos, showReviewed });
+	const options: PrViewOptions = {
+		authors: {
+			all: getAuthorsFromItems(pool, isToReview),
+			available: getAuthorsFromItems(applyFilters(pool, { owners, repos }), isToReview),
+		},
+		owners: {
+			all: getOwnersFromItems(pool),
+			available: getOwnersFromItems(applyFilters(pool, { authors, repos })),
+		},
+		repos: {
+			all: getReposFromItems(pool),
+			available: getReposFromItems(applyFilters(pool, { authors, owners })),
+		},
+	};
+
+	const applied: PopupFilters = {
+		...filters,
+		authors: keepSelectable(authors, options.authors.available, (author) => author.login),
+		owners: keepSelectable(owners, options.owners.available, (owner) => owner.login),
+		repos: keepSelectable(repos, options.repos.available, (repo) => repo.fullName),
+	};
+
+	const showReviewed = isToReview ? applied.showReviewed : undefined;
+	const filtered = applyFilters(pool, {
+		authors: applied.authors,
+		owners: applied.owners,
+		repos: applied.repos,
+		showReviewed,
+	});
 
 	return {
 		items: query.trim() ? searchItems(filtered, query) : filtered,
-		options: {
-			authors: {
-				all: getAuthorsFromItems(pool, isToReview),
-				available: getAuthorsFromItems(applyFilters(pool, { owners, repos }), isToReview),
-			},
-			owners: {
-				all: getOwnersFromItems(pool),
-				available: getOwnersFromItems(applyFilters(pool, { authors, repos })),
-			},
-			repos: {
-				all: getReposFromItems(pool),
-				available: getReposFromItems(applyFilters(pool, { authors, owners })),
-			},
-		},
-		filterCount: countActiveFilters(filters, tab),
+		options,
+		filterCount: countActiveFilters(applied, tab),
+		filters: applied,
 	};
 }
 

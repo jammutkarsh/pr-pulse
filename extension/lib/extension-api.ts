@@ -6,9 +6,6 @@ type AsyncLike<T> = T | Promise<T>;
 
 const extensionBrowser = browser;
 
-/** False when this code runs outside an extension (the website demo), where storage APIs are absent. */
-export const isExtensionRuntime = typeof chrome !== 'undefined';
-
 export type StorageChangeMap = Record<string, browser.Storage.StorageChange>;
 export type StorageOnChangedListener = Parameters<typeof extensionBrowser.storage.onChanged.addListener>[0];
 export type RuntimeOnInstalledListener = Parameters<typeof extensionBrowser.runtime.onInstalled.addListener>[0];
@@ -127,13 +124,10 @@ function wrapListener<TArgs extends unknown[], TResult>(context: string, listene
 	};
 }
 
+/** Callers unsubscribe with the returned handle, so nobody has to hold on to the listener itself. */
 export function storageOnChangedAddListener(listener: StorageOnChangedListener): Unsubscribe {
 	extensionBrowser.storage.onChanged.addListener(listener);
-	return () => storageOnChangedRemoveListener(listener);
-}
-
-export function storageOnChangedRemoveListener(listener: StorageOnChangedListener): void {
-	extensionBrowser.storage.onChanged.removeListener(listener);
+	return () => extensionBrowser.storage.onChanged.removeListener(listener);
 }
 
 export function runtimeOnInstalledAddListener(listener: RuntimeOnInstalledListener): void {

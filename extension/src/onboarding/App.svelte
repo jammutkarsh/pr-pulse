@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { runtimeGetURL, runtimeSendMessage, storageOnChangedAddListener, storageOnChangedRemoveListener, type StorageChangeMap } from '../../lib/extension-api';
+	import { runtimeGetURL, storageOnChangedAddListener, type StorageChangeMap } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
-	import { isValidHttpUrl, isValidTokenFormat } from '../../lib/utils';
+	import { isValidHttpUrl } from '../../lib/utils';
 	import { sanitizeJiraUrl } from '../../lib/jira';
-	import { connectGithubToken } from '../../lib/github-connect';
+	import { commitProvider, connectGithubToken } from '../../lib/github-connect';
 	import GithubStep from './steps/GithubStep.svelte';
 	import DefaultViewStep from './steps/DefaultViewStep.svelte';
 	import JiraStep from './steps/JiraStep.svelte';
@@ -73,24 +73,16 @@
 
 	async function testConnection() {
 		errorMessage = '';
-		const normalizedToken = token.trim();
-
-		if (!normalizedToken) {
-			errorMessage = 'Please enter a personal access token.';
-			return;
-		}
-
-		if (!isValidTokenFormat(normalizedToken)) {
-			errorMessage = 'Invalid token format. Use a valid GitHub personal access token.';
-			return;
-		}
-
 		testingConnection = true;
+
 		try {
-			providerData = await connectGithubToken(normalizedToken);
-		} catch (error) {
-			console.error('Failed to authenticate token:', error);
-			errorMessage = error instanceof Error ? error.message : 'Failed to connect. Check your token and try again.';
+			const result = await connectGithubToken(token);
+			if (result.status === 'connected') {
+				providerData = result.provider;
+				return;
+			}
+
+			errorMessage = result.error;
 		} finally {
 			testingConnection = false;
 		}
@@ -129,26 +121,25 @@
 		errorMessage = '';
 
 		try {
-			await storage.setProvider(providerData);
+			// Settings first: the worker reads them the moment the provider commit wakes it.
 			await storage.setSettings(settings);
 
 			// Listen for the PR data write triggered by the service worker
 			const prSyncPromise = new Promise<number>((resolve) => {
-				function onChanged(changes: StorageChangeMap, areaName: string) {
+				const unsubscribe = storageOnChangedAddListener((changes: StorageChangeMap, areaName: string) => {
 					if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
-					storageOnChangedRemoveListener(onChanged);
+					unsubscribe();
 					const data = changes.pullRequests.newValue as PullRequestData;
 					resolve((data.myPRs?.length || 0) + (data.reviewRequests?.length || 0));
-				}
-				storageOnChangedAddListener(onChanged);
+				});
 				// Timeout fallback in case no PRs are fetched
 				setTimeout(() => {
-					storageOnChangedRemoveListener(onChanged);
+					unsubscribe();
 					resolve(0);
 				}, 15000);
 			});
 
-			await runtimeSendMessage({ type: 'PROVIDER_CONFIGURED' });
+			await commitProvider(providerData);
 			syncedPrCount = await prSyncPromise;
 			currentStep = STEP_COMPLETE;
 		} catch (error) {

@@ -1,30 +1,22 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import PopupHeader from './PopupHeader.svelte';
 	import PrCard from './PrCard.svelte';
 	import PopupStates from './PopupStates.svelte';
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
 	import {
-		isExtensionRuntime,
 		runtimeGetURL,
 		storageOnChangedAddListener,
-		storageOnChangedRemoveListener,
 		runtimeSendMessage,
 		tabsCreate,
 		type StorageChangeMap,
+		type Unsubscribe,
 	} from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
-	import type { FiltersByTab, PopupFilters, PopupTab, PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
-	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
-	import {
-		badgeCount,
-		cloneFilters,
-		createDefaultFilters,
-		createDefaultFiltersByTab,
-		createPrView,
-		switchTab,
-	} from '../../lib/pr-view';
+	import type { PopupFilters, PopupTab, PullRequestData, Settings } from '../../lib/types';
+	import { createPopupSession, type PopupState } from '../../lib/popup-session';
+	import { createDefaultFilters, createPrView, sameFilters } from '../../lib/pr-view';
 	import {
 		copyToClipboard,
 		formatRelativeTime,
@@ -33,56 +25,51 @@
 
 	type PopupBootstrapData = Awaited<ReturnType<typeof storage.getBootstrapData>>;
 
-	const tokenExpired = 'Token expired or revoked; Connect a new one.';
-
 	interface Props {
 		bootstrapDataPromise?: Promise<PopupBootstrapData> | null;
 	}
 
 	let { bootstrapDataPromise = null }: Props = $props();
 
-	let currentTab = $state<Settings['pinnedTab']>('myPRs');
-	let prData = $state<PullRequestData>({ myPRs: [], reviewRequests: [], lastFetched: null });
-	let settings = $state<Settings>(DEFAULT_SETTINGS);
-	let provider = $state<StoredProviderConfig | undefined>(undefined);
+	// One read, shared: the session bootstraps from it and the display-mode check reads it first.
+	const bootstrapPromise = untrack(() => bootstrapDataPromise) ?? storage.getBootstrapData();
+	const session = createPopupSession({ storage, sendMessage: runtimeSendMessage, bootstrap: bootstrapPromise });
+
+	let popup = $state<PopupState>(session.getState());
+	let unsubscribeSession: Unsubscribe | null = null;
+	let unsubscribeStorage: Unsubscribe | null = null;
+
+	// Everything below is the popup's own surface state: what is open, what just got copied, what the
+	// toast says. The session owns the rest.
 	let isFullpageMode = $state(false);
-	let loading = $state(true);
-	let setupRequired = $state(false);
-	let errorMessage = $state('');
 	let refreshInProgress = $state(false);
 	let copiedItemId = $state<string | null>(null);
 	let toastMessage = $state('');
 	let toastType = $state<'info' | 'warning' | 'error' | 'success'>('info');
 	let toastVisible = $state(false);
-	let viewedPrIds = new Set<string>();
-	let newPrCount = $state(0);
 	let isSearchOpen = $state(false);
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
 	let activeFilters = $state<PopupFilters>(createDefaultFilters());
-	let filtersByTab = $state<FiltersByTab>(createDefaultFiltersByTab());
-	let filterPersistenceReady = $state(false);
 
 	onMount(() => {
+		unsubscribeSession = session.subscribe((next) => {
+			popup = next;
+		});
 		void init();
 	});
 
 	onDestroy(() => {
-		storageOnChangedRemoveListener(onStorageChanged);
+		unsubscribeStorage?.();
+		unsubscribeSession?.();
 	});
 
 	function onStorageChanged(changes: StorageChangeMap, areaName: string) {
 		if (areaName !== 'local' || !changes.pullRequests?.newValue) return;
-		const newData = changes.pullRequests.newValue as PullRequestData;
-		prData = newData;
-
-		if (viewedPrIds.size > 0) {
-			const allNewIds = [...(newData.myPRs || []), ...(newData.reviewRequests || [])].map((pr) => pr.id);
-			newPrCount = allNewIds.filter((id) => !viewedPrIds.has(id)).length;
-		}
+		session.applyPullRequests(changes.pullRequests.newValue as PullRequestData);
 	}
 
-	async function initDisplayMode(bootstrapSettings: Settings): Promise<boolean> {
+	async function redirectToFullpage(bootstrapSettings: Settings): Promise<boolean> {
 		isFullpageMode = new URLSearchParams(window.location.search).has('fullpage');
 
 		if (bootstrapSettings.displayMode === 'fullpage' && !isFullpageMode) {
@@ -94,85 +81,28 @@
 		return false;
 	}
 
-	async function initDataAndFilters(bootstrapData: PopupBootstrapData) {
-		provider = bootstrapData.provider;
-		setupRequired = !(provider && provider.user && provider.token);
-		currentTab = settings.pinnedTab || 'myPRs';
-
-		if (provider?.isTokenInvalid) {
-			errorMessage = tokenExpired;
-		}
-
-		if (setupRequired) {
-			prData = { myPRs: [], reviewRequests: [], lastFetched: null };
-			filtersByTab = createDefaultFiltersByTab();
-			activeFilters = createDefaultFilters();
-			return;
-		}
-
-		prData = bootstrapData.pullRequests;
-		const allPrs = [...(prData.myPRs || []), ...(prData.reviewRequests || [])];
-		viewedPrIds = new Set(allPrs.map((pr) => pr.id));
-
-		if (settings.persistFilters) {
-			filtersByTab = await storage.getFilters(currentTab);
-			activeFilters = cloneFilters(filtersByTab[currentTab]);
-		} else {
-			await storage.clearFilters();
-		}
-	}
-
 	async function init() {
-		filterPersistenceReady = false;
-		const bootstrapData = bootstrapDataPromise ? await bootstrapDataPromise : await storage.getBootstrapData();
-		settings = bootstrapData.settings;
+		const { settings: bootstrapSettings } = await bootstrapPromise;
+		if (await redirectToFullpage(bootstrapSettings)) return;
 
-		const redirected = await initDisplayMode(settings);
-		if (redirected) return;
-
-		await initDataAndFilters(bootstrapData);
-		filterPersistenceReady = true;
-		loading = false;
-		storageOnChangedAddListener(onStorageChanged);
-	}
-
-	async function loadPrData() {
-		loading = true;
-		errorMessage = '';
-
-		try {
-			prData = await storage.getPullRequests();
-		} catch (error) {
-			console.error('Failed to load pull requests:', error);
-			errorMessage = 'Failed to load pull requests';
-		} finally {
-			loading = false;
-		}
+		await session.open();
+		activeFilters = popup.filters;
+		unsubscribeStorage = storageOnChangedAddListener(onStorageChanged);
 	}
 
 	async function refreshPrs() {
-		if (setupRequired) {
-			showToast('Setup required before refreshing PRs', 'warning');
+		refreshInProgress = true;
+		const result = await session.refresh();
+		refreshInProgress = false;
+
+		if (result.ok) {
+			showToast(result.message, 'success');
 			return;
 		}
 
-		refreshInProgress = true;
-		try {
-			const response = await runtimeSendMessage<{ success?: boolean; error?: string }>({ type: 'REFRESH_PRS' });
-			if (response && response.success === false) {
-				if (response.error === 'TOKEN_INVALID') {
-					errorMessage = tokenExpired;
-					return;
-				}
-				throw new Error(response.error);
-			}
-			await loadPrData();
-			showToast('PR data refreshed', 'success');
-		} catch (error) {
-			console.error('Failed to refresh PRs:', error);
-			showToast('Failed to refresh PRs', 'error');
-		} finally {
-			refreshInProgress = false;
+		// A dead token is already on screen as the error banner; a toast would say it twice.
+		if (result.message !== popup.errorMessage) {
+			showToast(result.message, popup.setupRequired ? 'warning' : 'error');
 		}
 	}
 
@@ -212,7 +142,7 @@
 	function toggleSearch() {
 		if (!isSearchOpen) {
 			isSearchOpen = true;
-			isFilterOpen = hasMeaningfulFilters;
+			isFilterOpen = true;
 			return;
 		}
 
@@ -221,14 +151,8 @@
 	}
 
 	function handleTabChange(tab: PopupTab) {
-		if (tab === currentTab) {
-			return;
-		}
-
-		const switched = switchTab(filtersByTab, currentTab, activeFilters, tab);
-		filtersByTab = switched.stash;
-		activeFilters = switched.filters;
-		currentTab = tab;
+		session.setTab(tab);
+		activeFilters = popup.filters;
 		isFilterOpen = false;
 	}
 
@@ -250,6 +174,15 @@
 		}, 1000);
 	}
 
+	let loading = $derived(popup.loading);
+	let setupRequired = $derived(popup.setupRequired);
+	let errorMessage = $derived(popup.errorMessage);
+	let provider = $derived(popup.provider);
+	let settings = $derived(popup.settings);
+	let currentTab = $derived(popup.tab);
+	let prData = $derived(popup.pullRequests);
+	let newPrCount = $derived(popup.newPrCount);
+
 	let currentItems = $derived(currentTab === 'myPRs' ? prData.myPRs || [] : prData.reviewRequests || []);
 	let myPrCount = $derived(prData.myPRs?.length || 0);
 	let reviewCount = $derived(prData.reviewRequests?.length || 0);
@@ -262,42 +195,16 @@
 	let filterActive = $derived(filterCount > 0);
 	let showSearchControls = $derived(!loading && !setupRequired && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired);
-	let hasMeaningfulFilters = true; // Always true because Draft filter is always available
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 
+	// The view decides which selections still mean something; this takes back what it applied and
+	// hands it to the session, which is what puts filters on disk for the badge to read.
 	$effect(() => {
-		if (!filterPersistenceReady || !isExtensionRuntime) {
-			return;
+		if (!sameFilters(activeFilters, view.filters)) {
+			activeFilters = view.filters;
 		}
 
-		if (settings.persistFilters) {
-			const nextFiltersByTab = {
-				...filtersByTab,
-				[currentTab]: cloneFilters(activeFilters),
-			};
-			void storage.setFilters(nextFiltersByTab).catch((error) => {
-				console.error('Failed to persist filter state:', error);
-			});
-			return;
-		}
-
-		void storage.clearFilters().catch((error) => {
-			console.error('Failed to clear persisted filter state:', error);
-		});
-	});
-
-	// The popup's filters may never reach disk, so the worker cannot always compute this itself.
-	// The rule is still badgeCount()'s — this only supplies the in-memory filters as the input.
-	let liveFilters = $derived({ ...filtersByTab, [currentTab]: activeFilters } as FiltersByTab);
-
-	$effect(() => {
-		if (settings.badgeCountMode !== 'filters') {
-			return;
-		}
-
-		void runtimeSendMessage({ type: 'UPDATE_BADGE_COUNT', count: badgeCount(prData, settings, liveFilters) }).catch((error) => {
-			console.error('Failed to update badge count:', error);
-		});
+		session.setFilters(view.filters);
 	});
 </script>
 
@@ -350,7 +257,7 @@
 						{errorMessage}
 						{currentTab}
 						onOpenSetup={openSetup}
-						onRetry={loadPrData}
+						onRetry={() => session.reload()}
 					/>
 				{:else}
 					{#if errorMessage}
