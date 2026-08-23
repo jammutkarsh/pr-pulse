@@ -10,6 +10,7 @@ import {
 	notificationsCreate,
 	notificationsOnButtonClickedAddListener,
 	notificationsOnClickedAddListener,
+	permissionsOnAddedAddListener,
 	runtimeGetURL,
 	runtimeOnInstalledAddListener,
 	runtimeOnMessageAddListener,
@@ -119,17 +120,27 @@ function openFromNotificationId(id: string): void {
 	void notificationsClear(id);
 }
 
-notificationsOnClickedAddListener(openFromNotificationId);
+/**
+ * `notifications` is optional, so at worker load the namespace may not exist yet and both calls are
+ * no-ops. Granting it from the popup fires `permissions.onAdded`, which is the only chance to wire
+ * clicks up without waiting for the next worker start.
+ */
+function registerNotificationListeners(): void {
+	notificationsOnClickedAddListener(openFromNotificationId);
 
-notificationsOnButtonClickedAddListener((id, buttonIndex) => {
-	// Button 1 is Dismiss. Clearing is the whole action.
-	if (buttonIndex === 1) {
-		void notificationsClear(id);
-		return;
-	}
+	notificationsOnButtonClickedAddListener((id, buttonIndex) => {
+		// Button 1 is Dismiss. Clearing is the whole action.
+		if (buttonIndex === 1) {
+			void notificationsClear(id);
+			return;
+		}
 
-	openFromNotificationId(id);
-});
+		openFromNotificationId(id);
+	});
+}
+
+registerNotificationListeners();
+permissionsOnAddedAddListener(registerNotificationListeners);
 
 async function updateBadge(count: number): Promise<void> {
 	const text = count > 0 ? String(count) : '';
@@ -243,6 +254,14 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 };
+
+// Test hatch. Paste `prPulseNotify()` into the service worker console to fire one through the real
+// path — permission, icon, buttons and the click-to-open id are all exercised. The diff rules that
+// decide *when* to fire are covered by pr-notify.test.ts instead; this only proves the plumbing.
+Object.assign(globalThis, {
+	prPulseNotify: (title = 'PR Pulse', message = 'Notifications are working') =>
+		notificationsCreate(`test|${DASHBOARD_URL}`, { title, message, action: 'Open PR Pulse' }),
+});
 
 async function handleMessage(message: RuntimeMessage): Promise<unknown> {
 	const handler = messageHandlers[message.type];

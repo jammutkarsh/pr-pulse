@@ -13,6 +13,7 @@ export type RuntimeOnStartupListener = Parameters<typeof extensionBrowser.runtim
 export type RuntimeOnMessageListener = (message: unknown, sender: browser.Runtime.MessageSender) => void | Promise<unknown>;
 export type AlarmsOnAlarmListener = Parameters<typeof extensionBrowser.alarms.onAlarm.addListener>[0];
 export type Unsubscribe = () => void;
+export type OptionalPermission = browser.Manifest.OptionalPermission;
 
 function toPlainData<T>(value: T): T {
 	return normalizeCloneableValue(value, new WeakMap()) as T;
@@ -89,11 +90,16 @@ export function storageLocalClear(): Promise<void> {
 	return extensionBrowser.storage.local.clear();
 }
 
+/** What to call the browser when telling someone to go unmute it in their OS settings. */
+export const BROWSER_LABEL = __BROWSER_TARGET__ === 'firefox' ? 'Firefox' : 'Chrome';
+
 export interface NotificationContent {
 	title: string;
 	message: string;
 	/** Button 0's label. Button 1 is always Dismiss. Chrome only — Firefox draws no buttons. */
 	action: string;
+	/** A dimmed third line, Chrome only. Dropped on Firefox rather than folded into the message. */
+	detail?: string;
 }
 
 /**
@@ -115,6 +121,7 @@ export function notificationsCreate(id: string, content: NotificationContent): P
 
 	return extensionBrowser.notifications.create(id, {
 		...options,
+		...(content.detail ? { contextMessage: content.detail } : {}),
 		buttons: [{ title: content.action }, { title: 'Dismiss' }],
 		requireInteraction: true,
 	} as browser.Notifications.CreateNotificationOptions);
@@ -124,18 +131,33 @@ export function notificationsClear(id: string): Promise<boolean> {
 	return extensionBrowser.notifications.clear(id);
 }
 
+/**
+ * `notifications` is optional, so the whole namespace is undefined until it is granted — reading
+ * `.onClicked` off it would throw at worker load and take every other listener down with it. Same
+ * guard covers Firefox, which has no `onButtonClicked` at all.
+ */
 export function notificationsOnClickedAddListener(listener: (notificationId: string) => void): void {
-	extensionBrowser.notifications.onClicked.addListener(wrapListener('notifications.onClicked', listener));
+	extensionBrowser.notifications?.onClicked?.addListener(wrapListener('notifications.onClicked', listener));
 }
 
-/** Firefox has no `onButtonClicked`; the guard is what keeps the worker from throwing on load there. */
 export function notificationsOnButtonClickedAddListener(listener: (notificationId: string, buttonIndex: number) => void): void {
-	const event = extensionBrowser.notifications.onButtonClicked;
-	if (!event) {
-		return;
-	}
+	extensionBrowser.notifications?.onButtonClicked?.addListener(wrapListener('notifications.onButtonClicked', listener));
+}
 
-	event.addListener(wrapListener('notifications.onButtonClicked', listener));
+export function permissionsContains(permissions: OptionalPermission[]): Promise<boolean> {
+	return extensionBrowser.permissions.contains({ permissions });
+}
+
+/**
+ * Must be called straight out of a click handler: both browsers reject a request that has lost the
+ * user gesture, and awaiting anything first is enough to lose it.
+ */
+export function permissionsRequest(permissions: OptionalPermission[]): Promise<boolean> {
+	return extensionBrowser.permissions.request({ permissions });
+}
+
+export function permissionsOnAddedAddListener(listener: () => void): void {
+	extensionBrowser.permissions.onAdded.addListener(wrapListener('permissions.onAdded', listener));
 }
 
 export function alarmsGet(name: string): Promise<browser.Alarms.Alarm | undefined> {

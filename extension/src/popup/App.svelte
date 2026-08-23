@@ -5,11 +5,13 @@
 	import PopupStates from './PopupStates.svelte';
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import NotificationTest from '../lib/components/NotificationTest.svelte';
 	import {
 		runtimeGetURL,
 		storageOnChangedAddListener,
 		runtimeSendMessage,
 		tabsCreate,
+		permissionsRequest,
 		type StorageChangeMap,
 		type Unsubscribe,
 	} from '../../lib/extension-api';
@@ -33,7 +35,12 @@
 
 	// One read, shared: the session bootstraps from it and the display-mode check reads it first.
 	const bootstrapPromise = untrack(() => bootstrapDataPromise) ?? storage.getBootstrapData();
-	const session = createPopupSession({ storage, sendMessage: runtimeSendMessage, bootstrap: bootstrapPromise });
+	const session = createPopupSession({
+		storage,
+		sendMessage: runtimeSendMessage,
+		bootstrap: bootstrapPromise,
+		requestNotificationPermission: () => permissionsRequest(['notifications']),
+	});
 
 	let popup = $state<PopupState>(session.getState());
 	let unsubscribeSession: Unsubscribe | null = null;
@@ -51,6 +58,8 @@
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
 	let activeFilters = $state<PopupFilters>(createDefaultFilters());
+	// Only for the rest of this popup session: somewhere to offer the test before the row goes away.
+	let justEnabled = $state(false);
 	onMount(() => {
 		unsubscribeSession = session.subscribe((next) => {
 			popup = next;
@@ -136,6 +145,12 @@
 
 	function openFullscreen() {
 		void tabsCreate({ url: runtimeGetURL('popup/popup.html?fullpage=1') });
+	}
+
+	async function enableNotifications() {
+		// No await before this line: the permission request needs the click's user gesture.
+		justEnabled = await session.setNotifications(true);
+		showToast(justEnabled ? 'Notifications on' : 'Notifications stay off', justEnabled ? 'success' : 'info');
 	}
 
 	function toggleSearch() {
@@ -235,11 +250,15 @@
 
 			{#if askNotifications}
 				<div class="flex items-center justify-between gap-3 border-b border-soft px-4 py-2.5">
-					<span class="text-sm desc">Get notified when a PR needs you?</span>
+					<p class="text-sm desc">Get notified when a PR needs you?</p>
 					<div class="flex shrink-0 items-center gap-3 text-xs font-medium">
-						<button class="text-(--accent) hover:underline" onclick={() => void session.setNotifications(true)}>Enable</button>
+						<button class="text-(--accent) hover:underline" onclick={enableNotifications}>Enable</button>
 						<button class="text-soft hover:underline" onclick={() => void session.setNotifications(false)}>Not now</button>
 					</div>
+				</div>
+			{:else if justEnabled}
+				<div class="border-b border-soft px-4 py-2.5">
+					<NotificationTest />
 				</div>
 			{/if}
 

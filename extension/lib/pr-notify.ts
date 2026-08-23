@@ -24,6 +24,8 @@ export interface NotifySpec {
 	message: string;
 	/** Label for button 0. Button 1 is always Dismiss, added by the caller. */
 	action: string;
+	/** The dimmed third line: how big the PR is. Absent on grouped notifications, which span several. */
+	detail?: string;
 	url: string;
 }
 
@@ -34,6 +36,14 @@ interface Event {
 	message: string;
 	action: string;
 	url: string;
+}
+
+/** How big the change is, in the shape a diff is usually read: `+30 −40 · 3 files`. */
+function sizeOf(pr: PullRequest): string {
+	const { additions, deletions, filesChanged } = pr.changes;
+	const files = filesChanged ? ` · ${filesChanged} file${filesChanged === 1 ? '' : 's'}` : '';
+
+	return `+${additions} −${deletions}${files}`;
 }
 
 function byId(items: PullRequest[] | undefined): Map<string, PullRequest> {
@@ -248,6 +258,14 @@ export function notificationsFor(previous: PullRequestData, next: PrSourceResult
 		}
 
 		const [event] = bucket;
-		return { kind, id: `${kind}|${event.url}`, title: event.title, message: event.message, action: event.action, url: event.url };
+		return {
+			kind,
+			id: `${kind}|${event.url}`,
+			title: event.title,
+			message: event.message,
+			action: event.action,
+			detail: sizeOf(event.pr),
+			url: event.url,
+		};
 	});
 }

@@ -167,6 +167,20 @@ async function testNotificationAnswerSticks(): Promise<void> {
 	assert.equal((await storage.getSettings()).notificationsEnabled, false);
 }
 
+/** Declining the browser's own permission prompt has to land as off, not as an on setting that cannot fire. */
+async function testDeclinedPermissionStoresOff(): Promise<void> {
+	const storage = createStorage(createMemoryStore({ provider: connectedProvider, settings: {} }));
+	const session = createPopupSession({
+		storage,
+		sendMessage: async () => ({ success: true }),
+		requestNotificationPermission: async () => false,
+	});
+	await session.open();
+
+	assert.equal(await session.setNotifications(true), false);
+	assert.equal((await storage.getSettings()).notificationsEnabled, false);
+}
+
 async function testRefreshBlockedBeforeSetup(): Promise<void> {
 	const { session, sent } = sessionOver({});
 	await session.open();
@@ -184,5 +198,6 @@ await testTabSwitchStashesFilters();
 await testNewPrCount();
 await testRefreshSurfacesDeadToken();
 await testNotificationAnswerSticks();
+await testDeclinedPermissionStoresOff();
 await testRefreshBlockedBeforeSetup();
 console.log('popup-session: all checks passed');

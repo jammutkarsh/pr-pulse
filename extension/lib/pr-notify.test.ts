@@ -39,6 +39,20 @@ function requested(id: string, overrides: Partial<PullRequest> = {}): PullReques
 	return pr({ id, reviews: { status: 'pending', reviewers: [], pendingReviewers: ['me'] }, ...overrides });
 }
 
+/** The third line Chrome draws under the message: how big the PR is, not which PR it is. */
+function testDiffSizeRidesAlong(): void {
+	const requestedPr = requested('1', { changes: { additions: 30, deletions: 40, filesChanged: 3 } });
+
+	assert.equal(notificationsFor(data(), data({ reviewRequests: [requestedPr] }), 'me')[0].detail, '+30 −40 · 3 files');
+
+	const singleFile = requested('2', { changes: { additions: 1, deletions: 0, filesChanged: 1 } });
+	assert.equal(notificationsFor(data(), data({ reviewRequests: [singleFile] }), 'me')[0].detail, '+1 −0 · 1 file');
+
+	// A group spans several PRs, so there is no one size to report.
+	const many = ['3', '4'].map((id) => requested(id));
+	assert.equal(notificationsFor(data(), data({ reviewRequests: many }), 'me')[0].detail, undefined);
+}
+
 function testFirstRunIsSilent(): void {
 	const next = data({ reviewRequests: [requested('1')], myPRs: [pr({ id: '2' })] });
 
@@ -150,6 +164,7 @@ function testIdCarriesTheClickTarget(): void {
 }
 
 testFirstRunIsSilent();
+testDiffSizeRidesAlong();
 testReviewRequestNeedsAnOutstandingAsk();
 testReviewRequestWording();
 testGroupingCollapsesOneKind();
