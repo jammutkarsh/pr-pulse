@@ -51,7 +51,6 @@
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
 	let activeFilters = $state<PopupFilters>(createDefaultFilters());
-
 	onMount(() => {
 		unsubscribeSession = session.subscribe((next) => {
 			popup = next;
@@ -195,6 +194,7 @@
 	let filterActive = $derived(filterCount > 0);
 	let showSearchControls = $derived(!loading && !setupRequired && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired);
+	let askNotifications = $derived(!loading && !setupRequired && settings.notificationsEnabled === null);
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 
 	// The view decides which selections still mean something; this takes back what it applied and
@@ -232,6 +232,16 @@
 				onOpenFullscreen={openFullscreen}
 				onOpenSettings={openSettings}
 			/>
+
+			{#if askNotifications}
+				<div class="flex items-center justify-between gap-3 border-b border-soft px-4 py-2.5">
+					<span class="text-sm desc">Get notified when a PR needs you?</span>
+					<div class="flex shrink-0 items-center gap-3 text-xs font-medium">
+						<button class="text-(--accent) hover:underline" onclick={() => void session.setNotifications(true)}>Enable</button>
+						<button class="text-soft hover:underline" onclick={() => void session.setNotifications(false)}>Not now</button>
+					</div>
+				</div>
+			{/if}
 
 			{#if showSearchControls && isSearchOpen}
 				<div class="border-b border-soft px-2.5 py-1.5 sm:px-2.5">

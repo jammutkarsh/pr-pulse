@@ -354,6 +354,7 @@ export class GitHubProvider implements PrSource {
 		return {
 			id: `github-${pr.id}`,
 			provider: 'github',
+			number: pr.number,
 			title: pr.title,
 			url: pr.url,
 			repoFullName,

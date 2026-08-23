@@ -6,6 +6,10 @@ import {
 	alarmsClear,
 	alarmsCreate,
 	alarmsGet,
+	notificationsClear,
+	notificationsCreate,
+	notificationsOnButtonClickedAddListener,
+	notificationsOnClickedAddListener,
 	runtimeGetURL,
 	runtimeOnInstalledAddListener,
 	runtimeOnMessageAddListener,
@@ -14,8 +18,9 @@ import {
 } from './lib/extension-api';
 import { onFiltersChanged, storage } from './lib/storage';
 import { badgeCount } from './lib/pr-view';
+import { DASHBOARD_URL, notificationsFor } from './lib/pr-notify';
 import { isAuthError } from './lib/errors';
-import type { PrSource, RuntimeMessage } from './lib/types';
+import type { PrSource, PrSourceResult, PullRequestData, RuntimeMessage } from './lib/types';
 
 const ALARM_NAME = 'pr-poll';
 
@@ -57,9 +62,13 @@ async function fetchAndCachePRs(throwError = false): Promise<void> {
 		}
 
 		console.log('Fetching PR data...');
+		// Read before the overwrite: the previous poll's result is still on disk at this instant, which is
+		// the whole reason notifications need no snapshot key of their own.
+		const previous = await storage.getPullRequests();
 		const data = await fetchWithRetry(() => source.getAllPullRequests());
 		await storage.setPullRequests(data);
 		await refreshBadge();
+		await notify(previous, data);
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
 	} catch (error) {
 		console.error('Failed to fetch PR data:', error);
@@ -80,6 +89,47 @@ async function refreshBadge(): Promise<void> {
 	const filters = await storage.getFilters(settings.pinnedTab);
 	await updateBadge(badgeCount(pullRequests, settings, filters));
 }
+
+/**
+ * What changed, said out loud. The decision itself lives in `pr-notify`, which is pure and testable;
+ * this only checks that the user still wants to hear it and hands the specs to the OS.
+ *
+ * Filters are not consulted, by design — see the note at the top of `pr-notify.ts`.
+ */
+async function notify(previous: PullRequestData, next: PrSourceResult): Promise<void> {
+	try {
+		const { settings, provider } = await storage.getBootstrapData();
+		if (!settings.notificationsEnabled) {
+			return;
+		}
+
+		for (const spec of notificationsFor(previous, next, provider?.user?.login || '')) {
+			await notificationsCreate(spec.id, spec);
+		}
+	} catch (error) {
+		// A refresh that fetched fine has already done its job; a notification failure must not undo it.
+		console.error('Failed to send notifications:', error);
+	}
+}
+
+/** The click target rides in the notification id, so an MV3 teardown between firing and clicking loses nothing. */
+function openFromNotificationId(id: string): void {
+	const url = id.slice(id.indexOf('|') + 1);
+	void tabsCreate({ url: url === DASHBOARD_URL ? runtimeGetURL(DASHBOARD_URL) : url });
+	void notificationsClear(id);
+}
+
+notificationsOnClickedAddListener(openFromNotificationId);
+
+notificationsOnButtonClickedAddListener((id, buttonIndex) => {
+	// Button 1 is Dismiss. Clearing is the whole action.
+	if (buttonIndex === 1) {
+		void notificationsClear(id);
+		return;
+	}
+
+	openFromNotificationId(id);
+});
 
 async function updateBadge(count: number): Promise<void> {
 	const text = count > 0 ? String(count) : '';

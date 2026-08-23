@@ -58,7 +58,7 @@ const baseManifest = {
 	name: 'PR Pulse - GitHub Pull Request Dashboard',
 	version: packageVersion,
 	description: 'PR Pulse is a Pull Request dashboard for GitHub, delivered as a browser extension. Say No to Navigation!',
-	permissions: ['storage', 'alarms'],
+	permissions: ['storage', 'alarms', 'notifications'],
 	host_permissions: ['https://api.github.com/*'],
 	action: {
 		default_popup: 'popup/popup.html',

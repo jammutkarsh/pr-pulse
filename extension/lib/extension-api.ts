@@ -89,6 +89,55 @@ export function storageLocalClear(): Promise<void> {
 	return extensionBrowser.storage.local.clear();
 }
 
+export interface NotificationContent {
+	title: string;
+	message: string;
+	/** Button 0's label. Button 1 is always Dismiss. Chrome only — Firefox draws no buttons. */
+	action: string;
+}
+
+/**
+ * `buttons` and `requireInteraction` are Chrome-only, and Firefox's schema validation *rejects* an
+ * unknown property rather than ignoring it — so the options object is built per target rather than
+ * passed through and hoped for.
+ */
+export function notificationsCreate(id: string, content: NotificationContent): Promise<string> {
+	const options = {
+		type: 'basic' as const,
+		iconUrl: runtimeGetURL('icons/icon128.png'),
+		title: content.title,
+		message: content.message,
+	};
+
+	if (__BROWSER_TARGET__ === 'firefox') {
+		return extensionBrowser.notifications.create(id, options);
+	}
+
+	return extensionBrowser.notifications.create(id, {
+		...options,
+		buttons: [{ title: content.action }, { title: 'Dismiss' }],
+		requireInteraction: true,
+	} as browser.Notifications.CreateNotificationOptions);
+}
+
+export function notificationsClear(id: string): Promise<boolean> {
+	return extensionBrowser.notifications.clear(id);
+}
+
+export function notificationsOnClickedAddListener(listener: (notificationId: string) => void): void {
+	extensionBrowser.notifications.onClicked.addListener(wrapListener('notifications.onClicked', listener));
+}
+
+/** Firefox has no `onButtonClicked`; the guard is what keeps the worker from throwing on load there. */
+export function notificationsOnButtonClickedAddListener(listener: (notificationId: string, buttonIndex: number) => void): void {
+	const event = extensionBrowser.notifications.onButtonClicked;
+	if (!event) {
+		return;
+	}
+
+	event.addListener(wrapListener('notifications.onButtonClicked', listener));
+}
+
 export function alarmsGet(name: string): Promise<browser.Alarms.Alarm | undefined> {
 	return extensionBrowser.alarms.get(name);
 }

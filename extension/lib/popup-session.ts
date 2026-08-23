@@ -143,6 +143,12 @@ export function createPopupSession({ storage, sendMessage, bootstrap = null }: P
 		set({ filters, filtersByTab });
 	}
 
+	/** The popup's answer to the notifications prompt. Stored either way, so the prompt asks once. */
+	async function setNotifications(enabled: boolean): Promise<void> {
+		set({ settings: { ...state.settings, notificationsEnabled: enabled } });
+		await storage.setSettings({ notificationsEnabled: enabled });
+	}
+
 	/** A fresh write from the worker: whatever was not on screen when the popup opened counts as new. */
 	function applyPullRequests(pullRequests: PullRequestData): void {
 		const newPrCount = viewedPrIds.size > 0 ? idsOf(pullRequests).filter((id) => !viewedPrIds.has(id)).length : 0;
@@ -194,6 +200,7 @@ export function createPopupSession({ storage, sendMessage, bootstrap = null }: P
 		open,
 		setTab,
 		setFilters,
+		setNotifications,
 		applyPullRequests,
 		reload,
 		refresh,

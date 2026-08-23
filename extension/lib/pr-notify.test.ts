@@ -1,0 +1,160 @@
+import assert from 'node:assert/strict';
+import { notificationsFor, DASHBOARD_URL } from './pr-notify';
+import type { PullRequest, PullRequestData } from './types';
+
+// The rules that decide whether you get interrupted. Every case here is one that would otherwise
+// notify wrongly — a silent first run, an already-reviewed PR, a rollup appearing out of nowhere.
+// Run with: npm test
+
+const LAST_FETCH = Date.parse('2026-02-01T12:00:00Z');
+const OLD = '2026-01-01T00:00:00Z';
+const FRESH = '2026-02-01T12:05:00Z';
+
+function pr(overrides: Partial<PullRequest> & { id: string }): PullRequest {
+	return {
+		provider: 'github',
+		number: 1,
+		title: 'title',
+		url: `https://github.com/acme/api/pull/${overrides.number ?? 1}`,
+		repoFullName: 'acme/api',
+		repoOwner: { login: 'acme', type: 'org' },
+		branchName: 'feat/thing',
+		author: { login: 'ada', name: 'Ada', avatarUrl: '' },
+		state: 'open',
+		changes: { additions: 0, deletions: 0, filesChanged: 0 },
+		checks: { status: 'unknown' },
+		reviews: { status: 'pending', reviewers: [] },
+		createdAt: OLD,
+		updatedAt: OLD,
+		isDraft: false,
+		...overrides,
+	};
+}
+
+function data(overrides: Partial<PullRequestData> = {}): PullRequestData {
+	return { myPRs: [], reviewRequests: [], lastFetched: LAST_FETCH, ...overrides };
+}
+
+function requested(id: string, overrides: Partial<PullRequest> = {}): PullRequest {
+	return pr({ id, reviews: { status: 'pending', reviewers: [], pendingReviewers: ['me'] }, ...overrides });
+}
+
+function testFirstRunIsSilent(): void {
+	const next = data({ reviewRequests: [requested('1')], myPRs: [pr({ id: '2' })] });
+
+	// No prior snapshot means no diff — otherwise a fresh install announces every open PR at once.
+	assert.deepEqual(notificationsFor(data({ lastFetched: null }), next, 'me'), []);
+	// Same for a poll that runs before the user identity is known: `pendingReviewers` is unmatchable.
+	assert.deepEqual(notificationsFor(data(), next, ''), []);
+}
+
+function testReviewRequestNeedsAnOutstandingAsk(): void {
+	// The provider merges `reviewed-by:@me` into reviewRequests, so a PR arriving in that list is not
+	// automatically a request: without `me` in pendingReviewers it is one you already reviewed.
+	const alreadyReviewed = pr({ id: '1', reviews: { status: 'pending', reviewers: [], pendingReviewers: ['someone-else'] } });
+	assert.deepEqual(notificationsFor(data(), data({ reviewRequests: [alreadyReviewed] }), 'me'), []);
+
+	// Already on screen at the last poll — not news either.
+	const known = requested('1');
+	assert.deepEqual(notificationsFor(data({ reviewRequests: [known] }), data({ reviewRequests: [known] }), 'me'), []);
+}
+
+function testReviewRequestWording(): void {
+	const [fresh] = notificationsFor(data(), data({ reviewRequests: [requested('1', { createdAt: FRESH })] }), 'me');
+	assert.equal(fresh.kind, 'review_requested');
+	assert.equal(fresh.title, 'acme/api #1');
+	assert.match(fresh.message, /opened a PR for your review/);
+
+	const [existing] = notificationsFor(data(), data({ reviewRequests: [requested('1')] }), 'me');
+	assert.match(existing.message, /requested your review/, 'a PR older than the last poll is an addition, not a new PR');
+}
+
+function testGroupingCollapsesOneKind(): void {
+	const sameRepo = [requested('1', { number: 1 }), requested('2', { number: 2 }), requested('3', { number: 3 })];
+	const [grouped] = notificationsFor(data(), data({ reviewRequests: sameRepo }), 'me');
+
+	assert.equal(grouped.title, '3 PRs need your review');
+	assert.equal(grouped.message, 'in acme/api');
+	assert.equal(grouped.url, DASHBOARD_URL, 'a grouped notification has no single PR to open');
+
+	// One author across several repos is still a useful detail, so it beats the bare repo count.
+	const oneAuthor = sameRepo.map((entry, index) => ({ ...entry, repoFullName: `acme/repo-${index}` }));
+	assert.equal(notificationsFor(data(), data({ reviewRequests: oneAuthor }), 'me')[0].message, 'from @ada');
+
+	// Nothing in common: the count is all there is to say.
+	const spread = oneAuthor.map((entry, index) => ({ ...entry, author: { login: `dev-${index}`, name: '', avatarUrl: '' } }));
+	assert.equal(notificationsFor(data(), data({ reviewRequests: spread }), 'me')[0].message, 'across 3 repos');
+}
+
+function testReviewVerdictsOnMyPRs(): void {
+	const mine = pr({ id: '1' });
+	const approved = { ...mine, reviews: { status: 'approved' as const, reviewers: [{ login: 'bob', avatarUrl: '', state: 'APPROVED' }] } };
+
+	const [approval] = notificationsFor(data({ myPRs: [mine] }), data({ myPRs: [approved] }), 'me');
+	assert.equal(approval.kind, 'approved');
+	assert.match(approval.message, /@bob approved/);
+
+	const changes = {
+		...mine,
+		reviews: {
+			status: 'changes_requested' as const,
+			reviewers: [{ login: 'bob', avatarUrl: '', state: 'CHANGES_REQUESTED' }],
+			openThreadCount: 3,
+			firstUnresolvedThreadUrl: 'https://github.com/acme/api/pull/1#discussion_r1',
+		},
+	};
+
+	const [rejection] = notificationsFor(data({ myPRs: [mine] }), data({ myPRs: [changes] }), 'me');
+	assert.equal(rejection.kind, 'changes_requested');
+	assert.match(rejection.message, /3 open threads/);
+	assert.equal(rejection.url, changes.reviews.firstUnresolvedThreadUrl, 'clicking should land on the thread, not the PR top');
+
+	// Going back to pending is a re-request or a dismissal. Nobody needs to be told.
+	assert.deepEqual(notificationsFor(data({ myPRs: [changes] }), data({ myPRs: [mine] }), 'me'), []);
+}
+
+function testChecksOnlyFailAndRecover(): void {
+	const unknown = pr({ id: '1' });
+	const green = { ...unknown, checks: { status: 'success' as const } };
+	const red = { ...unknown, checks: { status: 'failure' as const } };
+	const pending = { ...unknown, checks: { status: 'pending' as const } };
+
+	// A rollup appearing for the first time is CI being configured, not a result.
+	assert.deepEqual(notificationsFor(data({ myPRs: [unknown] }), data({ myPRs: [green] }), 'me'), []);
+	// Ordinary churn while a build runs.
+	assert.deepEqual(notificationsFor(data({ myPRs: [green] }), data({ myPRs: [pending] }), 'me'), []);
+
+	assert.equal(notificationsFor(data({ myPRs: [green] }), data({ myPRs: [red] }), 'me')[0].kind, 'ci_failed');
+	assert.equal(notificationsFor(data({ myPRs: [red] }), data({ myPRs: [green] }), 'me')[0].kind, 'ci_recovered');
+}
+
+function testDisappearingPRs(): void {
+	const mine = pr({ id: '1' });
+	const [closed] = notificationsFor(data({ myPRs: [mine] }), data(), 'me');
+	assert.equal(closed.kind, 'closed');
+	assert.equal(closed.url, mine.url);
+
+	// A withdrawn review request is not a closed PR, and is not worth saying anything about.
+	assert.deepEqual(notificationsFor(data({ reviewRequests: [requested('1')] }), data(), 'me'), []);
+}
+
+function testIdCarriesTheClickTarget(): void {
+	const mine = pr({ id: '1' });
+	const red = { ...mine, checks: { status: 'failure' as const } };
+	const green = { ...mine, checks: { status: 'success' as const } };
+
+	// MV3 can tear the worker down between firing and the click, so the URL rides in the id.
+	const [spec] = notificationsFor(data({ myPRs: [green] }), data({ myPRs: [red] }), 'me');
+	assert.equal(spec.id, `ci_failed|${mine.url}`);
+	assert.equal(spec.id.slice(spec.id.indexOf('|') + 1), spec.url);
+}
+
+testFirstRunIsSilent();
+testReviewRequestNeedsAnOutstandingAsk();
+testReviewRequestWording();
+testGroupingCollapsesOneKind();
+testReviewVerdictsOnMyPRs();
+testChecksOnlyFailAndRecover();
+testDisappearingPRs();
+testIdCarriesTheClickTarget();
+console.log('pr-notify: all checks passed');

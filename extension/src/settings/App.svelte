@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check, Bell, BellOff } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
@@ -148,6 +148,10 @@
 	async function updatePinnedTab(value: Settings['pinnedTab']) {
 		await updateSetting('pinnedTab', value);
 		await runtimeSendMessage({ type: 'SETTINGS_CHANGED', settings: { pinnedTab: value } });
+	}
+
+	async function updateNotifications(enabled: boolean) {
+		await updateSetting('notificationsEnabled', enabled);
 	}
 
 	async function updateDisplayMode(value: Settings['displayMode']) {
@@ -455,6 +459,22 @@
 			<div class="grid-2">
 				<RadioCard name="persistFilters" value={true} currentValue={currentSettings.persistFilters ?? true} title="Remember Filters" description="Keep your active filters across extension sessions." iconComponent={Save} onchange={() => updateSetting('persistFilters', true)} />
 				<RadioCard name="persistFilters" value={false} currentValue={currentSettings.persistFilters ?? true} title="Per Session" description="Clear active filters every time you close the popup." iconComponent={Eraser} onchange={() => updateSetting('persistFilters', false)} />
+			</div>
+		</SectionCard>
+
+		<SectionCard>
+			<div class="section-row">
+				<div class="step-icon">
+					<Bell class="h-5 w-5" />
+				</div>
+				<div>
+					<h2 class="card-title">Notifications</h2>
+					<p class="desc">Get told when a PR needs you, without watching the badge. Your filters do not apply.</p>
+				</div>
+			</div>
+			<div class="grid-2">
+				<RadioCard name="notificationsEnabled" value={true} currentValue={currentSettings.notificationsEnabled === true} title="On" description="Review requests, review verdicts, CI failures and closed PRs." iconComponent={Bell} onchange={() => updateNotifications(true)} />
+				<RadioCard name="notificationsEnabled" value={false} currentValue={currentSettings.notificationsEnabled === true} title="Off" description="Stay quiet. The toolbar badge still updates." iconComponent={BellOff} onchange={() => updateNotifications(false)} />
 			</div>
 		</SectionCard>
 
