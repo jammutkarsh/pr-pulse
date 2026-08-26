@@ -60,16 +60,27 @@
 	let activeFilters = $state<PopupFilters>(createDefaultFilters());
 	// Only for the rest of this popup session: somewhere to offer the test before the row goes away.
 	let justEnabled = $state(false);
+	function handleKeydown(event: KeyboardEvent) {
+		const isFindShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f';
+		if (!isFindShortcut || !showSearchControls) return;
+
+		event.preventDefault();
+		isSearchOpen = true;
+		isFilterOpen = true;
+	}
+
 	onMount(() => {
 		unsubscribeSession = session.subscribe((next) => {
 			popup = next;
 		});
 		void init();
+		window.addEventListener('keydown', handleKeydown);
 	});
 
 	onDestroy(() => {
 		unsubscribeStorage?.();
 		unsubscribeSession?.();
+		window.removeEventListener('keydown', handleKeydown);
 	});
 
 	function onStorageChanged(changes: StorageChangeMap, areaName: string) {
