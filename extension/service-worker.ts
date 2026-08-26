@@ -9,6 +9,7 @@ import {
 	notificationsClear,
 	notificationsCreate,
 	notificationsOnButtonClickedAddListener,
+	notificationsAvailable,
 	notificationsOnClickedAddListener,
 	permissionsOnAddedAddListener,
 	runtimeGetURL,
@@ -114,11 +115,14 @@ async function notify(previous: PullRequestData, next: PrSourceResult): Promise<
 }
 
 /** The click target rides in the notification id, so an MV3 teardown between firing and clicking loses nothing. */
-function openFromNotificationId(id: string): void {
+async function openFromNotificationId(id: string): Promise<void> {
 	const url = id.slice(id.indexOf('|') + 1);
-	void tabsCreate({ url: url === DASHBOARD_URL ? runtimeGetURL(DASHBOARD_URL) : url });
-	void notificationsClear(id);
+	console.log('Notification clicked:', id);
+	await tabsCreate({ url: url === DASHBOARD_URL ? runtimeGetURL(DASHBOARD_URL) : url });
+	await notificationsClear(id);
 }
+
+let notificationListenersRegistered = false;
 
 /**
  * `notifications` is optional, so at worker load the namespace may not exist yet and both calls are
@@ -126,16 +130,22 @@ function openFromNotificationId(id: string): void {
  * clicks up without waiting for the next worker start.
  */
 function registerNotificationListeners(): void {
+	// `permissions.onAdded` can fire for any optional permission, and re-adding here would leave two
+	// listeners racing to open the same tab twice.
+	if (notificationListenersRegistered || !notificationsAvailable()) {
+		return;
+	}
+	notificationListenersRegistered = true;
+
 	notificationsOnClickedAddListener(openFromNotificationId);
 
 	notificationsOnButtonClickedAddListener((id, buttonIndex) => {
 		// Button 1 is Dismiss. Clearing is the whole action.
 		if (buttonIndex === 1) {
-			void notificationsClear(id);
-			return;
+			return notificationsClear(id).then(() => undefined);
 		}
 
-		openFromNotificationId(id);
+		return openFromNotificationId(id);
 	});
 }
 

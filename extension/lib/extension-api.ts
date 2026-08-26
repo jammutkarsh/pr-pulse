@@ -131,6 +131,11 @@ export function notificationsClear(id: string): Promise<boolean> {
 	return extensionBrowser.notifications.clear(id);
 }
 
+/** Whether the optional `notifications` permission has been granted in this worker's lifetime. */
+export function notificationsAvailable(): boolean {
+	return Boolean(extensionBrowser.notifications?.onClicked);
+}
+
 /**
  * `notifications` is optional, so the whole namespace is undefined until it is granted — reading
  * `.onClicked` off it would throw at worker load and take every other listener down with it. Same
