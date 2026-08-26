@@ -36,6 +36,11 @@ export interface PopupSessionDeps {
 	sendMessage: SendMessage;
 	/** Already-started bootstrap read, when the page kicked one off before the session existed. */
 	bootstrap?: Promise<Awaited<ReturnType<Storage['getBootstrapData']>>> | null;
+	/**
+	 * Asks the browser for the optional `notifications` permission. Injected rather than imported so
+	 * this module stays runnable in node; the default stands in for "nothing to ask".
+	 */
+	requestNotificationPermission?: () => Promise<boolean>;
 }
 
 function initialState(): PopupState {
@@ -57,7 +62,12 @@ function idsOf(data: PullRequestData): string[] {
 	return [...(data.myPRs || []), ...(data.reviewRequests || [])].map((pr) => pr.id);
 }
 
-export function createPopupSession({ storage, sendMessage, bootstrap = null }: PopupSessionDeps) {
+export function createPopupSession({
+	storage,
+	sendMessage,
+	bootstrap = null,
+	requestNotificationPermission = async () => true,
+}: PopupSessionDeps) {
 	let state = initialState();
 	let viewedPrIds = new Set<string>();
 	const listeners = new Set<(next: PopupState) => void>();
@@ -143,6 +153,21 @@ export function createPopupSession({ storage, sendMessage, bootstrap = null }: P
 		set({ filters, filtersByTab });
 	}
 
+	/**
+	 * The popup's answer to the notifications prompt. Enabling has to clear the browser's own permission
+	 * prompt first — a decline stores `false` just like "Not now", so neither prompt comes back. Stored
+	 * either way, which is what ends the asking.
+	 *
+	 * Call this straight from the click handler: the permission request dies without the user gesture.
+	 */
+	async function setNotifications(enabled: boolean): Promise<boolean> {
+		const granted = enabled ? await requestNotificationPermission() : false;
+
+		set({ settings: { ...state.settings, notificationsEnabled: granted } });
+		await storage.setSettings({ notificationsEnabled: granted });
+		return granted;
+	}
+
 	/** A fresh write from the worker: whatever was not on screen when the popup opened counts as new. */
 	function applyPullRequests(pullRequests: PullRequestData): void {
 		const newPrCount = viewedPrIds.size > 0 ? idsOf(pullRequests).filter((id) => !viewedPrIds.has(id)).length : 0;
@@ -194,6 +219,7 @@ export function createPopupSession({ storage, sendMessage, bootstrap = null }: P
 		open,
 		setTab,
 		setFilters,
+		setNotifications,
 		applyPullRequests,
 		reload,
 		refresh,

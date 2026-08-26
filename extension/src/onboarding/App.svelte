@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { runtimeGetURL, storageOnChangedAddListener, type StorageChangeMap } from '../../lib/extension-api';
+	import { permissionsRequest, runtimeGetURL, storageOnChangedAddListener, type StorageChangeMap } from '../../lib/extension-api';
 	import { storage } from '../../lib/storage';
 	import { DEFAULT_SETTINGS } from '../../lib/ui-config';
 	import type { PullRequestData, Settings, StoredProviderConfig } from '../../lib/types';
@@ -10,6 +10,7 @@
 	import GithubStep from './steps/GithubStep.svelte';
 	import DefaultViewStep from './steps/DefaultViewStep.svelte';
 	import JiraStep from './steps/JiraStep.svelte';
+	import NotificationsStep from './steps/NotificationsStep.svelte';
 	import DisplayStep from './steps/DisplayStep.svelte';
 	import CompleteStep from './steps/CompleteStep.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
@@ -17,9 +18,10 @@
 	const STEP_GITHUB = 1;
 	const STEP_DEFAULT_VIEW = 2;
 	const STEP_JIRA = 3;
-	const STEP_DISPLAY = 4;
-	const STEP_COMPLETE = 5;
-	type OnboardingSettings = Pick<Settings, 'pinnedTab' | 'jiraBaseUrl' | 'displayMode'>;
+	const STEP_NOTIFICATIONS = 4;
+	const STEP_DISPLAY = 5;
+	const STEP_COMPLETE = 6;
+	type OnboardingSettings = Pick<Settings, 'pinnedTab' | 'jiraBaseUrl' | 'displayMode' | 'notificationsEnabled'>;
 	type OnboardingSessionState = {
 		currentStep?: number;
 		providerData?: StoredProviderConfig | null;
@@ -31,6 +33,7 @@
 		{ id: STEP_GITHUB, label: 'GitHub' },
 		{ id: STEP_DEFAULT_VIEW, label: 'Default view' },
 		{ id: STEP_JIRA, label: 'Jira' },
+		{ id: STEP_NOTIFICATIONS, label: 'Notifications' },
 		{ id: STEP_DISPLAY, label: 'Display' },
 	];
 
@@ -40,6 +43,8 @@
 		pinnedTab: DEFAULT_SETTINGS.pinnedTab,
 		jiraBaseUrl: DEFAULT_SETTINGS.jiraBaseUrl,
 		displayMode: DEFAULT_SETTINGS.displayMode,
+		// Left unanswered on purpose: skipping the step keeps `null`, which is what makes the popup ask later.
+		notificationsEnabled: DEFAULT_SETTINGS.notificationsEnabled,
 	});
 	let token = $state('');
 	let tokenVisible = $state(false);
@@ -101,6 +106,14 @@
 	function prevStep() {
 		errorMessage = '';
 		currentStep = Math.max(STEP_GITHUB, currentStep - 1);
+	}
+
+	/**
+	 * Called straight from the card's click, which is what keeps the user gesture the permission request
+	 * needs. A decline records `false` rather than an on setting that could never fire.
+	 */
+	async function updateNotifications(enabled: boolean) {
+		settings = { ...settings, notificationsEnabled: enabled && (await permissionsRequest(['notifications'])) };
 	}
 
 	function updateJiraUrl(value: string) {
@@ -180,7 +193,7 @@
 				<div class="max-w-xl space-y-2">
 					<div class="section-title">Setup</div>
 					<h1 class="text-3xl font-semibold text-white">Configure PR Pulse</h1>
-					<p class="body-text">Connect GitHub, choose your default view, and optionally enable Jira ticket links.</p>
+					<p class="body-text">Connect GitHub, choose your default view, decide how you want to be notified, and optionally enable Jira ticket links.</p>
 				</div>
 				<div class="rounded-lg border border-soft bg-(--bg-muted) px-4 py-3 desc">
 					{currentStep === STEP_COMPLETE ? 'Setup complete' : `Step ${Math.min(currentStep, STEP_DISPLAY)} of ${STEP_DISPLAY}`}
@@ -188,7 +201,7 @@
 			</div>
 
 			{#if currentStep !== STEP_COMPLETE}
-				<div class="mt-6 grid gap-3 sm:grid-cols-4">
+				<div class="mt-6 grid gap-3 sm:grid-cols-5">
 					{#each steps as step (step.id)}
 						<div class={`rounded-lg border px-4 py-3 text-sm transition ${currentStep === step.id ? 'border-(--accent) bg-(--accent-muted) text-white' : currentStep > step.id ? 'border-(--accent-border) bg-[rgba(55,148,255,0.08)] text-soft' : 'border-soft bg-(--bg-panel) text-dim'}`}>
 							<div class="text-[11px] font-semibold uppercase tracking-[0.18em]">{step.id}</div>
@@ -227,6 +240,13 @@
 			<JiraStep
 				jiraBaseUrl={settings.jiraBaseUrl}
 				onJiraUrlChange={updateJiraUrl}
+				onNext={nextStep}
+				onBack={prevStep}
+			/>
+		{:else if currentStep === STEP_NOTIFICATIONS}
+			<NotificationsStep
+				notificationsEnabled={settings.notificationsEnabled}
+				onNotificationsChange={updateNotifications}
 				onNext={nextStep}
 				onBack={prevStep}
 			/>

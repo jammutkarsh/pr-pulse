@@ -6,6 +6,12 @@ import {
 	alarmsClear,
 	alarmsCreate,
 	alarmsGet,
+	notificationsClear,
+	notificationsCreate,
+	notificationsOnButtonClickedAddListener,
+	notificationsAvailable,
+	notificationsOnClickedAddListener,
+	permissionsOnAddedAddListener,
 	runtimeGetURL,
 	runtimeOnInstalledAddListener,
 	runtimeOnMessageAddListener,
@@ -14,8 +20,9 @@ import {
 } from './lib/extension-api';
 import { onFiltersChanged, storage } from './lib/storage';
 import { badgeCount } from './lib/pr-view';
+import { DASHBOARD_URL, notificationsFor } from './lib/pr-notify';
 import { isAuthError } from './lib/errors';
-import type { PrSource, RuntimeMessage } from './lib/types';
+import type { PrSource, PrSourceResult, PullRequestData, RuntimeMessage } from './lib/types';
 
 const ALARM_NAME = 'pr-poll';
 
@@ -57,9 +64,13 @@ async function fetchAndCachePRs(throwError = false): Promise<void> {
 		}
 
 		console.log('Fetching PR data...');
+		// Read before the overwrite: the previous poll's result is still on disk at this instant, which is
+		// the whole reason notifications need no snapshot key of their own.
+		const previous = await storage.getPullRequests();
 		const data = await fetchWithRetry(() => source.getAllPullRequests());
 		await storage.setPullRequests(data);
 		await refreshBadge();
+		await notify(previous, data);
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
 	} catch (error) {
 		console.error('Failed to fetch PR data:', error);
@@ -80,6 +91,66 @@ async function refreshBadge(): Promise<void> {
 	const filters = await storage.getFilters(settings.pinnedTab);
 	await updateBadge(badgeCount(pullRequests, settings, filters));
 }
+
+/**
+ * What changed, said out loud. The decision itself lives in `pr-notify`, which is pure and testable;
+ * this only checks that the user still wants to hear it and hands the specs to the OS.
+ *
+ * Filters are not consulted, by design — see the note at the top of `pr-notify.ts`.
+ */
+async function notify(previous: PullRequestData, next: PrSourceResult): Promise<void> {
+	try {
+		const { settings, provider } = await storage.getBootstrapData();
+		if (!settings.notificationsEnabled) {
+			return;
+		}
+
+		for (const spec of notificationsFor(previous, next, provider?.user?.login || '')) {
+			await notificationsCreate(spec.id, spec);
+		}
+	} catch (error) {
+		// A refresh that fetched fine has already done its job; a notification failure must not undo it.
+		console.error('Failed to send notifications:', error);
+	}
+}
+
+/** The click target rides in the notification id, so an MV3 teardown between firing and clicking loses nothing. */
+async function openFromNotificationId(id: string): Promise<void> {
+	const url = id.slice(id.indexOf('|') + 1);
+	console.log('Notification clicked:', id);
+	await tabsCreate({ url: url === DASHBOARD_URL ? runtimeGetURL(DASHBOARD_URL) : url });
+	await notificationsClear(id);
+}
+
+let notificationListenersRegistered = false;
+
+/**
+ * `notifications` is optional, so at worker load the namespace may not exist yet and both calls are
+ * no-ops. Granting it from the popup fires `permissions.onAdded`, which is the only chance to wire
+ * clicks up without waiting for the next worker start.
+ */
+function registerNotificationListeners(): void {
+	// `permissions.onAdded` can fire for any optional permission, and re-adding here would leave two
+	// listeners racing to open the same tab twice.
+	if (notificationListenersRegistered || !notificationsAvailable()) {
+		return;
+	}
+	notificationListenersRegistered = true;
+
+	notificationsOnClickedAddListener(openFromNotificationId);
+
+	notificationsOnButtonClickedAddListener((id, buttonIndex) => {
+		// Button 1 is Dismiss. Clearing is the whole action.
+		if (buttonIndex === 1) {
+			return notificationsClear(id).then(() => undefined);
+		}
+
+		return openFromNotificationId(id);
+	});
+}
+
+registerNotificationListeners();
+permissionsOnAddedAddListener(registerNotificationListeners);
 
 async function updateBadge(count: number): Promise<void> {
 	const text = count > 0 ? String(count) : '';
@@ -193,6 +264,14 @@ const messageHandlers: Record<RuntimeMessage['type'], (message: RuntimeMessage) 
 		return { success: true };
 	},
 };
+
+// Test hatch. Paste `prPulseNotify()` into the service worker console to fire one through the real
+// path — permission, icon, buttons and the click-to-open id are all exercised. The diff rules that
+// decide *when* to fire are covered by pr-notify.test.ts instead; this only proves the plumbing.
+Object.assign(globalThis, {
+	prPulseNotify: (title = 'PR Pulse', message = 'Notifications are working') =>
+		notificationsCreate(`test|${DASHBOARD_URL}`, { title, message, action: 'Open PR Pulse' }),
+});
 
 async function handleMessage(message: RuntimeMessage): Promise<unknown> {
 	const handler = messageHandlers[message.type];

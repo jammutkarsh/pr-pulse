@@ -46,6 +46,7 @@ export interface PullRequestReviews {
 export interface PullRequest {
 	id: string;
 	provider: ProviderType;
+	number: number;
 	title: string;
 	url: string;
 	repoFullName: string;
@@ -102,6 +103,8 @@ export interface Settings {
 	pollingIntervalMs: number;
 	persistFilters: boolean;
 	badgeCountMode: 'total' | 'filters';
+	/** `null` means never asked. The popup prompts on that, and stores the answer either way so it asks once. */
+	notificationsEnabled: boolean | null;
 	ui: UiConfig;
 }
 

@@ -212,6 +212,21 @@ export class GitHubProvider implements PrSource {
 		return response;
 	}
 
+	// GitHub occasionally returns 2xx with an empty body (rate-limit edge cases, proxies). A bare
+	// response.json() throws "Unexpected end of JSON input" there, which surfaces as an opaque
+	// fetch failure instead of a diagnosable provider error.
+	async #json<T>(response: Response): Promise<T> {
+		const text = await response.text();
+		if (!text) {
+			throw new ProviderError('GitHub returned an empty response', 'API_ERROR', {
+				statusCode: response.status,
+				retryable: true,
+				provider: 'github',
+			});
+		}
+		return JSON.parse(text) as T;
+	}
+
 	async #graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
 		// GHES exposes GraphQL at /api/graphql while REST lives at /api/v3
 		const url = this.baseUrl.endsWith('/api/v3') ? `${this.baseUrl.slice(0, -3)}/graphql` : `${this.baseUrl}/graphql`;
@@ -221,7 +236,7 @@ export class GitHubProvider implements PrSource {
 			body: JSON.stringify({ query, variables }),
 		});
 
-		const body = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+		const body = await this.#json<{ data?: T; errors?: Array<{ message: string }> }>(response);
 
 		// A single unreadable repo returns null for that node plus an error entry. Keep the rest
 		// of the refresh alive instead of failing every PR because of one.
@@ -255,7 +270,7 @@ export class GitHubProvider implements PrSource {
 			headers: { Accept: 'application/vnd.github.v3+json' },
 		});
 
-		const data = await response.json();
+		const data = await this.#json<{ login: string; avatar_url: string; name?: string }>(response);
 
 		return {
 			login: data.login,
@@ -354,6 +369,7 @@ export class GitHubProvider implements PrSource {
 		return {
 			id: `github-${pr.id}`,
 			provider: 'github',
+			number: pr.number,
 			title: pr.title,
 			url: pr.url,
 			repoFullName,

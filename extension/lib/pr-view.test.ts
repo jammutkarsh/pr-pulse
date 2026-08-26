@@ -18,6 +18,7 @@ import type { PullRequest } from './types';
 function pr(overrides: Partial<PullRequest> & { id: string }): PullRequest {
 	return {
 		provider: 'github',
+		number: 1,
 		title: 'title',
 		url: 'https://example.test/pr',
 		repoFullName: 'acme/api',

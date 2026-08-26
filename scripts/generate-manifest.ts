@@ -9,6 +9,7 @@ type ExtensionManifest = {
 	version: string;
 	description: string;
 	permissions: string[];
+	optional_permissions: string[];
 	host_permissions: string[];
 	action: {
 		default_popup: string;
@@ -59,6 +60,9 @@ const baseManifest = {
 	version: packageVersion,
 	description: 'PR Pulse is a Pull Request dashboard for GitHub, delivered as a browser extension. Say No to Navigation!',
 	permissions: ['storage', 'alarms'],
+	// Optional, not required: adding a warning-generating permission to an existing install disables
+	// the extension in Chrome until the user re-approves it. Requested from the popup's Enable button.
+	optional_permissions: ['notifications'],
 	host_permissions: ['https://api.github.com/*'],
 	action: {
 		default_popup: 'popup/popup.html',
