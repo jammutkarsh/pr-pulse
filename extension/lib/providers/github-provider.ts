@@ -24,6 +24,7 @@ type GraphQLPullRequest = {
 	url: string;
 	state: string;
 	isDraft: boolean;
+	mergeable: string;
 	createdAt: string;
 	updatedAt: string;
 	additions: number;
@@ -57,6 +58,11 @@ type SearchResponse = {
 	} | null;
 };
 
+type StatesResponse = {
+	rateLimit: RateLimit | null;
+	nodes: Array<{ id?: string; state?: string } | null>;
+};
+
 // GraphQL point cost is charged on the nodes a query *requests*, not the ones it returns, and nested
 // connections multiply by their parent's page size. So each PR node here costs roughly
 // 1 + REVIEWS + REVIEW_REQUESTS + REVIEW_THREADS nodes, and the search page size multiplies all of it.
@@ -83,6 +89,13 @@ const COUNT_QUERY = `query($myPRs: String!, $reviewRequests: String!, $reviewedP
 	reviewedPRs: search(query: $reviewedPRs, type: ISSUE, first: 1) { issueCount }
 }`;
 
+// A PR that dropped out of `state:open` search was merged, closed — or is still open and merely fell
+// past the page cap. `search` can't say which, so the vanished ids are looked up directly.
+const STATES_QUERY = `query($ids: [ID!]!) {
+	rateLimit { cost remaining }
+	nodes(ids: $ids) { ... on PullRequest { id state } }
+}`;
+
 const SEARCH_QUERY = `query($q: String!, $first: Int!, $after: String) {
 	rateLimit { cost remaining }
 	search(query: $q, type: ISSUE, first: $first, after: $after) {
@@ -95,6 +108,7 @@ const SEARCH_QUERY = `query($q: String!, $first: Int!, $after: String) {
 				url
 				state
 				isDraft
+				mergeable
 				createdAt
 				updatedAt
 				additions
@@ -126,6 +140,12 @@ const PULL_REQUEST_STATE: Record<string, string> = {
 	OPEN: 'open',
 	CLOSED: 'closed',
 	MERGED: 'merged',
+};
+
+const MERGEABLE_STATE: Record<string, NonNullable<PullRequest['mergeable']>> = {
+	MERGEABLE: 'mergeable',
+	CONFLICTING: 'conflicting',
+	UNKNOWN: 'unknown',
 };
 
 const OWNER_TYPE: Record<string, PullRequestRepoOwner['type']> = {
@@ -394,6 +414,7 @@ export class GitHubProvider implements PrSource {
 			createdAt: pr.createdAt,
 			updatedAt: pr.updatedAt,
 			isDraft: pr.isDraft,
+			mergeable: mapEnum(MERGEABLE_STATE, pr.mergeable, 'unknown', 'mergeable state'),
 		};
 	}
 
@@ -463,5 +484,20 @@ export class GitHubProvider implements PrSource {
 		}
 
 		return { myPRs, reviewRequests: merged };
+	}
+
+	async getStates(ids: string[]): Promise<Map<string, string>> {
+		// Transformed ids carry a `github-` prefix for cross-provider uniqueness; `nodes(ids:)` wants it off.
+		const data = await this.#graphql<StatesResponse>(STATES_QUERY, { ids: ids.map((id) => id.replace(/^github-/, '')) });
+		this.#logCost('states', data.rateLimit);
+
+		const states = new Map<string, string>();
+		for (const node of data.nodes || []) {
+			if (node?.id) {
+				states.set(`github-${node.id}`, mapEnum(PULL_REQUEST_STATE, node.state, 'open', 'pull request state'));
+			}
+		}
+
+		return states;
 	}
 }

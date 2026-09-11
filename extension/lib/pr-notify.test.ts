@@ -50,7 +50,7 @@ function testDiffSizeRidesAlong(): void {
 
 	// A group spans several PRs, so there is no one size to report.
 	const many = ['3', '4'].map((id) => requested(id));
-	assert.equal(notificationsFor(data(), data({ reviewRequests: many }), 'me')[0].detail, undefined);
+	assert.equal(notificationsFor(data(), data({ reviewRequests: many }), 'me', new Map(), true)[0].detail, undefined);
 }
 
 function testFirstRunIsSilent(): void {
@@ -83,9 +83,21 @@ function testReviewRequestWording(): void {
 	assert.match(existing.message, /requested your review/, 'a PR older than the last poll is an addition, not a new PR');
 }
 
+function testSeparateByDefault(): void {
+	const three = [requested('1', { number: 1 }), requested('2', { number: 2 }), requested('3', { number: 3 })];
+	const specs = notificationsFor(data(), data({ reviewRequests: three }), 'me');
+
+	assert.deepEqual(
+		specs.map((spec) => spec.title),
+		['acme/api #1', 'acme/api #2', 'acme/api #3'],
+	);
+	// Distinct ids, or the OS would replace one with the next instead of showing all three.
+	assert.equal(new Set(specs.map((spec) => spec.id)).size, 3);
+}
+
 function testGroupingCollapsesOneKind(): void {
 	const sameRepo = [requested('1', { number: 1 }), requested('2', { number: 2 }), requested('3', { number: 3 })];
-	const [grouped] = notificationsFor(data(), data({ reviewRequests: sameRepo }), 'me');
+	const [grouped] = notificationsFor(data(), data({ reviewRequests: sameRepo }), 'me', new Map(), true);
 
 	assert.equal(grouped.title, '3 PRs need your review');
 	assert.equal(grouped.message, 'in acme/api');
@@ -93,11 +105,11 @@ function testGroupingCollapsesOneKind(): void {
 
 	// One author across several repos is still a useful detail, so it beats the bare repo count.
 	const oneAuthor = sameRepo.map((entry, index) => ({ ...entry, repoFullName: `acme/repo-${index}` }));
-	assert.equal(notificationsFor(data(), data({ reviewRequests: oneAuthor }), 'me')[0].message, 'from @ada');
+	assert.equal(notificationsFor(data(), data({ reviewRequests: oneAuthor }), 'me', new Map(), true)[0].message, 'from @ada');
 
 	// Nothing in common: the count is all there is to say.
 	const spread = oneAuthor.map((entry, index) => ({ ...entry, author: { login: `dev-${index}`, name: '', avatarUrl: '' } }));
-	assert.equal(notificationsFor(data(), data({ reviewRequests: spread }), 'me')[0].message, 'across 3 repos');
+	assert.equal(notificationsFor(data(), data({ reviewRequests: spread }), 'me', new Map(), true)[0].message, 'across 3 repos');
 }
 
 function testReviewVerdictsOnMyPRs(): void {
@@ -142,6 +154,31 @@ function testChecksOnlyFailAndRecover(): void {
 	assert.equal(notificationsFor(data({ myPRs: [red] }), data({ myPRs: [green] }), 'me')[0].kind, 'ci_recovered');
 }
 
+function testConflicts(): void {
+	const at = (mergeable?: PullRequest['mergeable']) => pr({ id: '1', mergeable });
+	const fire = (from?: PullRequest['mergeable'], to?: PullRequest['mergeable']) =>
+		notificationsFor(data({ myPRs: [at(from)] }), data({ myPRs: [at(to)] }), 'me').map((spec) => spec.kind);
+
+	assert.deepEqual(fire('mergeable', 'conflicting'), ['conflicts']);
+	// The usual path: a base push resets GitHub's lazy check, and the next poll sees the conflict.
+	assert.deepEqual(fire('unknown', 'conflicting'), ['conflicts']);
+	assert.deepEqual(fire('conflicting', 'conflicting'), []);
+	// Resolving them is your own doing; nothing to tell you.
+	assert.deepEqual(fire('conflicting', 'mergeable'), []);
+	// No baseline (cache from before this field existed): not a change.
+	assert.deepEqual(fire(undefined, 'conflicting'), []);
+
+	// Someone else's PR conflicting is theirs to fix.
+	assert.deepEqual(
+		notificationsFor(
+			data({ reviewRequests: [requested('1', { mergeable: 'mergeable' })] }),
+			data({ reviewRequests: [requested('1', { mergeable: 'conflicting' })] }),
+			'me',
+		),
+		[],
+	);
+}
+
 function testDisappearingPRs(): void {
 	const mine = pr({ id: '1' });
 	const [closed] = notificationsFor(data({ myPRs: [mine] }), data(), 'me');
@@ -150,6 +187,40 @@ function testDisappearingPRs(): void {
 
 	// A withdrawn review request is not a closed PR, and is not worth saying anything about.
 	assert.deepEqual(notificationsFor(data({ reviewRequests: [requested('1')] }), data(), 'me'), []);
+}
+
+function testMergedVersusClosed(): void {
+	const previous = data({ myPRs: [pr({ id: '1' })] });
+	const gone = (state?: string) => notificationsFor(previous, data(), 'me', new Map(state ? [['1', state]] : []));
+
+	// Lookup failed: the honest fallback, not a guess.
+	assert.equal(gone()[0].message, 'No longer open — merged or closed · title');
+
+	assert.equal(gone('merged')[0].kind, 'merged');
+	assert.equal(gone('merged')[0].message, 'Merged · title');
+	assert.equal(gone('closed')[0].kind, 'closed');
+	assert.equal(gone('closed')[0].message, 'Closed without merging · title');
+
+	// Still open, just fell off the capped search. Saying "closed" here would be a lie.
+	assert.deepEqual(gone('open'), []);
+
+	// Grouped, merged and closed stay separate so each headline is decisive.
+	const two = data({ myPRs: [pr({ id: '1' }), pr({ id: '2', number: 2 }), pr({ id: '3', number: 3 })] });
+	const specs = notificationsFor(
+		two,
+		data(),
+		'me',
+		new Map([
+			['1', 'merged'],
+			['2', 'merged'],
+			['3', 'closed'],
+		]),
+		true,
+	);
+	assert.deepEqual(
+		specs.map((spec) => spec.title),
+		['2 of your PRs were merged', 'acme/api #3'],
+	);
 }
 
 function testIdCarriesTheClickTarget(): void {
@@ -167,9 +238,12 @@ testFirstRunIsSilent();
 testDiffSizeRidesAlong();
 testReviewRequestNeedsAnOutstandingAsk();
 testReviewRequestWording();
+testSeparateByDefault();
 testGroupingCollapsesOneKind();
 testReviewVerdictsOnMyPRs();
 testChecksOnlyFailAndRecover();
+testConflicts();
 testDisappearingPRs();
+testMergedVersusClosed();
 testIdCarriesTheClickTarget();
 console.log('pr-notify: all checks passed');

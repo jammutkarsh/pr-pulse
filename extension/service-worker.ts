@@ -70,7 +70,7 @@ async function fetchAndCachePRs(throwError = false): Promise<void> {
 		const data = await fetchWithRetry(() => source.getAllPullRequests());
 		await storage.setPullRequests(data);
 		await refreshBadge();
-		await notify(previous, data);
+		await notify(source, previous, data);
 		console.log(`Fetched ${data.myPRs.length} my PRs, ${data.reviewRequests.length} review requests`);
 	} catch (error) {
 		console.error('Failed to fetch PR data:', error);
@@ -98,14 +98,26 @@ async function refreshBadge(): Promise<void> {
  *
  * Filters are not consulted, by design — see the note at the top of `pr-notify.ts`.
  */
-async function notify(previous: PullRequestData, next: PrSourceResult): Promise<void> {
+async function notify(source: PrSource, previous: PullRequestData, next: PrSourceResult): Promise<void> {
 	try {
 		const { settings, provider } = await storage.getBootstrapData();
 		if (!settings.notificationsEnabled) {
 			return;
 		}
 
-		for (const spec of notificationsFor(previous, next, provider?.user?.login || '')) {
+		// `search` can only say a PR left `state:open`, not how — look the vanished ids up to tell merged
+		// from closed. A failed lookup just means vaguer wording, never lost notifications.
+		const stillOpen = new Set(next.myPRs.map((pr) => pr.id));
+		const vanishedIds = previous.myPRs.filter((pr) => !stillOpen.has(pr.id)).map((pr) => pr.id);
+		const states =
+			vanishedIds.length && source.getStates
+				? await source.getStates(vanishedIds).catch((error) => {
+						console.warn('Failed to look up closed PR states:', error);
+						return new Map<string, string>();
+					})
+				: new Map<string, string>();
+
+		for (const spec of notificationsFor(previous, next, provider?.user?.login || '', states, settings.groupNotifications)) {
 			await notificationsCreate(spec.id, spec);
 		}
 	} catch (error) {

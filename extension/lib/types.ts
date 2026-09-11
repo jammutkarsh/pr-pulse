@@ -60,6 +60,8 @@ export interface PullRequest {
 	createdAt: string;
 	updatedAt: string;
 	isDraft: boolean;
+	/** GitHub computes this lazily, so `unknown` is normal right after a base-branch push. Absent when the source can't tell. */
+	mergeable?: 'mergeable' | 'conflicting' | 'unknown';
 }
 
 /** What every pull-request source hands back, whatever it reads from. */
@@ -71,6 +73,8 @@ export interface PrSourceResult {
 /** The seam: fetching pull requests. Token identity is a separate concern and deliberately absent. */
 export interface PrSource {
 	getAllPullRequests(): Promise<PrSourceResult>;
+	/** Current `PullRequest['state']` by id, for PRs that dropped out of the open list. Optional: only the extension notifies. */
+	getStates?(ids: string[]): Promise<Map<string, string>>;
 }
 
 export interface ProviderConfig {
@@ -105,6 +109,8 @@ export interface Settings {
 	badgeCountMode: 'total' | 'filters';
 	/** `null` means never asked. The popup prompts on that, and stores the answer either way so it asks once. */
 	notificationsEnabled: boolean | null;
+	/** Collapse several changes of one kind in a single refresh into one count, instead of one per PR. */
+	groupNotifications: boolean;
 	ui: UiConfig;
 }
 

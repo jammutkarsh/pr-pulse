@@ -7,7 +7,8 @@ import type { PrSourceResult, PullRequest, PullRequestData } from './types';
 // Filters are deliberately not consulted. A filter is a preference about what the dashboard shows,
 // not a statement about what is worth interrupting you for.
 
-export type NotifyKind = 'review_requested' | 'approved' | 'changes_requested' | 'ci_failed' | 'ci_recovered' | 'closed';
+export type NotifyKind =
+	'review_requested' | 'approved' | 'changes_requested' | 'ci_failed' | 'ci_recovered' | 'conflicts' | 'merged' | 'closed';
 
 /** Where a grouped notification points. The worker swaps it for a `runtime.getURL`, which this module cannot call. */
 export const DASHBOARD_URL = 'popup/popup.html?fullpage=1';
@@ -146,7 +147,45 @@ function checksEvent(previous: PullRequest, next: PullRequest): Event | null {
 	return null;
 }
 
-function collectEvents(previous: PullRequestData, next: PrSourceResult, me: string, since: number): Event[] {
+function conflictsEvent(previous: PullRequest, next: PullRequest): Event | null {
+	// Absent means an older cache or a source that can't tell — no baseline, so no claim of a change.
+	// `unknown` in between is fine to fire across: a base-branch push both causes the conflict and
+	// resets GitHub's lazy check, so mergeable -> unknown -> conflicting is the usual path.
+	// ponytail: conflicting -> unknown -> conflicting re-fires; same id, so the OS replaces, not stacks.
+	if (next.mergeable !== 'conflicting' || !previous.mergeable || previous.mergeable === 'conflicting') {
+		return null;
+	}
+
+	return {
+		kind: 'conflicts',
+		pr: next,
+		title: label(next),
+		message: `Has merge conflicts · ${next.title}`,
+		action: 'Open',
+		url: next.url,
+	};
+}
+
+/** `state` is the PR's state after it left the open list; undefined when the lookup failed. */
+function goneEvent(pr: PullRequest, state: string | undefined): Event | null {
+	// Still open: it only fell past the search page cap, or its repo turned unreadable. Not news.
+	if (state === 'open') {
+		return null;
+	}
+
+	const message = state === 'merged' ? 'Merged' : state === 'closed' ? 'Closed without merging' : 'No longer open — merged or closed';
+
+	return {
+		kind: state === 'merged' ? 'merged' : 'closed',
+		pr,
+		title: label(pr),
+		message: `${message} · ${pr.title}`,
+		action: 'Open',
+		url: pr.url,
+	};
+}
+
+function collectEvents(previous: PullRequestData, next: PrSourceResult, me: string, since: number, states: Map<string, string>): Event[] {
 	const events: Event[] = [];
 
 	const previousReviewRequests = byId(previous.reviewRequests);
@@ -167,16 +206,8 @@ function collectEvents(previous: PullRequestData, next: PrSourceResult, me: stri
 		if (!nextPr) {
 			// Only your own PRs. A PR leaving `reviewRequests` usually just means the request was
 			// withdrawn, which is not worth a notification.
-			// ponytail: the search is `state:open`, so merged and closed are indistinguishable without a
-			// second query. Add a `nodes(ids:)` lookup for the vanished ids if the wording matters.
-			events.push({
-				kind: 'closed',
-				pr: previousPr,
-				title: label(previousPr),
-				message: 'No longer open — merged or closed',
-				action: 'Open',
-				url: previousPr.url,
-			});
+			const gone = goneEvent(previousPr, states.get(id));
+			if (gone) events.push(gone);
 			continue;
 		}
 
@@ -185,6 +216,9 @@ function collectEvents(previous: PullRequestData, next: PrSourceResult, me: stri
 
 		const checks = checksEvent(previousPr, nextPr);
 		if (checks) events.push(checks);
+
+		const conflicts = conflictsEvent(previousPr, nextPr);
+		if (conflicts) events.push(conflicts);
 	}
 
 	return events;
@@ -200,7 +234,9 @@ const GROUP_HEADLINE: Record<NotifyKind, (count: number) => string> = {
 	changes_requested: (count) => `${count} of your PRs need changes`,
 	ci_failed: (count) => `Checks failed on ${count} of your PRs`,
 	ci_recovered: (count) => `Checks are passing again on ${count} of your PRs`,
-	closed: (count) => `${count} of your PRs are no longer open`,
+	conflicts: (count) => `${count} of your PRs have merge conflicts`,
+	merged: (count) => `${count} of your PRs were merged`,
+	closed: (count) => `${count} of your PRs were closed`,
 };
 
 /** What the batch has in common, if anything — the one detail worth keeping when the titles are gone. */
@@ -230,17 +266,27 @@ function group(kind: NotifyKind, events: Event[]): NotifySpec {
 }
 
 /**
- * The diff, as notifications. One per changed PR, except that several changes of the same kind in one
- * refresh collapse into a single count — a morning's backlog should be one line, not fifteen.
+ * The diff, as notifications: one per changed PR. With `grouped`, several changes of the same kind in
+ * one refresh collapse into a single count instead — a morning's backlog as one line, not fifteen.
  */
-export function notificationsFor(previous: PullRequestData, next: PrSourceResult, me: string): NotifySpec[] {
+export function notificationsFor(
+	previous: PullRequestData,
+	next: PrSourceResult,
+	me: string,
+	states: Map<string, string> = new Map(),
+	grouped = false,
+): NotifySpec[] {
 	// Nothing to diff against: a fresh install, or the first poll after a reset. Every open PR would
 	// otherwise announce itself at once.
 	if (previous.lastFetched === null || !me) {
 		return [];
 	}
 
-	const events = collectEvents(previous, next, me, previous.lastFetched);
+	const events = collectEvents(previous, next, me, previous.lastFetched, states);
+	if (!grouped) {
+		return events.map(single);
+	}
+
 	const byKind = new Map<NotifyKind, Event[]>();
 
 	for (const event of events) {
@@ -252,20 +298,17 @@ export function notificationsFor(previous: PullRequestData, next: PrSourceResult
 		}
 	}
 
-	return Array.from(byKind, ([kind, bucket]) => {
-		if (bucket.length > 1) {
-			return group(kind, bucket);
-		}
+	return Array.from(byKind, ([kind, bucket]) => (bucket.length > 1 ? group(kind, bucket) : single(bucket[0])));
+}
 
-		const [event] = bucket;
-		return {
-			kind,
-			id: `${kind}|${event.url}`,
-			title: event.title,
-			message: event.message,
-			action: event.action,
-			detail: sizeOf(event.pr),
-			url: event.url,
-		};
-	});
+function single(event: Event): NotifySpec {
+	return {
+		kind: event.kind,
+		id: `${event.kind}|${event.url}`,
+		title: event.title,
+		message: event.message,
+		action: event.action,
+		detail: sizeOf(event.pr),
+		url: event.url,
+	};
 }

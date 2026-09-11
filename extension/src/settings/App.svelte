@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check, Bell, BellOff } from 'lucide-svelte';
+	import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, Eraser, Expand, GitPullRequest, Inbox, ListFilter, MonitorCog, MonitorSmartphone, Pin, Save, ShieldAlert, Ticket, UserRound, Sparkles, Copy, Check, Bell, BellOff, List, Layers } from 'lucide-svelte';
 	import Button from '../lib/components/Button.svelte';
 	import RadioCard from '../lib/components/RadioCard.svelte';
 	import SectionCard from '../lib/components/SectionCard.svelte';
@@ -480,6 +480,10 @@
 				<RadioCard name="notificationsEnabled" value={false} currentValue={currentSettings.notificationsEnabled ?? ''} title="Off" description="Stay quiet. The toolbar badge still updates." iconComponent={BellOff} onchange={() => updateNotifications(false)} />
 			</div>
 			{#if currentSettings.notificationsEnabled}
+				<div class="grid-2 mt-3">
+					<RadioCard name="groupNotifications" value={false} currentValue={currentSettings.groupNotifications} title="One per PR" description="A separate notification for every PR that changed." iconComponent={List} onchange={() => updateSetting('groupNotifications', false)} />
+					<RadioCard name="groupNotifications" value={true} currentValue={currentSettings.groupNotifications} title="Grouped" description="Several changes of one kind in a refresh become a single count." iconComponent={Layers} onchange={() => updateSetting('groupNotifications', true)} />
+				</div>
 				<NotificationTest className="mt-3" />
 			{/if}
 		</SectionCard>

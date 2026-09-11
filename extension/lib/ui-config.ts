@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	persistFilters: true,
 	badgeCountMode: 'total',
 	notificationsEnabled: null,
+	groupNotifications: false,
 	ui: DEFAULT_UI_CONFIG,
 };
 
