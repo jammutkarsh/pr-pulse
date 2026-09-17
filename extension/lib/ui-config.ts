@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	pollingIntervalMs: 600000,
 	persistFilters: true,
 	badgeCountMode: 'total',
+	notificationsEnabled: null,
+	groupNotifications: false,
 	ui: DEFAULT_UI_CONFIG,
 };
 

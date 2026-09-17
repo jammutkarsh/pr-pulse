@@ -2,6 +2,12 @@
 
 All notable changes to PR Pulse are documented in this file.
 
+## [2.2.0] – 2026-08-26
+
+- **Desktop notifications**: PR Pulse now tells you when something changes between polls — a review requested of you, an approval or requested changes on your PR, CI failing or recovering, and PRs that are no longer open. Several changes of the same kind in one refresh collapse into a single line rather than a stack. Clicking a notification opens the relevant PR (or the deep link to the first unresolved thread, when changes were requested).
+- **Notifications are opt-in**: Granted as an optional permission from the popup, onboarding, or Settings, so an update never disables the extension pending re-approval. A "Send test notification" button verifies the whole path end to end.
+- **Find shortcut**: <kbd>Cmd/Ctrl</kbd>+<kbd>F</kbd> opens search and filters in the popup.
+
 ## [2.1.0] – 2026-08-22
 
 - **Code Quality & Architecture**: Extracted the popup's non-visual state (bootstrap order, filter restore/commit, new-PR counting) into a testable `popup-session` module, so the popup shell only owns surface UI state. Unified token intake across onboarding and settings in `github-connect` — one validation path, one commit order (`connectGithubToken` + `commitProvider`) — and split token-expiry refresh into its own `refreshTokenExpiration` path so a failed refresh no longer looks like a failed connection. Badge count now syncs through a storage watcher in the service worker instead of the popup pushing `UPDATE_BADGE_COUNT` messages. Added test suites for popup-session, pr-view, storage, and jira. No user-facing change.

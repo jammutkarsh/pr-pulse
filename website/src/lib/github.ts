@@ -38,6 +38,7 @@ function toPr(item: SearchItem): PullRequest {
 	return {
 		id: `${item.html_url}`,
 		provider: 'github',
+		number: item.number,
 		title: item.title,
 		url: item.html_url,
 		repoFullName,

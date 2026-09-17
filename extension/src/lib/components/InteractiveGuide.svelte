@@ -94,6 +94,7 @@
 
 	const mockPr: PullRequest = {
 		id: 'mock-pr',
+		number: 1,
 		url: 'https://github.com/jammutkarsh/pr-pulse/pull/1',
 		title: 'feat(ui): implement modern interactive demo card',
 		createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),

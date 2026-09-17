@@ -11,6 +11,7 @@ function pr(id: string, login = 'ada'): PullRequest {
 	return {
 		id,
 		provider: 'github',
+		number: Number(id) || 1,
 		title: `PR ${id}`,
 		url: `https://github.com/acme/api/pull/${id}`,
 		repoFullName: 'acme/api',
@@ -153,6 +154,33 @@ async function testRefreshSurfacesDeadToken(): Promise<void> {
 	assert.equal(session.getState().errorMessage, TOKEN_EXPIRED_MESSAGE);
 }
 
+async function testNotificationAnswerSticks(): Promise<void> {
+	const { session, storage } = sessionOver({ provider: connectedProvider, settings: {} });
+	await session.open();
+
+	// Unanswered is what the popup prompts on, and either answer has to end that.
+	assert.equal(session.getState().settings.notificationsEnabled, null);
+
+	await session.setNotifications(false);
+
+	assert.equal(session.getState().settings.notificationsEnabled, false);
+	assert.equal((await storage.getSettings()).notificationsEnabled, false);
+}
+
+/** Declining the browser's own permission prompt has to land as off, not as an on setting that cannot fire. */
+async function testDeclinedPermissionStoresOff(): Promise<void> {
+	const storage = createStorage(createMemoryStore({ provider: connectedProvider, settings: {} }));
+	const session = createPopupSession({
+		storage,
+		sendMessage: async () => ({ success: true }),
+		requestNotificationPermission: async () => false,
+	});
+	await session.open();
+
+	assert.equal(await session.setNotifications(true), false);
+	assert.equal((await storage.getSettings()).notificationsEnabled, false);
+}
+
 async function testRefreshBlockedBeforeSetup(): Promise<void> {
 	const { session, sent } = sessionOver({});
 	await session.open();
@@ -169,5 +197,7 @@ await testFilterWritesReachDisk();
 await testTabSwitchStashesFilters();
 await testNewPrCount();
 await testRefreshSurfacesDeadToken();
+await testNotificationAnswerSticks();
+await testDeclinedPermissionStoresOff();
 await testRefreshBlockedBeforeSetup();
 console.log('popup-session: all checks passed');

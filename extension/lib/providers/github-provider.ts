@@ -24,6 +24,7 @@ type GraphQLPullRequest = {
 	url: string;
 	state: string;
 	isDraft: boolean;
+	mergeable: string;
 	createdAt: string;
 	updatedAt: string;
 	additions: number;
@@ -57,6 +58,11 @@ type SearchResponse = {
 	} | null;
 };
 
+type StatesResponse = {
+	rateLimit: RateLimit | null;
+	nodes: Array<{ id?: string; state?: string } | null>;
+};
+
 // GraphQL point cost is charged on the nodes a query *requests*, not the ones it returns, and nested
 // connections multiply by their parent's page size. So each PR node here costs roughly
 // 1 + REVIEWS + REVIEW_REQUESTS + REVIEW_THREADS nodes, and the search page size multiplies all of it.
@@ -83,6 +89,13 @@ const COUNT_QUERY = `query($myPRs: String!, $reviewRequests: String!, $reviewedP
 	reviewedPRs: search(query: $reviewedPRs, type: ISSUE, first: 1) { issueCount }
 }`;
 
+// A PR that dropped out of `state:open` search was merged, closed — or is still open and merely fell
+// past the page cap. `search` can't say which, so the vanished ids are looked up directly.
+const STATES_QUERY = `query($ids: [ID!]!) {
+	rateLimit { cost remaining }
+	nodes(ids: $ids) { ... on PullRequest { id state } }
+}`;
+
 const SEARCH_QUERY = `query($q: String!, $first: Int!, $after: String) {
 	rateLimit { cost remaining }
 	search(query: $q, type: ISSUE, first: $first, after: $after) {
@@ -95,6 +108,7 @@ const SEARCH_QUERY = `query($q: String!, $first: Int!, $after: String) {
 				url
 				state
 				isDraft
+				mergeable
 				createdAt
 				updatedAt
 				additions
@@ -126,6 +140,12 @@ const PULL_REQUEST_STATE: Record<string, string> = {
 	OPEN: 'open',
 	CLOSED: 'closed',
 	MERGED: 'merged',
+};
+
+const MERGEABLE_STATE: Record<string, NonNullable<PullRequest['mergeable']>> = {
+	MERGEABLE: 'mergeable',
+	CONFLICTING: 'conflicting',
+	UNKNOWN: 'unknown',
 };
 
 const OWNER_TYPE: Record<string, PullRequestRepoOwner['type']> = {
@@ -212,6 +232,21 @@ export class GitHubProvider implements PrSource {
 		return response;
 	}
 
+	// GitHub occasionally returns 2xx with an empty body (rate-limit edge cases, proxies). A bare
+	// response.json() throws "Unexpected end of JSON input" there, which surfaces as an opaque
+	// fetch failure instead of a diagnosable provider error.
+	async #json<T>(response: Response): Promise<T> {
+		const text = await response.text();
+		if (!text) {
+			throw new ProviderError('GitHub returned an empty response', 'API_ERROR', {
+				statusCode: response.status,
+				retryable: true,
+				provider: 'github',
+			});
+		}
+		return JSON.parse(text) as T;
+	}
+
 	async #graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
 		// GHES exposes GraphQL at /api/graphql while REST lives at /api/v3
 		const url = this.baseUrl.endsWith('/api/v3') ? `${this.baseUrl.slice(0, -3)}/graphql` : `${this.baseUrl}/graphql`;
@@ -221,7 +256,7 @@ export class GitHubProvider implements PrSource {
 			body: JSON.stringify({ query, variables }),
 		});
 
-		const body = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+		const body = await this.#json<{ data?: T; errors?: Array<{ message: string }> }>(response);
 
 		// A single unreadable repo returns null for that node plus an error entry. Keep the rest
 		// of the refresh alive instead of failing every PR because of one.
@@ -255,7 +290,7 @@ export class GitHubProvider implements PrSource {
 			headers: { Accept: 'application/vnd.github.v3+json' },
 		});
 
-		const data = await response.json();
+		const data = await this.#json<{ login: string; avatar_url: string; name?: string }>(response);
 
 		return {
 			login: data.login,
@@ -354,6 +389,7 @@ export class GitHubProvider implements PrSource {
 		return {
 			id: `github-${pr.id}`,
 			provider: 'github',
+			number: pr.number,
 			title: pr.title,
 			url: pr.url,
 			repoFullName,
@@ -378,6 +414,7 @@ export class GitHubProvider implements PrSource {
 			createdAt: pr.createdAt,
 			updatedAt: pr.updatedAt,
 			isDraft: pr.isDraft,
+			mergeable: mapEnum(MERGEABLE_STATE, pr.mergeable, 'unknown', 'mergeable state'),
 		};
 	}
 
@@ -447,5 +484,20 @@ export class GitHubProvider implements PrSource {
 		}
 
 		return { myPRs, reviewRequests: merged };
+	}
+
+	async getStates(ids: string[]): Promise<Map<string, string>> {
+		// Transformed ids carry a `github-` prefix for cross-provider uniqueness; `nodes(ids:)` wants it off.
+		const data = await this.#graphql<StatesResponse>(STATES_QUERY, { ids: ids.map((id) => id.replace(/^github-/, '')) });
+		this.#logCost('states', data.rateLimit);
+
+		const states = new Map<string, string>();
+		for (const node of data.nodes || []) {
+			if (node?.id) {
+				states.set(`github-${node.id}`, mapEnum(PULL_REQUEST_STATE, node.state, 'open', 'pull request state'));
+			}
+		}
+
+		return states;
 	}
 }

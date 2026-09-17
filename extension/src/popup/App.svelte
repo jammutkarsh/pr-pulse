@@ -5,11 +5,13 @@
 	import PopupStates from './PopupStates.svelte';
 	import SearchFilter from './SearchFilter.svelte';
 	import AttributionFooter from '../lib/components/AttributionFooter.svelte';
+	import NotificationTest from '../lib/components/NotificationTest.svelte';
 	import {
 		runtimeGetURL,
 		storageOnChangedAddListener,
 		runtimeSendMessage,
 		tabsCreate,
+		permissionsRequest,
 		type StorageChangeMap,
 		type Unsubscribe,
 	} from '../../lib/extension-api';
@@ -33,7 +35,12 @@
 
 	// One read, shared: the session bootstraps from it and the display-mode check reads it first.
 	const bootstrapPromise = untrack(() => bootstrapDataPromise) ?? storage.getBootstrapData();
-	const session = createPopupSession({ storage, sendMessage: runtimeSendMessage, bootstrap: bootstrapPromise });
+	const session = createPopupSession({
+		storage,
+		sendMessage: runtimeSendMessage,
+		bootstrap: bootstrapPromise,
+		requestNotificationPermission: () => permissionsRequest(['notifications']),
+	});
 
 	let popup = $state<PopupState>(session.getState());
 	let unsubscribeSession: Unsubscribe | null = null;
@@ -51,17 +58,29 @@
 	let isFilterOpen = $state(false);
 	let searchQuery = $state('');
 	let activeFilters = $state<PopupFilters>(createDefaultFilters());
+	// Only for the rest of this popup session: somewhere to offer the test before the row goes away.
+	let justEnabled = $state(false);
+	function handleKeydown(event: KeyboardEvent) {
+		const isFindShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f';
+		if (!isFindShortcut || !showSearchControls) return;
+
+		event.preventDefault();
+		isSearchOpen = true;
+		isFilterOpen = true;
+	}
 
 	onMount(() => {
 		unsubscribeSession = session.subscribe((next) => {
 			popup = next;
 		});
 		void init();
+		window.addEventListener('keydown', handleKeydown);
 	});
 
 	onDestroy(() => {
 		unsubscribeStorage?.();
 		unsubscribeSession?.();
+		window.removeEventListener('keydown', handleKeydown);
 	});
 
 	function onStorageChanged(changes: StorageChangeMap, areaName: string) {
@@ -139,6 +158,12 @@
 		void tabsCreate({ url: runtimeGetURL('popup/popup.html?fullpage=1') });
 	}
 
+	async function enableNotifications() {
+		// No await before this line: the permission request needs the click's user gesture.
+		justEnabled = await session.setNotifications(true);
+		showToast(justEnabled ? 'Notifications on' : 'Notifications stay off', justEnabled ? 'success' : 'info');
+	}
+
 	function toggleSearch() {
 		if (!isSearchOpen) {
 			isSearchOpen = true;
@@ -195,6 +220,7 @@
 	let filterActive = $derived(filterCount > 0);
 	let showSearchControls = $derived(!loading && !setupRequired && currentItems.length > 0);
 	let showTabToggle = $derived(!loading && !setupRequired);
+	let askNotifications = $derived(!loading && !setupRequired && settings.notificationsEnabled === null);
 	let searchActive = $derived(isSearchOpen || searchQuery.trim().length > 0);
 
 	// The view decides which selections still mean something; this takes back what it applied and
@@ -232,6 +258,20 @@
 				onOpenFullscreen={openFullscreen}
 				onOpenSettings={openSettings}
 			/>
+
+			{#if askNotifications}
+				<div class="flex items-center justify-between gap-3 border-b border-soft px-4 py-2.5">
+					<p class="text-sm desc">Get notified when a PR needs you?</p>
+					<div class="flex shrink-0 items-center gap-3 text-xs font-medium">
+						<button class="text-(--accent) hover:underline" onclick={enableNotifications}>Enable</button>
+						<button class="text-soft hover:underline" onclick={() => void session.setNotifications(false)}>Not now</button>
+					</div>
+				</div>
+			{:else if justEnabled}
+				<div class="border-b border-soft px-4 py-2.5">
+					<NotificationTest />
+				</div>
+			{/if}
 
 			{#if showSearchControls && isSearchOpen}
 				<div class="border-b border-soft px-2.5 py-1.5 sm:px-2.5">

@@ -9,6 +9,7 @@ const avatar = (login: string) => `https://github.com/${login}.png?size=64`;
 function pr(p: Partial<PullRequest> & Pick<PullRequest, 'id' | 'title' | 'repoFullName' | 'branchName'>): PullRequest {
 	return {
 		provider: 'github',
+		number: Number(p.id.replace(/\D/g, '')) || 1,
 		url: `https://github.com/${p.repoFullName}/pull/${p.id.replace(/\D/g, '') || '1'}`,
 		repoOwner: { login: p.repoFullName!.split('/')[0], type: 'org' },
 		author: { login: 'octocat', name: 'You', avatarUrl: avatar('octocat') },

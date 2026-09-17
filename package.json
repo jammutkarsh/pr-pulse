@@ -1,6 +1,6 @@
 {
 	"name": "pr-pulse",
-	"version": "2.1.1",
+	"version": "2.2.0",
 	"description": "Browser extension that turns GitHub pull requests into one configurable dashboard, reducing repo-hopping and keeping data on your device.",
 	"main": "extension/service-worker.ts",
 	"workspaces": [
@@ -13,7 +13,7 @@
 	"scripts": {
 		"dev": "vite",
 		"check": "svelte-check --incremental",
-		"test": "tsx extension/lib/providers/github-provider.test.ts && tsx extension/lib/pr-view.test.ts && tsx extension/lib/popup-session.test.ts && tsx extension/lib/storage.test.ts && tsx extension/lib/jira.test.ts",
+		"test": "tsx extension/lib/providers/github-provider.test.ts && tsx extension/lib/pr-view.test.ts && tsx extension/lib/pr-notify.test.ts && tsx extension/lib/popup-session.test.ts && tsx extension/lib/storage.test.ts && tsx extension/lib/jira.test.ts",
 		"format": "prettier --write .",
 		"lint": "eslint . --ext .js,.ts,.svelte --cache --cache-location .cache/eslint",
 		"deadcode": "fallow fix",
